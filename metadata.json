@@ -1,0 +1,6 @@
+{
+  "name": "GATO - Gestão de Estoque e Balcão",
+  "description": "SaaS para gestão de balcão, estoque central e externo (Full/FBA), conectores e-commerce/landing page, get bancário Pix, integradores com Mercado Livre, Shopee e Amazon com baixa em tempo real, emissão de NF-e por XML, cotações e frota nacional.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

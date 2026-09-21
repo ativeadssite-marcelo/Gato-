@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* Custom modern rounded scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.65);
+}
+
+/* Accent rounded scrollbar for Sidebar and Dark Containers */
+#gato-sidebar nav::-webkit-scrollbar,
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+#gato-sidebar nav::-webkit-scrollbar-track,
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 9999px;
+}
+
+#gato-sidebar nav::-webkit-scrollbar-thumb,
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(234, 88, 12, 0.45);
+  border-radius: 9999px;
+}
+
+#gato-sidebar nav::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(234, 88, 12, 0.8);
+}
+
+/* Firefox standard scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+#gato-sidebar nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(234, 88, 12, 0.5) rgba(15, 23, 42, 0.3);
+}
+
