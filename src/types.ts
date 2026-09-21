@@ -72,7 +72,9 @@ export interface CompanyProfile {
   corporateName: string;     // Razão Social Oficial
   cnpj: string;              // CNPJ formatado da Matriz
   stateRegistration?: string;// Inscrição Estadual (IE)
-  taxRegime?: 'simples_nacional' | 'lucro_presumido' | 'lucro_real'; // Regime Tributário
+  legalNature?: 'MEI' | 'EI' | 'SLU' | 'LTDA' | 'SA_FECHADA' | 'SA_ABERTA' | 'SS'; // Tipo Jurídico da Empresa
+  companySize?: 'MEI' | 'ME' | 'EPP' | 'MEDIO' | 'GRANDE'; // Porte da Empresa
+  taxRegime?: 'simei' | 'simples_nacional' | 'lucro_presumido' | 'lucro_real'; // Regime Tributário
   cnae?: string;             // Classificação Nacional de Atividades Econômicas
   segment: string;           // Ramo: Autopeças Leves, Motopeças, Linha Pesada / Diesel, Agrícola, Centro Automotivo & Misto
   phone: string;             // Telefone / WhatsApp comercial
@@ -779,4 +781,77 @@ export interface MdfeRecord {
   qrCodeUrl: string;
   protocolAuth: string;
 }
+
+// ==========================================
+// CONFIGURAÇÃO TRIBUTÁRIA E FISCAL (ADMIN)
+// ==========================================
+export interface FederalTaxSettings {
+  regime: 'simei' | 'simples_nacional' | 'lucro_presumido' | 'lucro_real';
+  legalNature?: 'MEI' | 'EI' | 'SLU' | 'LTDA' | 'SA_FECHADA' | 'SA_ABERTA' | 'SS';
+  companySize?: 'MEI' | 'ME' | 'EPP' | 'MEDIO' | 'GRANDE';
+  pisCofinsMonofasico: boolean;
+  pisAliquotaRevenda: number; // Ex: 0.00% (monofásico revenda)
+  cofinsAliquotaRevenda: number; // Ex: 0.00%
+  pisAliquotaImportacao: number; // Ex: 2.30% (Lei 10.485/2002)
+  cofinsAliquotaImportacao: number; // Ex: 10.80%
+  cstPisCofinsSaidaDefault: string; // Ex: "04" (Monofásico - Alíquota Zero na Revenda)
+  cstPisCofinsEntradaDefault: string; // Ex: "50" ou "70"
+  ipiAliquotaDefault: number; // Ex: 5.0% para peças de freio/suspensão
+  iiAliquotaMedia: number; // Ex: 14.0% Tarifa Externa Comum TEC
+  taxaSiscomexPorDi: number; // Ex: R$ 185,00
+  taxaSiscomexPorAdicao: number; // Ex: R$ 29,50
+  afrmmPercent: number; // Ex: 8.0% Marinha Mercante sobre frete marítimo
+}
+
+export interface StateTaxRule {
+  uf: string;
+  ufName: string;
+  region: 'Centro-Oeste' | 'Sudeste' | 'Sul' | 'Nordeste' | 'Norte';
+  icmsInterno: number; // Alíquota interna de ICMS (ex: MS = 17%, SP = 18%, RJ = 22%)
+  fcpPercent: number; // Fundo de Combate à Pobreza (ex: 0% a 2%)
+  mvaOriginal: number; // MVA Padrão para Autopeças (ex: 71.78% ou 40%)
+  mvaAjustada4: number; // MVA Ajustada quando origem é 4% (Importado)
+  mvaAjustada7: number; // MVA Ajustada quando origem é 7%
+  mvaAjustada12: number; // MVA Ajustada quando origem é 12%
+  temProtocoloComMs: boolean; // Protocolo ICMS com MS/UF Emissora
+  difalSemInscricao: boolean; // DIFAL exigido para vendas B2C
+  icmsImportacaoDesembaraco: number; // Alíquota com benefício no desembaraço estadual
+  regimeIncentivoImportacao: string; // Nome do Programa Estadual (ex: TTD 409 SC, PRODEIC MS, FUNDAP ES)
+  beneficioImportacaoDesc: string; // Descrição detalhada do incentivo de importação do estado
+}
+
+export interface TaxSimulationRequest {
+  ncm: string;
+  ufOrigem: string;
+  ufDestino: string;
+  tipoOperacao: 'revenda_balcao' | 'distribuicao_b2b' | 'importacao_direta' | 'venda_consumidor_final';
+  regimeEmpresa: 'simples_nacional' | 'lucro_presumido' | 'lucro_real';
+  valorCustoFob: number;
+  freteSeguro: number;
+  precoVenda: number;
+  quantidade: number;
+}
+
+export interface TaxSimulationResult {
+  ncm: string;
+  ufOrigem: string;
+  ufDestino: string;
+  valorBase: number;
+  iiValor: number;
+  ipiValor: number;
+  pisValor: number;
+  cofinsValor: number;
+  icmsProprioValor: number;
+  icmsStValor: number;
+  difalValor: number;
+  fcpValor: number;
+  afrmmValor: number;
+  taxaSiscomexTotal: number;
+  custoTotalNacionalizado: number;
+  impostosTotaisVenda: number;
+  margemLiquidaR: number;
+  margemLiquidaPercent: number;
+  observacoesFiscais: string[];
+}
+
 

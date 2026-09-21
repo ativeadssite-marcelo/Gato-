@@ -13,7 +13,7 @@ import {
   queryPartsByVehicleApplication,
   reverseLookupVehiclesForPart 
 } from "./src/data/fleetDatabase";
-import { INITIAL_PRODUCTS } from "./src/data/initialData";
+import { INITIAL_PRODUCTS, DEFAULT_FEDERAL_TAX_SETTINGS, INITIAL_STATE_TAX_RULES } from "./src/data/initialData";
 
 dotenv.config();
 
@@ -1480,6 +1480,45 @@ app.post("/api/connectors/stock/transfer", (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: "Falha ao efetuar transferência de estoque." });
+  }
+});
+
+// Admin Fiscal & Tax Configuration API Endpoints
+let activeFederalTaxSettings = { ...DEFAULT_FEDERAL_TAX_SETTINGS };
+let activeStateTaxRules = [...INITIAL_STATE_TAX_RULES];
+
+app.get("/api/tax/rules", (req, res) => {
+  try {
+    res.json({
+      success: true,
+      federal: activeFederalTaxSettings,
+      states: activeStateTaxRules,
+      totalStates: activeStateTaxRules.length,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: "Falha ao consultar regras tributárias." });
+  }
+});
+
+app.post("/api/tax/rules", (req, res) => {
+  try {
+    const { federal, states } = req.body || {};
+    if (federal) {
+      activeFederalTaxSettings = { ...activeFederalTaxSettings, ...federal };
+    }
+    if (Array.isArray(states)) {
+      activeStateTaxRules = states;
+    }
+    res.json({
+      success: true,
+      message: "Matriz tributária atualizada com sucesso no servidor GATO SaaS.",
+      federal: activeFederalTaxSettings,
+      totalStatesConfigured: activeStateTaxRules.length,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: "Falha ao salvar regras tributárias no servidor." });
   }
 });
 

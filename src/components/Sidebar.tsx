@@ -156,6 +156,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       aliases: ['relatorios', 'financeiro'],
     },
     {
+      id: 'admin',
+      label: 'Admin Impostos (/admin)',
+      icon: ShieldCheck,
+      aliases: ['admin', 'admin-impostos', 'impostos', 'tributos'],
+      badge: 'RFB',
+    },
+    {
       id: 'configuracoes',
       label: 'Configurações',
       icon: Settings,

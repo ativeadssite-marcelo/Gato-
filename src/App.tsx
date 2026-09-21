@@ -24,6 +24,7 @@ import { CatalogoDigitalWeb } from './components/CatalogoDigitalWeb';
 import { ConsultaPecasView } from './components/ConsultaPecasView';
 import { FornecedoresManager } from './components/FornecedoresManager';
 import { ConnectorsManager } from './components/ConnectorsManager';
+import { AdminImpostosFiscal } from './components/AdminImpostosFiscal';
 
 import { 
   INITIAL_PRODUCTS, 
@@ -132,8 +133,23 @@ export default function App() {
   const [isTrocaFilialOpen, setIsTrocaFilialOpen] = useState(false);
 
   // Global Application State
-  const [currentView, setCurrentView] = useState<string>('consulta-pecas');
+  const [currentView, setCurrentView] = useState<string>(() => {
+    if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/admin') || window.location.hash === '#admin')) {
+      return 'admin';
+    }
+    return 'consulta-pecas';
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if ((currentView === 'admin' || currentView === 'admin-impostos') && window.location.pathname !== '/admin') {
+        window.history.pushState({}, '', '/admin');
+      } else if (currentView !== 'admin' && currentView !== 'admin-impostos' && window.location.pathname === '/admin') {
+        window.history.pushState({}, '', '/');
+      }
+    }
+  }, [currentView]);
 
   // Multi-branch state with persistence
   const [branches, setBranches] = useState<BranchUnit[]>(() => {
@@ -1008,6 +1024,15 @@ export default function App() {
 
           {currentView === 'suporte-chat' && (
             <SuporteChatIA />
+          )}
+
+          {(currentView === 'admin' || currentView === 'admin-impostos') && (
+            <AdminImpostosFiscal
+              companyProfile={companyProfile}
+              branches={branches}
+              products={products}
+              onShowNotification={showNotification}
+            />
           )}
 
           {currentView === 'configuracoes' && (
