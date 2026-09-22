@@ -26,6 +26,16 @@ import { FornecedoresManager } from './components/FornecedoresManager';
 import { ConnectorsManager } from './components/ConnectorsManager';
 import { AdminImpostosFiscal } from './components/AdminImpostosFiscal';
 import { AdminRbacMultiTenant } from './components/AdminRbacMultiTenant';
+import { MasterPasswordModal } from './components/MasterPasswordModal';
+import {
+  isElevatedAdmin,
+  isRestrictedView,
+  verifyMasterPassword,
+  grantAdminUnlock,
+  hasValidAdminUnlock,
+  revokeAdminUnlock,
+  RESTRICTED_VIEWS,
+} from './utils/accessControl';
 
 import { 
   INITIAL_PRODUCTS, 
@@ -135,18 +145,47 @@ export default function App() {
 
   // Global Application State
   const [currentView, setCurrentView] = useState<string>(() => {
-    if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/admin') || window.location.hash === '#admin')) {
+    if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/superadmin') || window.location.hash === '#superadmin')) {
       return 'admin';
     }
     return 'consulta-pecas';
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // ===== Controle de acesso a telas administrativas restritas =====
+  const [pendingRestrictedView, setPendingRestrictedView] = useState<string | null>(null);
+  const [showMasterPasswordModal, setShowMasterPasswordModal] = useState(false);
+  const [adminUnlocked, setAdminUnlocked] = useState<boolean>(() => hasValidAdminUnlock(userSession));
+
+  // Toda navegação de view passa por aqui — aplica a política de acesso.
+  const handleSelectView = (view: string) => {
+    // Se o usuário saiu da área admin, derruba a elevação
+    if (!isRestrictedView(view)) {
+      if (pendingRestrictedView) setPendingRestrictedView(null);
+    }
+
+    if (isRestrictedView(view)) {
+      // Sem papel de admin: nem tenta — nega silenciosamente (item nem aparece no menu)
+      if (!isElevatedAdmin(userSession)) {
+        showNotification('Acesso Negado', 'Área administrativa restrita a administradores.', 'warning');
+        return;
+      }
+      // Admin, mas sem elevação válida: exige senha master
+      if (!hasValidAdminUnlock(userSession)) {
+        setPendingRestrictedView(view);
+        setShowMasterPasswordModal(true);
+        return;
+      }
+    }
+
+    setCurrentView(view);
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if ((currentView === 'admin' || currentView === 'admin-impostos') && window.location.pathname !== '/admin') {
-        window.history.pushState({}, '', '/admin');
-      } else if (currentView !== 'admin' && currentView !== 'admin-impostos' && window.location.pathname === '/admin') {
+      if ((currentView === 'admin' || currentView === 'admin-impostos') && window.location.pathname !== '/superadmin') {
+        window.history.pushState({}, '', '/superadmin');
+      } else if (currentView !== 'admin' && currentView !== 'admin-impostos' && window.location.pathname === '/superadmin') {
         window.history.pushState({}, '', '/');
       }
     }
@@ -506,6 +545,10 @@ export default function App() {
 
   // Handlers for Authentication & Branch/CD definition
   const handleLoginSuccess = (session: UserSession, newCompany?: CompanyProfile) => {
+    // Nova sessão: revoga qualquer elevação anterior (senha master vale só por sessão)
+    revokeAdminUnlock();
+    setAdminUnlocked(false);
+    setPendingRestrictedView(null);
     setUserSession(session);
     setActiveStore(session.branchId);
     setIsLoginModalOpen(false);
@@ -522,6 +565,9 @@ export default function App() {
 
   const handleLogout = () => {
     setUserSession(null);
+    setAdminUnlocked(false);
+    setPendingRestrictedView(null);
+    revokeAdminUnlock();
     try {
       localStorage.removeItem('gato_user_session');
     } catch (e) {
@@ -697,10 +743,7 @@ export default function App() {
         {/* Sidebar Navigation */}
         <Sidebar
           currentView={currentView}
-          onSelectView={(v) => {
-            setCurrentView(v);
-            setMobileMenuOpen(false);
-          }}
+          onSelectView={handleSelectView}
           isOpenMobile={mobileMenuOpen}
           onCloseMobile={() => setMobileMenuOpen(false)}
           lowStockCount={lowStockCount}
@@ -1032,7 +1075,7 @@ export default function App() {
             <SuporteChatIA />
           )}
 
-          {(currentView === 'admin' || currentView === 'admin-impostos') && (
+          {(adminUnlocked && (currentView === 'admin' || currentView === 'admin-impostos')) && (
             <AdminImpostosFiscal
               companyProfile={companyProfile}
               branches={branches}
@@ -1041,7 +1084,7 @@ export default function App() {
             />
           )}
 
-          {(currentView === 'rbac' || currentView === 'admin-rbac' || currentView === 'governanca' || currentView === 'tenants' || currentView === 'seguranca') && (
+          {(adminUnlocked && (currentView === 'rbac' || currentView === 'admin-rbac' || currentView === 'governanca' || currentView === 'tenants' || currentView === 'seguranca')) && (
             <AdminRbacMultiTenant
               onNotify={(msg, type) => showNotification(msg, '', type === 'error' ? 'warning' : (type || 'info'))}
             />
@@ -1091,6 +1134,32 @@ export default function App() {
           onClose={() => setIsTrocaFilialOpen(false)}
         />
       )}
+
+      {/* Modal de Senha Master do Superadmin — telas administrativas restritas */}
+      <MasterPasswordModal
+        open={showMasterPasswordModal}
+        viewLabel={
+          pendingRestrictedView === 'rbac' || pendingRestrictedView === 'admin-rbac' || pendingRestrictedView === 'governanca' || pendingRestrictedView === 'tenants' || pendingRestrictedView === 'seguranca'
+            ? 'Admin — Imposto e Governança'
+            : 'Admin — Impostos e Regras Fiscais'
+        }
+        onConfirm={(password) => {
+          if (verifyMasterPassword(password)) {
+            grantAdminUnlock(userSession);
+            setAdminUnlocked(true);
+            if (pendingRestrictedView) {
+              setCurrentView(pendingRestrictedView);
+              setPendingRestrictedView(null);
+            }
+            return true;
+          }
+          return false;
+        }}
+        onClose={() => {
+          setShowMasterPasswordModal(false);
+          setPendingRestrictedView(null);
+        }}
+      />
     </div>
   );
 }

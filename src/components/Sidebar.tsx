@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { UserSession, BranchUnit, CompanyProfile } from '../types';
+import { isElevatedAdmin, RESTRICTED_VIEWS } from '../utils/accessControl';
 
 interface SidebarProps {
   currentView: string;
@@ -131,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'admin',
-      label: 'Admin Impostos (/admin)',
+      label: 'Admin Impostos (/superadmin)',
       icon: ShieldCheck,
       aliases: ['admin', 'admin-impostos', 'impostos', 'tributos'],
       badge: 'RFB',
@@ -170,6 +171,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onSelectView(viewId);
     onCloseMobile();
   };
+
+  // Oculta itens restritos (Admin Impostos / Governança) de quem não é admin.
+  // Sem admin: os campos nem ficam visíveis.
+  const adminVisible = isElevatedAdmin(userSession);
+  const visiblePrimaryNavItems = adminVisible
+    ? primaryNavItems
+    : primaryNavItems.filter((item) => !RESTRICTED_VIEWS.includes(item.id));
 
   const isItemActive = (item: typeof primaryNavItems[0]) => {
     if (currentView === item.id) return true;
@@ -227,7 +235,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Primary Navigation Links */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-1.5 custom-scrollbar">
-          {primaryNavItems.map((item) => {
+          {visiblePrimaryNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = isItemActive(item);
 
