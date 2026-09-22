@@ -1,4 +1,5 @@
 import type { UserSession } from '../types';
+import { verifyMasterPasswordOnServer } from './sessionService';
 
 // ============================================================
 // CONTROLE DE ACESSO — Telas Administrativas Restritas
@@ -8,11 +9,6 @@ import type { UserSession } from '../types';
 // superadmin. Sem a senha, as telas nem ficam visíveis.
 
 const ADMIN_ROLES: UserSession['role'][] = ['admin', 'administrador'];
-
-/** Senha master do superadmin (em produção, vir de variável de ambiente/backend). */
-export const SUPERADMIN_MASTER_PASSWORD =
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPERADMIN_MASTER_PASSWORD) ||
-  'GATO@MASTER2026';
 
 /** Views restritas que exigem elevação com senha master. */
 export const RESTRICTED_VIEWS = ['admin', 'admin-impostos', 'rbac', 'admin-rbac', 'governanca', 'tenants', 'seguranca'];
@@ -28,9 +24,13 @@ export function isRestrictedView(view: string): boolean {
   return RESTRICTED_VIEWS.includes(view);
 }
 
-/** Confere a senha master do superadmin. */
-export function verifyMasterPassword(password: string): boolean {
-  return password === SUPERADMIN_MASTER_PASSWORD;
+/**
+ * Confere a senha master no SERVIDOR (nenhum segredo existe no bundle).
+ * Lança em caso de senha incorreta/rede indisponível — o modal exibe o erro.
+ */
+export async function verifyMasterPassword(password: string, view: string): Promise<boolean> {
+  await verifyMasterPasswordOnServer(password, view);
+  return true;
 }
 
 const UNLOCK_KEY = 'gato_admin_unlocked_at';

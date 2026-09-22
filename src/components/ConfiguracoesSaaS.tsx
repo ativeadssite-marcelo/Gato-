@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../services/apiClient';
 import { 
   Settings, 
   ShieldCheck, 
@@ -256,7 +257,7 @@ export const ConfiguracoesSaaS: React.FC<ConfiguracoesSaaSProps> = ({
   const handleCheckDatabase = async (notify: boolean = false) => {
     setIsCheckingDb(true);
     try {
-      const res = await fetch('/api/db/status');
+      const res = await apiFetch('/api/db/status');
       const data = await res.json();
       setDbInfo({ ...data, lastChecked: new Date().toLocaleTimeString('pt-BR') });
       if (notify) {
@@ -287,10 +288,10 @@ export const ConfiguracoesSaaS: React.FC<ConfiguracoesSaaSProps> = ({
     setIsLoadingViewerData(true);
     try {
       const [prodRes, custRes, branchRes, suppRes] = await Promise.all([
-        fetch('/api/db/products').then(r => r.json()).catch(() => ({ products: [] })),
-        fetch('/api/db/customers').then(r => r.json()).catch(() => ({ customers: [] })),
-        fetch('/api/db/branches').then(r => r.json()).catch(() => ({ branches: [] })),
-        fetch('/api/db/suppliers').then(r => r.json()).catch(() => ({ suppliers: [] })),
+        apiFetch('/api/db/products').then(r => r.json()).catch(() => ({ products: [] })),
+        apiFetch('/api/db/customers').then(r => r.json()).catch(() => ({ customers: [] })),
+        apiFetch('/api/db/branches').then(r => r.json()).catch(() => ({ branches: [] })),
+        apiFetch('/api/db/suppliers').then(r => r.json()).catch(() => ({ suppliers: [] })),
       ]);
 
       if (prodRes?.products) setSupabaseProducts(prodRes.products);
@@ -315,7 +316,7 @@ export const ConfiguracoesSaaS: React.FC<ConfiguracoesSaaSProps> = ({
   const handleSyncCatalogToSupabase = async () => {
     setIsSyncingCatalog(true);
     try {
-      const res = await fetch('/api/db/sync-catalog', {
+      const res = await apiFetch('/api/db/sync-catalog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ products }),

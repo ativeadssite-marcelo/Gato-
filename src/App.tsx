@@ -79,6 +79,8 @@ import {
 } from './types';
 import { syncQuoteToMarketingLead } from './utils/quoteMarketingSync';
 import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
+import { onUnauthorized, hasSessionToken, clearSessionToken } from './services/apiClient';
+import { fetchServerSession, logoutSession, buildUserSession } from './utils/sessionService';
 
 export default function App() {
   // Company Profile & Nome Fantasia State
@@ -105,6 +107,11 @@ export default function App() {
 
   // Authentication & CD Session State
   const [userSession, setUserSession] = useState<UserSession | null>(() => {
+    // SEGURANÇA: o estado local é apenas um espelho da sessão REAL.
+    // Sem token de sessão assinado não existe sessão — o visitante começa no
+    // login, em vez de herdar silenciosamente o perfil de outro usuário
+    // (antes qualquer pessoa abria o app já "logada" como vendedor/admin).
+    if (!hasSessionToken()) return null;
     try {
       const saved = localStorage.getItem('gato_user_session');
       if (saved) {
@@ -116,28 +123,7 @@ export default function App() {
     } catch (e) {
       console.warn('Could not read user session from storage', e);
     }
-    const defaultUser = AVAILABLE_USERS[0];
-    const defaultBranch = INITIAL_BRANCHES[0];
-    const initialSession: UserSession = {
-      id: defaultUser.id,
-      name: defaultUser.name,
-      email: defaultUser.email,
-      role: defaultUser.role,
-      roleLabel: defaultUser.roleLabel,
-      branchId: defaultBranch.id,
-      branchUf: defaultBranch.uf,
-      branchName: defaultBranch.name,
-      cdName: defaultBranch.cdName,
-      cdCode: defaultBranch.cdCode,
-      avatarInitials: defaultUser.avatarInitials,
-      loginTime: '08:00',
-    };
-    try {
-      localStorage.setItem('gato_user_session', JSON.stringify(initialSession));
-    } catch (e) {
-      console.warn('LocalStorage save error:', e);
-    }
-    return initialSession;
+    return null;
   });
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -156,6 +142,80 @@ export default function App() {
   const [pendingRestrictedView, setPendingRestrictedView] = useState<string | null>(null);
   const [showMasterPasswordModal, setShowMasterPasswordModal] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState<boolean>(() => hasValidAdminUnlock(userSession));
+
+  // ===== Verificação da sessão real contra o servidor =====
+  // O espelho do localStorage nunca é autoridade: no mount confirmamos o token
+  // com /api/auth/me e reconstruímos o papel/tenant a partir da resposta.
+  useEffect(() => {
+    if (!hasSessionToken()) {
+      try {
+        localStorage.removeItem('gato_user_session');
+      } catch {
+        /* noop */
+      }
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const context = await fetchServerSession();
+      if (cancelled) return;
+      if (!context || !context.success) {
+        clearSessionToken();
+        try {
+          localStorage.removeItem('gato_user_session');
+        } catch {
+          /* noop */
+        }
+        setUserSession(null);
+        revokeAdminUnlock();
+        setAdminUnlocked(false);
+        return;
+      }
+      const branchList = (() => {
+        try {
+          const saved = localStorage.getItem('gato_branches');
+          return saved ? JSON.parse(saved) : INITIAL_BRANCHES;
+        } catch {
+          return INITIAL_BRANCHES;
+        }
+      })();
+      const savedBranchId = (() => {
+        try {
+          return localStorage.getItem('gato_active_store') || undefined;
+        } catch {
+          return undefined;
+        }
+      })();
+      const verifiedSession = buildUserSession(context.user, branchList, savedBranchId);
+      setUserSession(verifiedSession);
+      try {
+        localStorage.setItem('gato_user_session', JSON.stringify(verifiedSession));
+      } catch {
+        /* noop */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Sessão recusada pelo servidor (401): derruba o estado local e volta ao login.
+  useEffect(() => {
+    const dispose = onUnauthorized(() => {
+      setUserSession(null);
+      setAdminUnlocked(false);
+      setPendingRestrictedView(null);
+      revokeAdminUnlock();
+      try {
+        localStorage.removeItem('gato_user_session');
+      } catch {
+        /* noop */
+      }
+      setCurrentView('login');
+      showNotification('Sessão Expirada', 'Sua sessão foi encerrada por segurança. Faça login novamente.', 'warning');
+    });
+    return dispose;
+  }, []);
 
   // Toda navegação de view passa por aqui — aplica a política de acesso.
   const handleSelectView = (view: string) => {
@@ -564,6 +624,8 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    // Revoga o token no servidor (invalida a sessão para qualquer aba/ dispositivo).
+    void logoutSession();
     setUserSession(null);
     setAdminUnlocked(false);
     setPendingRestrictedView(null);
@@ -618,28 +680,11 @@ export default function App() {
   // Helper to open the app directly with guaranteed session
   const handleOpenSystemDirectly = () => {
     if (!userSession) {
-      const defaultUser = AVAILABLE_USERS[0];
-      const defaultBranch = branches[0] || INITIAL_BRANCHES[0];
-      const fallbackSession: UserSession = {
-        id: defaultUser.id,
-        name: defaultUser.name,
-        email: defaultUser.email,
-        role: defaultUser.role,
-        roleLabel: defaultUser.roleLabel,
-        branchId: defaultBranch.id,
-        branchUf: defaultBranch.uf,
-        branchName: defaultBranch.name,
-        cdName: defaultBranch.cdName,
-        cdCode: defaultBranch.cdCode,
-        avatarInitials: defaultUser.avatarInitials,
-        loginTime: '08:00',
-      };
-      setUserSession(fallbackSession);
-      try {
-        localStorage.setItem('gato_user_session', JSON.stringify(fallbackSession));
-      } catch (e) {
-        console.warn(e);
-      }
+      // SEGURANÇA: sem sessão autenticada não há acesso direto ao sistema.
+      // Antes, este atalho fabricava uma sessão de administrador no navegador.
+      setCurrentView('login');
+      setIsLoginModalOpen(true);
+      return;
     }
     setCurrentView('dashboard');
   };
@@ -1143,17 +1188,18 @@ export default function App() {
             ? 'Admin — Imposto e Governança'
             : 'Admin — Impostos e Regras Fiscais'
         }
-        onConfirm={(password) => {
-          if (verifyMasterPassword(password)) {
+        onConfirm={async (password) => {
+          // A senha master é conferida no SERVIDOR (nenhum segredo existe no bundle).
+          const ok = await verifyMasterPassword(password, pendingRestrictedView || 'área restrita');
+          if (ok) {
             grantAdminUnlock(userSession);
             setAdminUnlocked(true);
             if (pendingRestrictedView) {
               setCurrentView(pendingRestrictedView);
               setPendingRestrictedView(null);
             }
-            return true;
           }
-          return false;
+          return ok;
         }}
         onClose={() => {
           setShowMasterPasswordModal(false);

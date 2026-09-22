@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../services/apiClient';
 import { 
   FileDown, 
   Upload, 
@@ -106,7 +107,7 @@ export const XmlNfeImport: React.FC<XmlNfeImportProps> = ({
 
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/xml/parse', {
+    const response = await apiFetch('/api/xml/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ xmlContent: content }),
@@ -195,7 +196,7 @@ export const XmlNfeImport: React.FC<XmlNfeImportProps> = ({
     setAiLoading(true);
     setAiSuggestionText(null);
     try {
-      const response = await fetch('/api/gemini/assist', {
+    const response = await apiFetch('/api/gemini/assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

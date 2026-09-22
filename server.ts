@@ -1,9 +1,21 @@
 import express from "express";
 import path from "path";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { checkDatabaseConnection, getDbPool } from "./server/db";
+import { checkDatabaseConnection, getDbPool, isDatabaseConfigured, DB_NOT_CONFIGURED_MESSAGE } from "./server/db";
+import {
+  requireAuth,
+  requirePermission,
+  requireAnyPermission,
+  requireIngestAuth,
+  resolveDataScope,
+  sendScopeDenied,
+  getClientIp,
+  getDefaultTenantId,
+  recordAudit,
+} from "./server/auth";
 import { 
   BRAZILIAN_FLEET_DATABASE, 
   getDistinctFleetMakes, 
@@ -15,6 +27,7 @@ import {
 } from "./src/data/fleetDatabase";
 import { INITIAL_PRODUCTS, DEFAULT_FEDERAL_TAX_SETTINGS, INITIAL_STATE_TAX_RULES } from "./src/data/initialData";
 import { rbacRouter } from "./server/rbacRoutes";
+import { authRouter } from "./server/authRoutes";
 
 dotenv.config();
 
@@ -31,11 +44,26 @@ app.use((req, res, next) => {
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // Impede que o navegador faça downgrade de HTTPS para HTTP (protege o token de sessão)
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  // APIs nunca devem ser cacheadas por intermediários (evita vazamento de dados entre usuários)
+  if (req.path.startsWith("/api/")) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.setHeader("Pragma", "no-cache");
+  }
   next();
 });
 
-// JSON body parser with size guard
-app.use(express.json({ limit: "15mb" }));
+// JSON body parser with size guard.
+// rawBody é preservado exclusivamente para validação de assinatura HMAC dos webhooks.
+app.use(
+  express.json({
+    limit: "15mb",
+    verify: (req: express.Request, _res, buf: Buffer) => {
+      (req as express.Request).rawBody = Buffer.from(buf);
+    },
+  })
+);
 
 // Security: JSON Syntax Error & Malformed Payload Trap (prevents stack trace disclosure)
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -63,7 +91,9 @@ const rateLimits = new Map<string, RateLimitRecord>();
 
 function createRateLimiter(maxRequests: number, windowMs: number, keyPrefix = "std") {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+    // IP resolvido no servidor (não confia em cabeçalhos do cliente sem proxy confiável).
+    // Impede burlar o rate limit forjando "x-forwarded-for".
+    const ip = getClientIp(req);
     const key = `${keyPrefix}:${ip}`;
     const now = Date.now();
 
@@ -98,6 +128,9 @@ function createRateLimiter(maxRequests: number, windowMs: number, keyPrefix = "s
 const standardApiLimiter = createRateLimiter(250, 60 * 1000, "std");
 const aiLimiter = createRateLimiter(30, 60 * 1000, "ai");
 const syncLimiter = createRateLimiter(40, 60 * 1000, "sync");
+// Entradas vindas de marketplaces/gateways são limitadas de forma mais estrita
+// (alto volume legítimo, porém sem permitir abuso de recursos).
+const connectorLimiter = createRateLimiter(120, 60 * 1000, "conn");
 
 // Apply standard rate limiter to all API endpoints
 app.use("/api", standardApiLimiter);
@@ -125,6 +158,19 @@ function sanitizeCsvValue(val: any): string {
   return `"${str.replace(/"/g, '""')}"`;
 }
 
+/**
+ * Registra o erro completo apenas no servidor e devolve mensagem genérica ao
+ * cliente. Evita divulgar nomes de tabelas, SQL, caminhos e stack traces
+ * (inteligência útil para invasores).
+ */
+function logAndFail(res: express.Response, err: unknown, label: string) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[GATO Error] ${label}:`, message);
+  if (!res.headersSent) {
+    res.status(500).json({ success: false, error: "Falha segura ao processar a solicitação." });
+  }
+}
+
 // Lazy initialization of Gemini API
 let aiClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI | null {
@@ -134,7 +180,10 @@ function getGeminiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
-// RBAC Multi-Tenant Engine & Security Router
+// Autenticação (login/logout/sessão/elevação de privilégio)
+app.use("/api/auth", authRouter);
+
+// RBAC Multi-Tenant Engine & Security Router (exige sessão autenticada)
 app.use("/api/rbac", rbacRouter);
 
 // Health check
@@ -148,23 +197,70 @@ app.get("/api/health", (req, res) => {
 });
 
 // Supabase PostgreSQL Database Status
-app.get("/api/db/status", async (req, res) => {
+// Requer sessão autenticada. Detalhes de infraestrutura (tabelas, contagens,
+// referência do projeto) só são expostos à equipe da plataforma (escopo SaaS).
+app.get("/api/db/status", requireAuth, async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.json({
+        connected: false,
+        projectRef: "não configurado",
+        host: "não configurado",
+        database: "postgres",
+        version: "Unknown",
+        currentTime: new Date().toISOString(),
+        latencyMs: 0,
+        tables: [],
+        counts: {},
+        error: DB_NOT_CONFIGURED_MESSAGE,
+      });
+    }
     const status = await checkDatabaseConnection();
-    res.json(status);
+
+    if (req.auth?.isSaasScope) {
+      return res.json(status);
+    }
+
+    // Visão reduzida para usuários de tenant (sem reconhecimento de infraestrutura)
+    res.json({
+      connected: status.connected,
+      latencyMs: status.latencyMs,
+      projectRef: "***",
+      host: "db.***.supabase.co",
+      database: "postgres",
+      version: status.version,
+      currentTime: status.currentTime,
+      tables: [],
+      counts: {},
+      error: status.error,
+    });
   } catch (err: any) {
     res.status(500).json({
       connected: false,
-      error: err.message || "Erro ao verificar conexão com Supabase",
+      error: "Erro seguro ao verificar conexão com o banco de dados.",
       timestamp: new Date().toISOString(),
     });
   }
 });
 
 // Get products from Supabase (from Product table with StockLevel and Category)
-app.get("/api/db/products", async (req, res) => {
+// Isolamento multi-tenant: o filtro de tenant é aplicado no servidor a partir
+// da sessão autenticada — nunca a partir de parâmetros do cliente.
+app.get("/api/db/products", requireAuth, requirePermission("company_data"), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
+    const scope = resolveDataScope(req, "company_data");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
     const pool = getDbPool();
+    const params: any[] = [];
+    let whereClause = "";
+    if (!scope.global && scope.tenantId) {
+      params.push(scope.tenantId);
+      whereClause = `WHERE p."tenantId" = $1`;
+    }
     const query = `
       SELECT 
         p.id,
@@ -177,6 +273,7 @@ app.get("/api/db/products", async (req, res) => {
         p."salePrice"::float as "salePrice",
         p."minStock",
         p.active,
+        p."tenantId",
         c.name as "categoryName",
         p."createdAt",
         p."updatedAt",
@@ -185,10 +282,11 @@ app.get("/api/db/products", async (req, res) => {
       FROM "Product" p
       LEFT JOIN "StockLevel" sl ON sl."productId" = p.id
       LEFT JOIN "Category" c ON c.id = p."categoryId"
+      ${whereClause}
       GROUP BY p.id, c.name
       ORDER BY p.sku ASC;
     `;
-    const result = await pool.query(query);
+    const result = await pool.query(query, params);
     res.json({ 
       success: true, 
       count: result.rows.length, 
@@ -196,64 +294,118 @@ app.get("/api/db/products", async (req, res) => {
       source: 'Product (Supabase PostgreSQL)' 
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("[GATO DB] Falha ao listar produtos:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao consultar produtos." });
   }
 });
 
 // Create/Insert product into Supabase
-app.post("/api/db/products", async (req, res) => {
+app.post("/api/db/products", requireAuth, requirePermission("company_data"), async (req, res) => {
+  const client = await (async () => {
+    try {
+      return isDatabaseConfigured() ? await getDbPool().connect() : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  if (!client) {
+    return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+  }
+
   try {
-    const pool = getDbPool();
-    const { sku, name, brand, costPrice, salePrice, minStock, initialStock, categoryName } = req.body;
-    
+    const scope = resolveDataScope(req, "company_data");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    if (!scope.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: "Informe o tenant de destino (x-target-tenant-id) para cadastrar o produto.",
+      });
+    }
+    const tenantId = scope.tenantId;
+
+    const sku = String(req.body?.sku || "").trim().slice(0, 100);
+    const name = String(req.body?.name || "").trim().slice(0, 255);
+    const brand = String(req.body?.brand || "Genérica").trim().slice(0, 100);
+    const categoryName = req.body?.categoryName ? String(req.body.categoryName).trim().slice(0, 100) : "";
+    const toMoney = (v: any) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
+    const costPrice = toMoney(req.body?.costPrice);
+    const salePrice = toMoney(req.body?.salePrice);
+    const minStock = Number.isFinite(Number(req.body?.minStock)) && Number(req.body?.minStock) >= 0 ? Math.floor(Number(req.body.minStock)) : 5;
+    const initialStock = Number.isFinite(Number(req.body?.initialStock)) && Number(req.body?.initialStock) > 0 ? Math.floor(Number(req.body.initialStock)) : 0;
+
     if (!sku || !name) {
       return res.status(400).json({ success: false, error: "SKU e Nome são obrigatórios" });
     }
 
-    // Get default tenant
-    const tenantRes = await pool.query('SELECT id FROM "Tenant" LIMIT 1;');
-    const tenantId = tenantRes.rows[0]?.id || "cmtt58e6o0000ju346a0g6s32";
+    // O tenant informado precisa existir (evita órfãos e vazamento entre tenants)
+    const tenantRes = await client.query('SELECT id FROM "Tenant" WHERE id = $1 LIMIT 1;', [tenantId]);
+    if (tenantRes.rows.length === 0) {
+      return res.status(400).json({ success: false, error: "Tenant inválido para cadastro de produto." });
+    }
 
-    // Generate unique ID
-    const prodId = 'prod_' + Math.random().toString(36).substring(2, 11);
-    
-    // Optional category lookup
-    let catId = null;
+    const duplicate = await client.query('SELECT id FROM "Product" WHERE sku = $1 AND "tenantId" = $2 LIMIT 1;', [sku, tenantId]);
+    if (duplicate.rows.length > 0) {
+      return res.status(409).json({ success: false, error: `Já existe um produto com o SKU '${sku}' nesta empresa.` });
+    }
+
+    const prodId = 'prod_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+
+    let catId: string | null = null;
     if (categoryName) {
-      const catRes = await pool.query('SELECT id FROM "Category" WHERE LOWER(name) = LOWER($1) LIMIT 1;', [categoryName]);
+      const catRes = await client.query('SELECT id FROM "Category" WHERE LOWER(name) = LOWER($1) LIMIT 1;', [categoryName]);
       catId = catRes.rows[0]?.id || null;
     }
 
-    await pool.query(
+    await client.query("BEGIN");
+    await client.query(
       `INSERT INTO "Product" (id, sku, name, brand, "costPrice", "salePrice", "minStock", active, "tenantId", "categoryId", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, $9, NOW(), NOW());`,
-      [prodId, sku, name, brand || "Genérica", costPrice || 0, salePrice || 0, minStock || 5, tenantId, catId]
+      [prodId, sku, name, brand, costPrice, salePrice, minStock, tenantId, catId]
     );
 
-    // If initial stock provided, insert into default warehouse
-    if (initialStock && initialStock > 0) {
-      const wRes = await pool.query('SELECT id FROM "Warehouse" ORDER BY code ASC LIMIT 1;');
-      if (wRes.rows.length > 0) {
-        const stockId = 'sl_' + Math.random().toString(36).substring(2, 11);
-        await pool.query(
-          `INSERT INTO "StockLevel" (id, "productId", "warehouseId", quantity, reserved, "updatedAt")
-           VALUES ($1, $2, $3, $4, 0, NOW());`,
-          [stockId, prodId, wRes.rows[0].id, parseInt(initialStock, 10)]
-        );
+    if (initialStock > 0) {
+      // Somente armazéns do próprio tenant (evita lançar estoque na empresa errada)
+      const wRes = await client.query('SELECT id FROM "Warehouse" WHERE "tenantId" = $1 ORDER BY code ASC LIMIT 1;', [tenantId]);
+      if (wRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: "Nenhum depósito/CD cadastrado para esta empresa. Cadastre um depósito antes de informar estoque inicial.",
+        });
       }
+      const stockId = 'sl_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+      await client.query(
+        `INSERT INTO "StockLevel" (id, "productId", "warehouseId", quantity, reserved, "updatedAt")
+         VALUES ($1, $2, $3, $4, 0, NOW());`,
+        [stockId, prodId, wRes.rows[0].id, initialStock]
+      );
     }
+    await client.query("COMMIT");
+
+    recordAudit(req, req.auth!.user, "CREATE_PRODUCT", "company_data", prodId, "success", {
+      details: `Produto ${sku} cadastrado no tenant ${tenantId}.`,
+      targetTenantId: tenantId,
+    });
 
     res.json({ success: true, id: prodId, message: "Produto cadastrado no Supabase com sucesso!" });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("[GATO DB] Falha ao cadastrar produto:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao cadastrar produto." });
+  } finally {
+    client.release();
   }
 });
 
 // ==========================================
 // SUPABASE STORAGE: LOGO DO CLIENTE POR TENANT
 // ==========================================
-app.get("/api/storage/health", async (req, res) => {
+app.get("/api/storage/health", requireAuth, requirePermission("company_data"), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
     const pool = getDbPool();
     const projectRef = process.env.SUPABASE_PROJECT_REF || "tfyocjdozttclxgipexu";
     const bucketName = process.env.SUPABASE_STORAGE_BUCKET || "company-logos";
@@ -265,35 +417,51 @@ app.get("/api/storage/health", async (req, res) => {
     );
 
     const bucketExists = bucketRes.rows.length > 0;
+    // A referência do projeto de infraestrutura é informação sensível:
+    // visível apenas para a equipe administrativa da plataforma.
+    const exposeInfra = !!req.auth?.isSaasScope;
     res.json({
       success: true,
       connected: true,
-      projectRef,
+      projectRef: exposeInfra ? projectRef : "***",
       bucket: bucketName,
       bucketExists,
-      storageUrl: `https://${projectRef}.supabase.co/storage/v1`,
-      publicBucketUrl: `https://${projectRef}.supabase.co/storage/v1/object/public/${bucketName}`
+      storageUrl: exposeInfra ? `https://${projectRef}.supabase.co/storage/v1` : "https://***.supabase.co/storage/v1",
+      publicBucketUrl: `https://${exposeInfra ? projectRef : "***"}.supabase.co/storage/v1/object/public/${bucketName}`
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("[GATO Storage] Falha no health check:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao verificar o armazenamento." });
   }
 });
 
-app.post("/api/storage/logo/upload", async (req, res) => {
+app.post("/api/storage/logo/upload", requireAuth, requireAnyPermission(["company_data", "layout_ui"], { write: true }), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
     const pool = getDbPool();
     const projectRef = process.env.SUPABASE_PROJECT_REF || "tfyocjdozttclxgipexu";
     const bucketName = process.env.SUPABASE_STORAGE_BUCKET || "company-logos";
 
-    const { tenantId, fileName, fileData, contentType, fileSize } = req.body;
+    // O tenant de destino vem SEMPRE da sessão/escopo validado no servidor.
+    const scope = resolveDataScope(req, "layout_ui");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    const tenantId = scope.tenantId || getDefaultTenantId();
 
-    if (!tenantId) {
-      return res.status(400).json({ success: false, error: "tenant_id é obrigatório para isolamento no Storage." });
-    }
-
+    // Limite de tamanho (evita upload abusivo no bucket e consumo de banda/memória)
+    const MAX_LOGO_BYTES = 3 * 1024 * 1024; // 3 MB
+    const { fileName, fileData, contentType } = req.body;
     if (!fileData) {
       return res.status(400).json({ success: false, error: "Dados do arquivo (fileData) são obrigatórios." });
     }
+    if (typeof fileData !== "string" || fileData.length > MAX_LOGO_BYTES * 1.4) {
+      return res.status(413).json({ success: false, error: "Logo excede o limite de 3 MB permitido." });
+    }
+
+    // Apenas formatos de imagem raster/vector esperados (bloqueia script→SVG malicioso por extensão)
+    const extension = (String(fileName || "logo.png").split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanExt = ["png", "jpg", "jpeg", "webp"].includes(extension) ? extension : "png";
 
     // Ensure bucket exists in storage.buckets
     await pool.query(
@@ -303,20 +471,23 @@ app.post("/api/storage/logo/upload", async (req, res) => {
       [bucketName]
     );
 
-    // Format safe file name and tenant path
-    const extension = (fileName?.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const cleanExt = ['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(extension) ? extension : 'png';
     const storagePath = `${tenantId}/logo_${Date.now()}.${cleanExt}`;
     const publicUrl = `https://${projectRef}.supabase.co/storage/v1/object/public/${bucketName}/${storagePath}`;
 
     // Extract clean base64 buffer
-    let rawBase64 = fileData;
+    let rawBase64: string = fileData;
     if (fileData.includes(",")) {
       rawBase64 = fileData.split(",")[1];
     }
+    if (!/^[A-Za-z0-9+/=\s]+$/.test(rawBase64)) {
+      return res.status(400).json({ success: false, error: "Conteúdo do arquivo não é um base64 válido." });
+    }
     const buffer = Buffer.from(rawBase64, "base64");
-    const mimeType = contentType || (cleanExt === 'svg' ? 'image/svg+xml' : `image/${cleanExt}`);
-    const byteSize = fileSize || buffer.length;
+    if (buffer.length === 0 || buffer.length > MAX_LOGO_BYTES) {
+      return res.status(413).json({ success: false, error: "Logo vazia ou acima de 3 MB." });
+    }
+    const mimeType = contentType || `image/${cleanExt}`;
+    const byteSize = buffer.length;
 
     // Optional: If Supabase JS client can upload via REST API with key
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
@@ -340,6 +511,11 @@ app.post("/api/storage/logo/upload", async (req, res) => {
       [publicUrl, tenantId]
     );
 
+    recordAudit(req, req.auth!.user, "UPLOAD_COMPANY_LOGO", "layout_ui", tenantId, "success", {
+      details: `Logo ${storagePath} (${byteSize} bytes) publicada.`,
+      targetTenantId: tenantId,
+    });
+
     res.json({
       success: true,
       publicUrl,
@@ -353,14 +529,20 @@ app.post("/api/storage/logo/upload", async (req, res) => {
     });
   } catch (err: any) {
     console.error("[Supabase Storage API Error]:", err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: "Falha segura ao processar o upload da logo." });
   }
 });
 
-app.get("/api/storage/logo/:tenantId", async (req, res) => {
+app.get("/api/storage/logo/:tenantId", requireAuth, requirePermission("company_data"), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
+    const scope = resolveDataScope(req, "company_data");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
     const pool = getDbPool();
-    const { tenantId } = req.params;
+    const tenantId = scope.tenantId!;
 
     const tenantRes = await pool.query(
       'SELECT id, name, "logoUrl", "updatedAt" FROM "Tenant" WHERE id = $1 LIMIT 1;',
@@ -379,19 +561,31 @@ app.get("/api/storage/logo/:tenantId", async (req, res) => {
       updatedAt: tenantRes.rows[0].updatedAt
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("[GATO Storage] Falha ao consultar logo:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao consultar a logo." });
   }
 });
 
-app.delete("/api/storage/logo/:tenantId", async (req, res) => {
+app.delete("/api/storage/logo/:tenantId", requireAuth, requireAnyPermission(["company_data", "layout_ui"], { write: true }), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
+    const scope = resolveDataScope(req, "layout_ui");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
     const pool = getDbPool();
-    const { tenantId } = req.params;
+    const tenantId = scope.tenantId!;
 
     await pool.query(
       'UPDATE "Tenant" SET "logoUrl" = NULL, "updatedAt" = NOW() WHERE id = $1;',
       [tenantId]
     );
+
+    recordAudit(req, req.auth!.user, "DELETE_COMPANY_LOGO", "layout_ui", tenantId, "success", {
+      details: "Logo removida do tenant.",
+      targetTenantId: tenantId,
+    });
 
     res.json({
       success: true,
@@ -399,26 +593,43 @@ app.delete("/api/storage/logo/:tenantId", async (req, res) => {
       message: "Logo desassociada e removida com sucesso do tenant."
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("[GATO Storage] Falha ao remover logo:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao remover a logo." });
   }
 });
 
 // Get branches/warehouses from Supabase
-app.get("/api/db/branches", async (req, res) => {
+app.get("/api/db/branches", requireAuth, requirePermission("company_data"), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
     const pool = getDbPool();
-    const result = await pool.query('SELECT id, code, name, address, "tenantId" FROM "Warehouse" ORDER BY code ASC;');
+    const scope = resolveDataScope(req, "company_data");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
+    const result = scope.global
+      ? await pool.query('SELECT id, code, name, address, "tenantId" FROM "Warehouse" ORDER BY code ASC;')
+      : await pool.query('SELECT id, code, name, address, "tenantId" FROM "Warehouse" WHERE "tenantId" = $1 ORDER BY code ASC;', [scope.tenantId]);
     res.json({ success: true, count: result.rows.length, branches: result.rows, source: 'Warehouse (Supabase PostgreSQL)' });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("[GATO DB] Falha ao listar filiais:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao consultar filiais/depósitos." });
   }
 });
 
 // Get customers from Supabase
-app.get("/api/db/customers", async (req, res) => {
+// Dados pessoais (LGPD): sempre filtrados pelo tenant autenticado no servidor.
+app.get("/api/db/customers", requireAuth, requirePermission("customers_employees"), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
+    const scope = resolveDataScope(req, "customers_employees");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
     const pool = getDbPool();
-    const result = await pool.query(`
+    const selectColumns = `
       SELECT 
         id, 
         name, 
@@ -432,29 +643,66 @@ app.get("/api/db/customers", async (req, res) => {
         state, 
         "personType", 
         active, 
+        "tenantId",
         "createdAt"
-      FROM "Customer" 
-      ORDER BY name ASC;
-    `);
+      FROM "Customer"`;
+
+    const result = scope.global
+      ? await pool.query(`${selectColumns} ORDER BY name ASC;`)
+      : await pool.query(`${selectColumns} WHERE "tenantId" = $1 ORDER BY name ASC;`, [scope.tenantId]);
     res.json({ success: true, count: result.rows.length, customers: result.rows, source: 'Customer (Supabase PostgreSQL)' });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("[GATO DB] Falha ao listar clientes:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao consultar clientes." });
   }
 });
 
 // Insert customer into Supabase
-app.post("/api/db/customers", async (req, res) => {
+app.post("/api/db/customers", requireAuth, requirePermission("customers_employees"), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
+    const scope = resolveDataScope(req, "customers_employees");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
     const pool = getDbPool();
-    const { name, document, phone, email, ie, city, state, personType } = req.body;
+    const name = String(req.body?.name || "").trim().slice(0, 200);
+    const document = String(req.body?.document || "").replace(/[^\dA-Za-z./-]/g, "").slice(0, 32);
+    const phone = req.body?.phone ? String(req.body.phone).slice(0, 40) : null;
+    const email = req.body?.email ? String(req.body.email).slice(0, 160) : null;
+    const ie = req.body?.ie ? String(req.body.ie).slice(0, 40) : null;
+    const city = req.body?.city ? String(req.body.city).slice(0, 120) : "São Paulo";
+    const state = req.body?.state ? String(req.body.state).toUpperCase().slice(0, 2) : "SP";
+    const personType = req.body?.personType === "PJ" ? "PJ" : "PF";
+
     if (!name || !document) {
       return res.status(400).json({ success: false, error: "Nome e Documento (CPF/CNPJ) são obrigatórios" });
     }
 
-    const tenantRes = await pool.query('SELECT id FROM "Tenant" LIMIT 1;');
-    const tenantId = tenantRes.rows[0]?.id || "cmtt58e6o0000ju346a0g6s32";
+    // O tenant NUNCA é escolhido aleatoriamente: vem do escopo validado da sessão.
+    const tenantId = scope.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: "Informe o tenant de destino (x-target-tenant-id) para cadastrar o cliente.",
+      });
+    }
 
-    const customerId = 'cust_' + Math.random().toString(36).substring(2, 11);
+    const tenantRes = await pool.query('SELECT id FROM "Tenant" WHERE id = $1 LIMIT 1;', [tenantId]);
+    if (tenantRes.rows.length === 0) {
+      return res.status(400).json({ success: false, error: "Tenant inválido para cadastro de cliente." });
+    }
+
+    const duplicate = await pool.query(
+      'SELECT id FROM "Customer" WHERE document = $1 AND "tenantId" = $2 LIMIT 1;',
+      [document, tenantId]
+    );
+    if (duplicate.rows.length > 0) {
+      return res.status(409).json({ success: false, error: `Já existe um cliente com o documento '${document}' nesta empresa.` });
+    }
+
+    const customerId = 'cust_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
     await pool.query(`
       INSERT INTO "Customer" (id, name, document, phone, email, ie, type, city, state, "personType", active, "tenantId", "createdAt", "updatedAt")
@@ -463,82 +711,171 @@ app.post("/api/db/customers", async (req, res) => {
       customerId,
       name,
       document,
-      phone || null,
-      email || null,
-      ie || null,
+      phone,
+      email,
+      ie,
       personType === 'PJ' ? 'COMPANY' : 'CONSUMER',
-      city || 'São Paulo',
-      state || 'SP',
-      personType || (document.length > 14 ? 'PJ' : 'PF'),
+      city,
+      state,
+      personType,
       tenantId
     ]);
 
+    recordAudit(req, req.auth!.user, "CREATE_CUSTOMER", "customers_employees", customerId, "success", {
+      details: `Cliente cadastrado (documento mascarado) no tenant ${tenantId}.`,
+      targetTenantId: tenantId,
+    });
+
     res.json({ success: true, id: customerId, message: "Cliente registrado no Supabase com sucesso!" });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("[GATO DB] Falha ao cadastrar cliente:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao cadastrar cliente." });
   }
 });
 
 // Get suppliers from Supabase
-app.get("/api/db/suppliers", async (req, res) => {
+app.get("/api/db/suppliers", requireAuth, requirePermission("customers_employees"), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
+    const scope = resolveDataScope(req, "customers_employees");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
     const pool = getDbPool();
-    const result = await pool.query('SELECT id, name, cnpj, contact, phone, email, address FROM "Supplier" ORDER BY name ASC;');
+    const result = scope.global
+      ? await pool.query('SELECT id, name, cnpj, contact, phone, email, address, "tenantId" FROM "Supplier" ORDER BY name ASC;')
+      : await pool.query('SELECT id, name, cnpj, contact, phone, email, address, "tenantId" FROM "Supplier" WHERE "tenantId" = $1 ORDER BY name ASC;', [scope.tenantId]);
     res.json({ success: true, count: result.rows.length, suppliers: result.rows, source: 'Supplier (Supabase PostgreSQL)' });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("[GATO DB] Falha ao listar fornecedores:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao consultar fornecedores." });
   }
 });
 
 // Create/Register supplier in Supabase
-app.post("/api/db/suppliers", async (req, res) => {
+app.post("/api/db/suppliers", requireAuth, requirePermission("customers_employees"), async (req, res) => {
   try {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
+    const scope = resolveDataScope(req, "customers_employees");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
     const pool = getDbPool();
-    const { name, cnpj, contact, phone, email, address } = req.body;
-    const tenantRes = await pool.query('SELECT id FROM "Tenant" LIMIT 1;');
-    const tenantId = tenantRes.rows[0]?.id || "cmtt58e6o0000ju346a0g6s32";
-    const id = `sup_${Date.now()}`;
+    const name = String(req.body?.name || "").trim().slice(0, 200);
+    const cnpj = req.body?.cnpj ? String(req.body.cnpj).replace(/[^\d./-]/g, "").slice(0, 20) : null;
+    const contact = req.body?.contact ? String(req.body.contact).slice(0, 160) : null;
+    const phone = req.body?.phone ? String(req.body.phone).slice(0, 40) : null;
+    const email = req.body?.email ? String(req.body.email).slice(0, 160) : null;
+    const address = req.body?.address ? String(req.body.address).slice(0, 255) : null;
+
+    if (!name) {
+      return res.status(400).json({ success: false, error: "O nome/razão social do fornecedor é obrigatório." });
+    }
+
+    // Tenant sempre derivado da sessão autenticada (evita fornecedor na empresa errada).
+    const tenantId = scope.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: "Informe o tenant de destino (x-target-tenant-id) para cadastrar o fornecedor.",
+      });
+    }
+
+    const tenantRes = await pool.query('SELECT id FROM "Tenant" WHERE id = $1 LIMIT 1;', [tenantId]);
+    if (tenantRes.rows.length === 0) {
+      return res.status(400).json({ success: false, error: "Tenant inválido para cadastro de fornecedor." });
+    }
+
+    if (cnpj) {
+      const duplicate = await pool.query('SELECT id FROM "Supplier" WHERE cnpj = $1 AND "tenantId" = $2 LIMIT 1;', [cnpj, tenantId]);
+      if (duplicate.rows.length > 0) {
+        return res.status(409).json({ success: false, error: `Fornecedor com CNPJ '${cnpj}' já cadastrado nesta empresa.` });
+      }
+    }
+
+    const id = `sup_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
     const insertRes = await pool.query(
       `INSERT INTO "Supplier" (id, "tenantId", name, cnpj, contact, phone, email, address, "createdAt", "updatedAt")
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
        RETURNING *;`,
-      [id, tenantId, name, cnpj || null, contact || null, phone || null, email || null, address || null]
+      [id, tenantId, name, cnpj, contact, phone, email, address]
     );
+
+    recordAudit(req, req.auth!.user, "CREATE_SUPPLIER", "customers_employees", id, "success", {
+      details: `Fornecedor cadastrado no tenant ${tenantId}.`,
+      targetTenantId: tenantId,
+    });
+
     res.json({ success: true, supplier: insertRes.rows[0] });
   } catch (err: any) {
-    res.json({ success: false, error: err.message });
+    console.error("[GATO DB] Falha ao cadastrar fornecedor:", err?.message || err);
+    res.status(500).json({ success: false, error: "Falha segura ao cadastrar fornecedor." });
   }
 });
 
 // Save Budget/DAV into Supabase
-app.post("/api/db/quotes", async (req, res) => {
+// Correções críticas:
+//  - tenant derivado da sessão (antes: primeiro tenant do banco);
+//  - cliente restrito ao tenant e SEM fallback para "primeiro cliente da base"
+//    (antes um orçamento podia ser gravado no CPF/CNPJ de outra empresa);
+//  - gravação do orçamento + itens em transação atômica (evita DAV órfão).
+app.post("/api/db/quotes", requireAuth, requireAnyPermission(["customers_employees", "company_data"], { write: true }), async (req, res) => {
+  if (!isDatabaseConfigured()) {
+    return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+  }
+  const scope = resolveDataScope(req, "customers_employees");
+  if (!scope.ok) return sendScopeDenied(res, scope);
+  if (!scope.tenantId) {
+    return res.status(400).json({
+      success: false,
+      error: "Informe o tenant de destino (x-target-tenant-id) para salvar o orçamento.",
+    });
+  }
+  const tenantId = scope.tenantId;
+
+  const pool = getDbPool();
+  const client = await pool.connect();
   try {
-    const pool = getDbPool();
-    const { number, customerName, total, items, status } = req.body;
-
-    const tenantRes = await pool.query('SELECT id FROM "Tenant" LIMIT 1;');
-    const tenantId = tenantRes.rows[0]?.id || "cmtt58e6o0000ju346a0g6s32";
-
-    const budgetId = 'bud_' + Math.random().toString(36).substring(2, 11);
+    const { number, customerName, customerId: providedCustomerId, total, items, status } = req.body;
+    const budgetId = 'bud_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
     // Find customer id if exists (safe LIKE wildcard escaping)
-    let customerId = null;
-    if (customerName && typeof customerName === "string" && customerName.trim()) {
+    let customerId: string | null = null;
+
+    if (providedCustomerId && typeof providedCustomerId === "string") {
+      // Vínculo explícito: precisa pertencer ao mesmo tenant.
+      const cRes = await client.query('SELECT id FROM "Customer" WHERE id = $1 AND "tenantId" = $2 LIMIT 1;', [
+        providedCustomerId.trim().slice(0, 64),
+        tenantId,
+      ]);
+      customerId = cRes.rows[0]?.id || null;
+      if (!customerId) {
+        return res.status(400).json({ success: false, error: "Cliente informado não pertence à sua empresa." });
+      }
+    } else if (customerName && typeof customerName === "string" && customerName.trim()) {
       const safeCustomerQuery = `%${escapeSqlLike(customerName.trim().slice(0, 100))}%`;
-      const cRes = await pool.query('SELECT id FROM "Customer" WHERE LOWER(name) LIKE LOWER($1) LIMIT 1;', [safeCustomerQuery]);
+      const cRes = await client.query(
+        'SELECT id FROM "Customer" WHERE "tenantId" = $1 AND LOWER(name) LIKE LOWER($2) ORDER BY "createdAt" DESC LIMIT 1;',
+        [tenantId, safeCustomerQuery]
+      );
       customerId = cRes.rows[0]?.id || null;
     }
 
-    // If customer not found, fallback to first available customer to satisfy NOT NULL constraint
     if (!customerId) {
-      const defaultCustRes = await pool.query('SELECT id FROM "Customer" ORDER BY "createdAt" ASC LIMIT 1;');
-      customerId = defaultCustRes.rows[0]?.id;
+      // Não vincula a nenhum cliente existente: falha explícita em vez de "chutar" um cadastro.
+      return res.status(400).json({
+        success: false,
+        error: "Cliente não encontrado nesta empresa. Cadastre/selecione o cliente correto antes de salvar o orçamento.",
+      });
     }
 
     const safeTotal = typeof total === "number" && Number.isFinite(total) && total >= 0 ? total : 0;
     const safeNumber = (typeof number === "string" && number.trim()) ? number.trim().slice(0, 50) : `DAV-${Date.now().toString().slice(-6)}`;
 
-    await pool.query(`
+    await client.query("BEGIN");
+    await client.query(`
       INSERT INTO "Budget" (id, number, "customerId", total, status, "tenantId", "createdAt", "updatedAt")
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW());
     `, [budgetId, safeNumber, customerId, safeTotal, status || 'PENDING', tenantId]);
@@ -547,26 +884,46 @@ app.post("/api/db/quotes", async (req, res) => {
     if (Array.isArray(items)) {
       const boundedItems = items.slice(0, 200);
       for (const it of boundedItems) {
-        const itemId = 'bi_' + Math.random().toString(36).substring(2, 11);
+        const itemId = 'bi_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
         const itemQty = typeof it.quantity === "number" && Number.isFinite(it.quantity) && it.quantity > 0 ? it.quantity : 1;
         const itemPrice = typeof it.unitPrice === "number" && Number.isFinite(it.unitPrice) && it.unitPrice >= 0 ? it.unitPrice : 0;
-        await pool.query(`
+        await client.query(`
           INSERT INTO "BudgetItem" (id, "budgetId", "productId", quantity, "unitPrice", "createdAt")
           VALUES ($1, $2, $3, $4, $5, NOW());
         `, [itemId, budgetId, it.productId || null, itemQty, itemPrice]);
       }
     }
+    await client.query("COMMIT");
 
     res.json({ success: true, budgetId, message: "DAV / Orçamento registrado no Supabase com sucesso!" });
   } catch (err: any) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("[GATO DB] Falha ao salvar orçamento:", err?.message || err);
     res.status(500).json({ success: false, error: "Falha segura ao salvar orçamento no Supabase." });
+  } finally {
+    client.release();
   }
 });
 
 // Sync GATO Catalog Products into Supabase (Rate limited and payload capped)
-app.post("/api/db/sync-catalog", syncLimiter, async (req, res) => {
+// Protegido: sem autenticação qualquer terceiro sobrescrevia preços/estoque de outras empresas.
+app.post("/api/db/sync-catalog", syncLimiter, requireAuth, requirePermission("company_data", { write: true }), async (req, res) => {
+  if (!isDatabaseConfigured()) {
+    return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+  }
+  const scope = resolveDataScope(req, "company_data");
+  if (!scope.ok) return sendScopeDenied(res, scope);
+  if (!scope.tenantId) {
+    return res.status(400).json({
+      success: false,
+      error: "Informe o tenant de destino (x-target-tenant-id) para sincronizar o catálogo.",
+    });
+  }
+  const tenantId = scope.tenantId;
+
+  const pool = getDbPool();
+  const client = await pool.connect();
   try {
-    const pool = getDbPool();
     const { products } = req.body;
 
     if (!Array.isArray(products) || products.length === 0) {
@@ -578,15 +935,15 @@ app.post("/api/db/sync-catalog", syncLimiter, async (req, res) => {
       return res.status(400).json({ success: false, error: "Limite máximo de 500 produtos por lote de sincronização." });
     }
 
-    const tenantRes = await pool.query('SELECT id FROM "Tenant" LIMIT 1;');
-    const tenantId = tenantRes.rows[0]?.id || "cmtt58e6o0000ju346a0g6s32";
-
-    const warehouseRes = await pool.query('SELECT id FROM "Warehouse" ORDER BY code ASC LIMIT 1;');
+    // Depósito precisa pertencer ao próprio tenant (antes pegava o primeiro da base inteira,
+    // o que lançava/zerava estoque na empresa errada).
+    const warehouseRes = await client.query('SELECT id FROM "Warehouse" WHERE "tenantId" = $1 ORDER BY code ASC LIMIT 1;', [tenantId]);
     const warehouseId = warehouseRes.rows[0]?.id;
 
     let inserted = 0;
     let updated = 0;
 
+    await client.query("BEGIN");
     for (const p of products) {
       const code = String(p.code || p.sku || "").trim().slice(0, 100);
       if (!code) continue;
@@ -597,32 +954,36 @@ app.post("/api/db/sync-catalog", syncLimiter, async (req, res) => {
       const pSale = typeof p.salePrice === "number" && Number.isFinite(p.salePrice) && p.salePrice >= 0 ? p.salePrice : 0;
       const pMinStock = typeof p.minStock === "number" && Number.isFinite(p.minStock) && p.minStock >= 0 ? p.minStock : 5;
 
-      // Check if product exists by SKU
-      const existing = await pool.query('SELECT id FROM "Product" WHERE sku = $1 LIMIT 1;', [code]);
+      // Existência verificada SEMPRE dentro do tenant da sessão.
+      const existing = await client.query('SELECT id FROM "Product" WHERE sku = $1 AND "tenantId" = $2 LIMIT 1;', [code, tenantId]);
       
       if (existing.rows.length > 0) {
         // Update product
         const prodId = existing.rows[0].id;
-        await pool.query(`
+        await client.query(`
           UPDATE "Product"
           SET name = $1, brand = $2, "costPrice" = $3, "salePrice" = $4, "minStock" = $5, "updatedAt" = NOW()
-          WHERE id = $6;
-        `, [pName, pBrand, pCost, pSale, pMinStock, prodId]);
+          WHERE id = $6 AND "tenantId" = $7;
+        `, [pName, pBrand, pCost, pSale, pMinStock, prodId, tenantId]);
 
         if (warehouseId && (p.stock !== undefined || p.currentStock !== undefined)) {
           const rawQty = p.stock !== undefined ? p.stock : p.currentStock;
           const qty = typeof rawQty === "number" && Number.isFinite(rawQty) ? Math.max(0, Math.floor(rawQty)) : 0;
-          await pool.query(`
+          // Corrigido: o nível de estoque é atualizado pela chave natural
+          // (productId + warehouseId) e não por um ID aleatório — antes cada
+          // sincronização criava uma nova linha e inflava o estoque exibido.
+          await client.query(`
             INSERT INTO "StockLevel" (id, "productId", "warehouseId", quantity, reserved, "updatedAt")
             VALUES ($1, $2, $3, $4, 0, NOW())
-            ON CONFLICT (id) DO UPDATE SET quantity = $4, "updatedAt" = NOW();
-          `, ['sl_' + Math.random().toString(36).substring(2, 11), prodId, warehouseId, qty]);
+            ON CONFLICT ("productId", "warehouseId")
+            DO UPDATE SET quantity = EXCLUDED.quantity, "updatedAt" = NOW();
+          `, ['sl_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16), prodId, warehouseId, qty]);
         }
         updated++;
       } else {
         // Insert product
-        const prodId = 'prod_' + Math.random().toString(36).substring(2, 11);
-        await pool.query(`
+        const prodId = 'prod_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+        await client.query(`
           INSERT INTO "Product" (id, sku, name, brand, "costPrice", "salePrice", "minStock", active, "tenantId", "createdAt", "updatedAt")
           VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, NOW(), NOW());
         `, [prodId, code, pName, pBrand, pCost, pSale, pMinStock, tenantId]);
@@ -630,15 +991,23 @@ app.post("/api/db/sync-catalog", syncLimiter, async (req, res) => {
         if (warehouseId && (p.stock !== undefined || p.currentStock !== undefined)) {
           const rawQty = p.stock !== undefined ? p.stock : p.currentStock;
           const qty = typeof rawQty === "number" && Number.isFinite(rawQty) ? Math.max(0, Math.floor(rawQty)) : 0;
-          const slId = 'sl_' + Math.random().toString(36).substring(2, 11);
-          await pool.query(`
+          const slId = 'sl_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+          await client.query(`
             INSERT INTO "StockLevel" (id, "productId", "warehouseId", quantity, reserved, "updatedAt")
-            VALUES ($1, $2, $3, $4, 0, NOW());
+            VALUES ($1, $2, $3, $4, 0, NOW())
+            ON CONFLICT ("productId", "warehouseId")
+            DO UPDATE SET quantity = EXCLUDED.quantity, "updatedAt" = NOW();
           `, [slId, prodId, warehouseId, qty]);
         }
         inserted++;
       }
     }
+    await client.query("COMMIT");
+
+    recordAudit(req, req.auth!.user, "SYNC_CATALOG", "company_data", tenantId, "success", {
+      details: `${inserted} produtos inseridos e ${updated} atualizados.`,
+      targetTenantId: tenantId,
+    });
 
     res.json({
       success: true,
@@ -648,7 +1017,11 @@ app.post("/api/db/sync-catalog", syncLimiter, async (req, res) => {
       total: inserted + updated
     });
   } catch (err: any) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("[GATO DB] Falha ao sincronizar catálogo:", err?.message || err);
     res.status(500).json({ success: false, error: "Erro seguro ao sincronizar catálogo no Supabase." });
+  } finally {
+    client.release();
   }
 });
 
@@ -714,7 +1087,7 @@ let fleetVehicles: FleetVehicle[] = [
 ];
 
 // GET /api/vehicles/makes - Endpoint para Combobox com busca assíncrona (Montadoras)
-app.get("/api/vehicles/makes", (req, res) => {
+app.get("/api/vehicles/makes", requireAuth, requirePermission("customers_employees"), (req, res) => {
   try {
     const q = (req.query.q as string || "").trim().toLowerCase();
     const allMakes = Array.from(
@@ -727,12 +1100,12 @@ app.get("/api/vehicles/makes", (req, res) => {
     const filtered = q ? allMakes.filter(m => m.toLowerCase().includes(q)) : allMakes;
     res.json({ success: true, data: filtered });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/vehicles/makes");
   }
 });
 
 // GET /api/vehicles/models - Endpoint para Combobox com busca assíncrona (Modelos)
-app.get("/api/vehicles/models", (req, res) => {
+app.get("/api/vehicles/models", requireAuth, requirePermission("customers_employees"), (req, res) => {
   try {
     const brand = (req.query.brand as string || "").trim().toLowerCase();
     const q = (req.query.q as string || "").trim().toLowerCase();
@@ -765,12 +1138,12 @@ app.get("/api/vehicles/models", (req, res) => {
 
     res.json({ success: true, data: models });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/vehicles/models");
   }
 });
 
 // GET /api/vehicles - Grade com paginação, ordenação (padrão 'modelo') e filtros
-app.get("/api/vehicles", (req, res) => {
+app.get("/api/vehicles", requireAuth, requirePermission("customers_employees"), (req, res) => {
   try {
     const {
       search = "",
@@ -849,12 +1222,12 @@ app.get("/api/vehicles", (req, res) => {
       availableBrands
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/vehicles");
   }
 });
 
 // GET /api/vehicles/:identifier - Detalhes do veículo por ID ou Placa/Chassi
-app.get("/api/vehicles/:identifier", (req, res) => {
+app.get("/api/vehicles/:identifier", requireAuth, requirePermission("customers_employees"), (req, res) => {
   try {
     const rawParam = safeDecodeParam(req.params.identifier).toUpperCase();
     const vehicle = fleetVehicles.find(v => v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam);
@@ -870,7 +1243,7 @@ app.get("/api/vehicles/:identifier", (req, res) => {
 });
 
 // POST /api/vehicles - Cadastro de novo veículo com validações
-app.post("/api/vehicles", (req, res) => {
+app.post("/api/vehicles", requireAuth, requirePermission("customers_employees", { write: true }), (req, res) => {
   try {
     const { montadora, modelo, veiculo, ano, motor } = req.body;
 
@@ -942,12 +1315,12 @@ app.post("/api/vehicles", (req, res) => {
       data: newVehicle
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "POST /api/vehicles");
   }
 });
 
 // PUT /api/vehicles/:identifier - Edição de veículo (por ID ou Placa/Chassi)
-app.put("/api/vehicles/:identifier", (req, res) => {
+app.put("/api/vehicles/:identifier", requireAuth, requirePermission("customers_employees", { write: true }), (req, res) => {
   try {
     const rawParam = safeDecodeParam(req.params.identifier).toUpperCase();
     const index = fleetVehicles.findIndex(v => v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam);
@@ -1031,7 +1404,7 @@ app.put("/api/vehicles/:identifier", (req, res) => {
 });
 
 // DELETE /api/vehicles/:identifier - Exclusão de veículo (por ID ou Placa/Chassi)
-app.delete("/api/vehicles/:identifier", (req, res) => {
+app.delete("/api/vehicles/:identifier", requireAuth, requirePermission("customers_employees", { write: true }), (req, res) => {
   try {
     const rawParam = safeDecodeParam(req.params.identifier).toUpperCase();
     const index = fleetVehicles.findIndex(v => v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam);
@@ -1057,7 +1430,7 @@ app.delete("/api/vehicles/:identifier", (req, res) => {
 // ==========================================
 
 // GET /api/fleet-database - Listagem e busca de modelos da frota (1995-2027)
-app.get("/api/fleet-database", (req, res) => {
+app.get("/api/fleet-database", requireAuth, requirePermission("company_data"), (req, res) => {
   try {
     const { montadora, segmento, ano, search, page = "1", limit = "50" } = req.query;
     let list = [...BRAZILIAN_FLEET_DATABASE];
@@ -1110,33 +1483,33 @@ app.get("/api/fleet-database", (req, res) => {
       data: paginated
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/fleet-database");
   }
 });
 
 // GET /api/fleet-database/makes - Marcas da frota
-app.get("/api/fleet-database/makes", (req, res) => {
+app.get("/api/fleet-database/makes", requireAuth, requirePermission("company_data"), (req, res) => {
   try {
     const makes = getDistinctFleetMakes();
     res.json({ success: true, count: makes.length, makes });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/fleet-database/makes");
   }
 });
 
 // GET /api/fleet-database/models - Modelos por montadora
-app.get("/api/fleet-database/models", (req, res) => {
+app.get("/api/fleet-database/models", requireAuth, requirePermission("company_data"), (req, res) => {
   try {
     const montadora = req.query.montadora as string;
     const models = getModelsByFleetMake(montadora || "");
     res.json({ success: true, count: models.length, models });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/fleet-database/models");
   }
 });
 
 // GET /api/fleet-database/years - Anos válidos para seleção
-app.get("/api/fleet-database/years", (req, res) => {
+app.get("/api/fleet-database/years", requireAuth, requirePermission("company_data"), (req, res) => {
   try {
     const { montadora, modelId } = req.query;
     const years = getAvailableYearsForSelection(
@@ -1145,12 +1518,12 @@ app.get("/api/fleet-database/years", (req, res) => {
     );
     res.json({ success: true, years });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/fleet-database/years");
   }
 });
 
 // GET /api/fleet-database/engines - Motores para modelo
-app.get("/api/fleet-database/engines", (req, res) => {
+app.get("/api/fleet-database/engines", requireAuth, requirePermission("company_data"), (req, res) => {
   try {
     const { modelId, ano } = req.query;
     if (!modelId || typeof modelId !== "string") {
@@ -1159,12 +1532,12 @@ app.get("/api/fleet-database/engines", (req, res) => {
     const engines = getEnginesForSelection(modelId, ano ? parseInt(String(ano), 10) : undefined);
     res.json({ success: true, engines });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/fleet-database/engines");
   }
 });
 
 // GET /api/parts-application/filter - Consulta e filtro de aplicação de peças
-app.get("/api/parts-application/filter", (req, res) => {
+app.get("/api/parts-application/filter", requireAuth, requirePermission("company_data"), (req, res) => {
   try {
     const { montadora, modeloId, modeloTexto, ano, motor, sistema, termoBusca } = req.query;
     
@@ -1185,12 +1558,12 @@ app.get("/api/parts-application/filter", (req, res) => {
       matches
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/parts-application/filter");
   }
 });
 
 // GET /api/parts-application/reverse/:code - Consulta reversa (Peça -> Veículos da Frota)
-app.get("/api/parts-application/reverse/:code", (req, res) => {
+app.get("/api/parts-application/reverse/:code", requireAuth, requirePermission("company_data"), (req, res) => {
   try {
     const code = safeDecodeParam(req.params.code);
     const lookup = reverseLookupVehiclesForPart(INITIAL_PRODUCTS, code);
@@ -1212,7 +1585,7 @@ app.get("/api/parts-application/reverse/:code", (req, res) => {
 });
 
 // GET /api/parts-application/export - Exportação/Download completo da frota e aplicações (JSON/CSV)
-app.get("/api/parts-application/export", (req, res) => {
+app.get("/api/parts-application/export", requireAuth, requirePermission("company_data"), (req, res) => {
   try {
     const format = (req.query.format as string || "json").toLowerCase();
 
@@ -1287,12 +1660,17 @@ app.get("/api/parts-application/export", (req, res) => {
 
     res.json(exportPayload);
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    logAndFail(res, err, "GET /api/parts-application/export");
   }
 });
 
 // Gemini Assistant for Auto Parts, XML Analysis, and Technical Support (Rate limited)
-app.post("/api/gemini/assist", aiLimiter, async (req, res) => {
+app.post(
+  "/api/gemini/assist",
+  aiLimiter,
+  requireAuth,
+  requireAnyPermission(["bug_support", "customers_employees", "company_data"]),
+  async (req, res) => {
   try {
     const { prompt, contextType, partData } = req.body;
     const ai = getGeminiClient();
@@ -1356,7 +1734,11 @@ Compatibilidade identificada com base no catálogo automotivo nacional:
 });
 
 // XML NF-e parser endpoint (Guarded against ReDoS and memory exhaustion)
-app.post("/api/xml/parse", (req, res) => {
+app.post(
+  "/api/xml/parse",
+  requireAuth,
+  requireAnyPermission(["fiscal_config", "customers_employees", "company_data"]),
+  (req, res) => {
   try {
     const { xmlContent } = req.body;
     if (!xmlContent || typeof xmlContent !== "string") {
@@ -1442,7 +1824,9 @@ app.post("/api/xml/parse", (req, res) => {
 });
 
 // Marketplace Webhook Simulator endpoint
-app.post("/api/marketplaces/webhook", (req, res) => {
+// Ingestão server-to-server (marketplaces): aceita sessão autenticada ou a chave
+// de ingestão configurada em GATO_INGEST_API_KEY. Sem chave, o endpoint fica fechado.
+app.post("/api/marketplaces/webhook", requireIngestAuth(), (req, res) => {
   const { channel, event, payload } = req.body || {};
   console.log(`[GATO Webhook] Received event '${event}' from channel '${channel}'`);
   res.json({
@@ -1459,7 +1843,11 @@ app.post("/api/marketplaces/webhook", (req, res) => {
 // ==========================================
 
 // Connectors Status Overview
-app.get("/api/connectors/status", (req, res) => {
+app.get(
+  "/api/connectors/status",
+  requireAuth,
+  requireAnyPermission(["connectors", "company_data", "customers_employees"]),
+  (req, res) => {
   res.json({
     status: "online",
     serverTimestamp: new Date().toISOString(),
@@ -1490,7 +1878,10 @@ app.get("/api/connectors/status", (req, res) => {
 });
 
 // E-commerce & Landing Page: Receive Order & Deduct from Central Stock
-app.post("/api/connectors/ecommerce/order", (req, res) => {
+// Webhook/entrada de pedidos: exige sessão autenticada OU chave de ingestão
+// server-to-server (GATO_INGEST_API_KEY). Sem isso, qualquer pessoa podia
+// disparar pedidos e movimentar estoque de qualquer empresa.
+app.post("/api/connectors/ecommerce/order", connectorLimiter, requireIngestAuth(), (req, res) => {
   try {
     const { platform, apiKey, customer, items, totalAmount, shippingMethod } = req.body || {};
 
@@ -1541,7 +1932,11 @@ app.post("/api/connectors/ecommerce/order", (req, res) => {
 });
 
 // E-commerce & Landing Page: Public Catalog Query with Real-time Central Stock
-app.get("/api/connectors/ecommerce/catalog", (req, res) => {
+app.get(
+  "/api/connectors/ecommerce/catalog",
+  requireAuth,
+  requireAnyPermission(["connectors", "company_data", "customers_employees"]),
+  (req, res) => {
   res.json({
     success: true,
     source: "CD Central Matriz GATO",
@@ -1552,7 +1947,7 @@ app.get("/api/connectors/ecommerce/catalog", (req, res) => {
 });
 
 // Banking Gateway: Payment Notification Webhook (Pix, Boleto, Cartão)
-app.post("/api/connectors/bank/webhook", (req, res) => {
+app.post("/api/connectors/bank/webhook", requireIngestAuth(), (req, res) => {
   try {
     const { gateway, event, data, endToEndId, amount, orderRef } = req.body || {};
     
@@ -1578,7 +1973,11 @@ app.post("/api/connectors/bank/webhook", (req, res) => {
 });
 
 // Banking Gateway: Simulate Real-time Pix Settlement
-app.post("/api/connectors/bank/pix/simulate-payment", (req, res) => {
+app.post(
+  "/api/connectors/bank/pix/simulate-payment",
+  requireAuth,
+  requireAnyPermission(["billing_contracts", "company_data", "customers_employees"]),
+  (req, res) => {
   try {
     const { amount, orderId, gateway } = req.body || {};
     const e2eId = `E${Date.now()}BRGATO${Math.floor(Math.random() * 89999 + 10000)}`;
@@ -1609,7 +2008,11 @@ app.post("/api/connectors/bank/pix/simulate-payment", (req, res) => {
 });
 
 // Multi-Channel Real-time Stock Transfer (Central -> External Full/FBA)
-app.post("/api/connectors/stock/transfer", (req, res) => {
+app.post(
+  "/api/connectors/stock/transfer",
+  requireAuth,
+  requireAnyPermission(["company_data", "customers_employees", "connectors"]),
+  (req, res) => {
   try {
     const { productId, productCode, quantity, toLocation, reason } = req.body || {};
     
@@ -1645,7 +2048,11 @@ app.post("/api/connectors/stock/transfer", (req, res) => {
 let activeFederalTaxSettings = { ...DEFAULT_FEDERAL_TAX_SETTINGS };
 let activeStateTaxRules = [...INITIAL_STATE_TAX_RULES];
 
-app.get("/api/tax/rules", (req, res) => {
+app.get(
+  "/api/tax/rules",
+  requireAuth,
+  requireAnyPermission(["fiscal_config", "company_data", "customers_employees"]),
+  (req, res) => {
   try {
     res.json({
       success: true,
@@ -1659,7 +2066,8 @@ app.get("/api/tax/rules", (req, res) => {
   }
 });
 
-app.post("/api/tax/rules", (req, res) => {
+// Alteração da matriz tributária: restrita ao papel fiscal da plataforma.
+app.post("/api/tax/rules", requireAuth, requirePermission("fiscal_config", { write: true }), (req, res) => {
   try {
     const { federal, states } = req.body || {};
     if (federal) {

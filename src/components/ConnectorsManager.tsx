@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../services/apiClient';
 import {
   Cable,
   Globe,
@@ -231,7 +232,7 @@ export const ConnectorsManager: React.FC<ConnectorsManagerProps> = ({
     }
 
     try {
-      const response = await fetch('/api/connectors/ecommerce/order', {
+      const response = await apiFetch('/api/connectors/ecommerce/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -316,7 +317,7 @@ export const ConnectorsManager: React.FC<ConnectorsManagerProps> = ({
   // Simulate Instant Pix Settlement & Bank Reconciliation
   const handleSimulatePixSettlement = async () => {
     try {
-      const response = await fetch('/api/connectors/bank/pix/simulate-payment', {
+      const response = await apiFetch('/api/connectors/bank/pix/simulate-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

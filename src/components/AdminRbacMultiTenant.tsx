@@ -52,6 +52,7 @@ import {
   IsolationTestResult,
   LgpdSubjectRequest
 } from '../types/rbac';
+import { apiFetch } from '../services/apiClient';
 
 interface AdminRbacProps {
   onNotify?: (message: string, type?: 'success' | 'warning' | 'error') => void;
@@ -123,7 +124,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
   const loadRbacData = async () => {
     try {
       setLoading(true);
-      const resMe = await fetch('/api/rbac/me');
+      const resMe = await apiFetch('/api/rbac/me');
       const dataMe = await resMe.json();
       if (dataMe.success) {
         setCurrentUser(dataMe.user);
@@ -132,44 +133,44 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
         setAvailablePersonas(dataMe.availablePersonas || []);
       }
 
-      const resTenants = await fetch('/api/rbac/tenants');
+      const resTenants = await apiFetch('/api/rbac/tenants');
       const dataTenants = await resTenants.json();
       if (dataTenants.success) {
         setTenants(dataTenants.tenants);
       }
 
-      const resUsers = await fetch('/api/rbac/users');
+      const resUsers = await apiFetch('/api/rbac/users');
       const dataUsers = await resUsers.json();
       if (dataUsers.success) {
         setUsers(dataUsers.users);
       }
 
-      const resLogs = await fetch('/api/rbac/audit-logs');
+      const resLogs = await apiFetch('/api/rbac/audit-logs');
       const dataLogs = await resLogs.json();
       if (dataLogs.success) {
         setAuditLogs(dataLogs.logs);
       }
 
-      const resPlans = await fetch('/api/rbac/plans');
+      const resPlans = await apiFetch('/api/rbac/plans');
       const dataPlans = await resPlans.json();
       if (dataPlans.success) {
         setPlans(dataPlans.plans);
       }
 
-      const resQuota = await fetch(`/api/rbac/quotas/${selectedTenantId}`);
+      const resQuota = await apiFetch(`/api/rbac/quotas/${selectedTenantId}`);
       const dataQuota = await resQuota.json();
       if (dataQuota.success) {
         setQuotaUsage(dataQuota.quota);
       }
 
-      const resMessages = await fetch('/api/rbac/messages');
+      const resMessages = await apiFetch('/api/rbac/messages');
       const dataMessages = await resMessages.json();
       if (dataMessages.success) {
         setMessages(dataMessages.messages);
         setTemplates(dataMessages.templates);
       }
 
-      const resLgpd = await fetch('/api/rbac/lgpd/requests');
+      const resLgpd = await apiFetch('/api/rbac/lgpd/requests');
       const dataLgpd = await resLgpd.json();
       if (dataLgpd.success) {
         setLgpdRequests(dataLgpd.requests);
@@ -189,7 +190,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
   // Alternar Persona para teste
   const handleSwitchPersona = async (userId: string) => {
     try {
-      const res = await fetch('/api/rbac/switch-persona', {
+      const res = await apiFetch('/api/rbac/switch-persona', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
@@ -213,12 +214,10 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
     if (!newUserName || !newUserEmail) return;
 
     try {
-      const res = await fetch('/api/rbac/users', {
+      const res = await apiFetch('/api/rbac/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': currentUser?.id || '',
-          'x-user-role': currentUser?.roleCode || ''
         },
         body: JSON.stringify({
           name: newUserName,
@@ -246,13 +245,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
   // Reset de Senha Seguro
   const handleResetPassword = async (targetUser: RbacUser) => {
     try {
-      const res = await fetch(`/api/rbac/users/${targetUser.id}/reset-password`, {
-        method: 'POST',
-        headers: {
-          'x-user-id': currentUser?.id || '',
-          'x-user-role': currentUser?.roleCode || ''
-        }
-      });
+      const res = await apiFetch(`/api/rbac/users/${targetUser.id}/reset-password`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         notify(`Link de reset emitido com sucesso para ${data.maskedEmail}!`, 'success');
@@ -267,7 +260,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
   const handleRunSecurityTests = async () => {
     setIsRunningTests(true);
     try {
-      const res = await fetch('/api/rbac/test-isolation');
+      const res = await apiFetch('/api/rbac/test-isolation');
       const data = await res.json();
       if (data.success) {
         setTestResults(data.results);
@@ -288,10 +281,8 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
     }
 
     try {
-      const res = await fetch('/api/rbac/tenants', {
+      const res = await apiFetch('/api/rbac/tenants', {
         headers: {
-          'x-user-id': currentUser?.id || '',
-          'x-user-role': currentUser?.roleCode || '',
           'x-justification': justificationText,
           'x-target-tenant-id': selectedTenantId
         }
@@ -308,12 +299,10 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
   // Executar Troca de Plano com Pró-rata
   const handleChangePlan = async () => {
     try {
-      const res = await fetch('/api/rbac/plans/change', {
+      const res = await apiFetch('/api/rbac/plans/change', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': currentUser?.id || '',
-          'x-user-role': currentUser?.roleCode || ''
         },
         body: JSON.stringify({
           tenantId: selectedTenantId,
@@ -337,12 +326,10 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
     if (!msgTitle || !msgContent) return;
 
     try {
-      const res = await fetch('/api/rbac/messages/send', {
+      const res = await apiFetch('/api/rbac/messages/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': currentUser?.id || '',
-          'x-user-role': currentUser?.roleCode || ''
         },
         body: JSON.stringify({
           tenantId: msgTenant,
@@ -1491,7 +1478,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                 </p>
                 <button
                   onClick={async () => {
-                    const res = await fetch('/api/rbac/lgpd/export', {
+                    const res = await apiFetch('/api/rbac/lgpd/export', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ document: '29841283904', name: 'Carlos Eduardo Silveira' })
@@ -1513,7 +1500,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                 </p>
                 <button
                   onClick={async () => {
-                    const res = await fetch('/api/rbac/lgpd/anonymize', {
+                    const res = await apiFetch('/api/rbac/lgpd/anonymize', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ document: '11298044412', name: 'Marcos de Oliveira' })

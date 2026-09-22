@@ -25,31 +25,38 @@ import {
   AuditLogRecord,
   InternalMessageItem
 } from "../src/types/rbac";
+import {
+  requireAuth,
+  requirePermission,
+  requireSaasScope,
+  issueSessionToken,
+  getClientIp,
+  recordAudit,
+} from "./auth";
 
 export const rbacRouter = Router();
+
+// Todas as rotas do motor RBAC exigem sessão autenticada válida.
+// Sem isso, qualquer requisição anônima recebia identidade de Super Admin.
+rbacRouter.use(requireAuth);
 
 // =========================================================================
 // MIDDLEWARE: CONTEXTO DE AUTENTICAÇÃO E TENANT
 // =========================================================================
 
+/**
+ * Identidade SEMPRE derivada da sessão autenticada (token assinado verificado
+ * no servidor pelo middleware requireAuth). Cabeçalhos enviados pelo navegador
+ * (x-user-id / x-user-role) não são mais considerados — antes permitiam que
+ * qualquer visitante se declarasse Super Admin.
+ */
 export function resolveAuthUser(req: Request): RbacUser {
-  // Ler cabeçalhos de autenticação simulada / sessão
-  const headerUserId = req.headers["x-user-id"] as string;
-  const headerRole = req.headers["x-user-role"] as RbacRoleCode;
-  const headerTenantId = req.headers["x-tenant-id"] as string;
-
-  if (headerUserId) {
-    const found = RBAC_USERS_DATA.find((u) => u.id === headerUserId);
-    if (found) return found;
-  }
-
-  if (headerRole && ROLE_DEFINITIONS[headerRole]) {
-    const foundByRole = RBAC_USERS_DATA.find((u) => u.roleCode === headerRole);
-    if (foundByRole) return foundByRole;
-  }
-
-  // Fallback padrão: Super Admin (Eu)
-  return RBAC_USERS_DATA[0];
+  if (req.auth?.user) return req.auth.user;
+  // Fail-closed: sem sessão válida não existe identidade. O middleware
+  // requireAuth (montado no router) responde 401 antes de chegar aqui.
+  const err = new Error("Sessão ausente ou inválida para operações RBAC.") as Error & { statusCode?: number };
+  err.statusCode = 401;
+  throw err;
 }
 
 // Middleware de autorização por recurso
@@ -69,7 +76,7 @@ export function requireRbacPermission(resource: PermissionResource) {
         userId: user.id,
         userName: user.name,
         userRole: user.roleCode,
-        ipAddress: (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1") as string,
+        ipAddress: getClientIp(req),
         action: `BLOCKED_ACCESS_${resource.toUpperCase()}`,
         resource,
         entityId: targetTenantId || "unknown",
@@ -123,27 +130,61 @@ rbacRouter.get("/me", (req, res) => {
   const roleDef = ROLE_DEFINITIONS[user.roleCode];
   const tenant = user.tenantId === "system" ? null : TENANTS_DATA.find((t) => t.id === user.tenantId);
 
+  const impersonating = !!req.auth?.impersonating;
   res.json({
     success: true,
     user,
     role: roleDef,
     tenant,
+    impersonating,
+    realUser: req.auth?.realUser,
+    isSaasScope: !!req.auth?.isSaasScope,
     allRoles: Object.values(ROLE_DEFINITIONS),
-    availablePersonas: RBAC_USERS_DATA.map((u) => ({
-      id: u.id,
-      name: u.name,
-      roleCode: u.roleCode,
-      roleName: u.roleName,
-      tenantId: u.tenantId,
-      tenantName: u.tenantName,
-      department: u.department,
-      mfaEnabled: u.mfaEnabled
-    }))
+    // A lista de personas (simulador) é recurso de plataforma: usuários de
+    // tenant nunca recebem o diretório completo de contas da base.
+    availablePersonas: req.auth?.isSaasScope
+      ? RBAC_USERS_DATA.map((u) => ({
+          id: u.id,
+          name: u.name,
+          roleCode: u.roleCode,
+          roleName: u.roleName,
+          tenantId: u.tenantId,
+          tenantName: u.tenantName,
+          department: u.department,
+          mfaEnabled: u.mfaEnabled
+        }))
+      : RBAC_USERS_DATA.filter((u) => u.tenantId === user.tenantId).map((u) => ({
+          id: u.id,
+          name: u.name,
+          roleCode: u.roleCode,
+          roleName: u.roleName,
+          tenantId: u.tenantId,
+          tenantName: u.tenantName,
+          department: u.department,
+          mfaEnabled: u.mfaEnabled
+        }))
   });
 });
 
 // 2. Alternar persona / simulador de papéis
+// Restrito ao Super Admin. A troca emite um NOVO token assinado com a persona
+// simulada ("act"), com validade curta, e fica registrada na auditoria.
+// Anteriormente qualquer usuário podia assumir o papel de Super Admin apenas
+// enviando outro x-user-role.
 rbacRouter.post("/switch-persona", (req, res) => {
+  const caller = resolveAuthUser(req);
+  if (caller.roleCode !== "super_admin" || !req.auth?.isSaasScope) {
+    recordAudit(req, caller, "BLOCKED_SWITCH_PERSONA", "security_compliance", caller.id, "blocked", {
+      anomalous: true,
+      details: "Somente o Super Admin pode iniciar simulação de persona.",
+    });
+    return res.status(403).json({
+      success: false,
+      error: "Somente o Super Admin pode utilizar o simulador de personas.",
+      code: "RBAC_IMPERSONATION_DENIED",
+    });
+  }
+
   const { userId, roleCode, tenantId } = req.body;
   let targetUser: RbacUser | undefined;
 
@@ -154,7 +195,7 @@ rbacRouter.post("/switch-persona", (req, res) => {
   }
 
   if (!targetUser) {
-    targetUser = RBAC_USERS_DATA[0];
+    return res.status(404).json({ success: false, error: "Persona não encontrada para simulação." });
   }
 
   // Se solicitou mudar o tenant do usuário
@@ -171,32 +212,29 @@ rbacRouter.post("/switch-persona", (req, res) => {
 
   const roleDef = ROLE_DEFINITIONS[targetUser.roleCode];
 
+  // Token temporário: a identidade REAL continua sendo o Super Admin autenticado.
+  const { token, expiresAt } = issueSessionToken(caller, targetUser.id);
+
   // Registrar auditoria da alternância de contexto
-  AUDIT_LOGS_DATA.unshift({
-    id: `aud_switch_${Date.now()}`,
-    tenantId: targetUser.tenantId,
-    userId: targetUser.id,
-    userName: targetUser.name,
-    userRole: targetUser.roleCode,
-    ipAddress: (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1") as string,
-    action: "SIMULATOR_SWITCH_PERSONA",
-    resource: "security_compliance",
-    entityId: targetUser.id,
-    timestamp: new Date().toISOString(),
-    status: "success",
-    justification: `Alternância de persona para teste de isolamento operacional: ${targetUser.roleName}`
+  recordAudit(req, caller, "SIMULATOR_SWITCH_PERSONA", "security_compliance", targetUser.id, "success", {
+    targetTenantId: targetUser.tenantId,
+    justification: `Simulação de persona iniciada (${targetUser.roleName}) por ${caller.name}. Expira em ${expiresAt}.`,
   });
 
   res.json({
     success: true,
     message: `Persona alternada para: ${targetUser.name} (${targetUser.roleName})`,
     user: targetUser,
-    role: roleDef
+    role: roleDef,
+    token,
+    expiresAt,
+    impersonating: true,
   });
 });
 
 // 3. Matriz de permissões resumida
-rbacRouter.get("/matrix", (req, res) => {
+// Matriz completa de papéis e permissões: informação de arquitetura de segurança, restrita à plataforma.
+rbacRouter.get("/matrix", requireSaasScope, (req, res) => {
   res.json({
     success: true,
     roles: ROLE_DEFINITIONS,
@@ -211,7 +249,7 @@ rbacRouter.get("/matrix", (req, res) => {
 });
 
 // 4. Listar Tenants (com isolamento estrito)
-rbacRouter.get("/tenants", (req, res) => {
+rbacRouter.get("/tenants", requireSaasScope, requirePermission("manage_accounts"), (req, res) => {
   const user = resolveAuthUser(req);
   const roleDef = ROLE_DEFINITIONS[user.roleCode];
 
@@ -233,7 +271,7 @@ rbacRouter.get("/tenants", (req, res) => {
 });
 
 // 5. Listar Usuários (com isolamento estrito)
-rbacRouter.get("/users", (req, res) => {
+rbacRouter.get("/users", requirePermission("contractor_users"), (req, res) => {
   const user = resolveAuthUser(req);
   const roleDef = ROLE_DEFINITIONS[user.roleCode];
 
@@ -255,7 +293,7 @@ rbacRouter.get("/users", (req, res) => {
 });
 
 // 6. Criar / Convidar Usuário com papéis granulares
-rbacRouter.post("/users", (req, res) => {
+rbacRouter.post("/users", requirePermission("contractor_users", { write: true }), (req, res) => {
   const caller = resolveAuthUser(req);
   const callerRole = ROLE_DEFINITIONS[caller.roleCode];
 
@@ -322,7 +360,7 @@ rbacRouter.post("/users", (req, res) => {
 });
 
 // 7. Atualizar papel / permissões de um usuário
-rbacRouter.put("/users/:id/role", (req, res) => {
+rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write: true }), (req, res) => {
   const caller = resolveAuthUser(req);
   const { id } = req.params;
   const { roleCode, customOverrides } = req.body;
@@ -372,7 +410,7 @@ rbacRouter.put("/users/:id/role", (req, res) => {
 });
 
 // 8. Reset de Senha Seguro (Suporte / Admin)
-rbacRouter.post("/users/:id/reset-password", (req, res) => {
+rbacRouter.post("/users/:id/reset-password", requirePermission("contractor_users", { write: true }), (req, res) => {
   const caller = resolveAuthUser(req);
   const { id } = req.params;
 
@@ -410,7 +448,7 @@ rbacRouter.post("/users/:id/reset-password", (req, res) => {
 });
 
 // 9. Trilha de Auditoria (Logs com sanitização de PII)
-rbacRouter.get("/audit-logs", (req, res) => {
+rbacRouter.get("/audit-logs", requirePermission("audit_logs"), (req, res) => {
   const user = resolveAuthUser(req);
   const roleDef = ROLE_DEFINITIONS[user.roleCode];
 
@@ -438,7 +476,7 @@ rbacRouter.get("/audit-logs", (req, res) => {
 });
 
 // 10. Listar Planos SaaS e Cotas
-rbacRouter.get("/plans", (req, res) => {
+rbacRouter.get("/plans", requireSaasScope, (req, res) => {
   res.json({
     success: true,
     plans: SAAS_PLANS
@@ -446,7 +484,7 @@ rbacRouter.get("/plans", (req, res) => {
 });
 
 // 11. Obter Consumo e Cotas de um Tenant
-rbacRouter.get("/quotas/:tenantId", (req, res) => {
+rbacRouter.get("/quotas/:tenantId", requirePermission("limits_quotas"), (req, res) => {
   const caller = resolveAuthUser(req);
   const { tenantId } = req.params;
 
@@ -463,7 +501,7 @@ rbacRouter.get("/quotas/:tenantId", (req, res) => {
 });
 
 // 12. Troca de Plano com Cálculo Proporcional (Pró-rata) e Auditoria
-rbacRouter.post("/plans/change", (req, res) => {
+rbacRouter.post("/plans/change", requireSaasScope, requirePermission("limits_quotas", { write: true }), (req, res) => {
   const caller = resolveAuthUser(req);
   const { tenantId, targetPlanId, billingCycleDay } = req.body;
 
@@ -554,7 +592,7 @@ rbacRouter.get("/messages", (req, res) => {
 });
 
 // 14. Enviar Mensagem Interna Segmentada
-rbacRouter.post("/messages/send", (req, res) => {
+rbacRouter.post("/messages/send", requirePermission("internal_messages", { write: true }), (req, res) => {
   const caller = resolveAuthUser(req);
   const { tenantId, targetPlanId, title, content, templateCode, channels, priority } = req.body;
 
@@ -631,7 +669,7 @@ rbacRouter.post("/messages/:id/opt-out", (req, res) => {
 });
 
 // 17. Solicitações LGPD
-rbacRouter.get("/lgpd/requests", (req, res) => {
+rbacRouter.get("/lgpd/requests", requirePermission("security_compliance"), (req, res) => {
   res.json({
     success: true,
     requests: LGPD_REQUESTS_DATA
@@ -639,7 +677,7 @@ rbacRouter.get("/lgpd/requests", (req, res) => {
 });
 
 // 18. Exportar Dados do Titular (LGPD)
-rbacRouter.post("/lgpd/export", (req, res) => {
+rbacRouter.post("/lgpd/export", requirePermission("security_compliance", { write: true }), (req, res) => {
   const caller = resolveAuthUser(req);
   const { document, name, reason } = req.body;
 
@@ -651,22 +689,29 @@ rbacRouter.post("/lgpd/export", (req, res) => {
     requestType: "export_data" as const,
     requestedBy: caller.name,
     requestedAt: new Date().toISOString(),
-    status: "completed" as const,
-    completedAt: new Date().toISOString(),
-    details: `Relatório de portabilidade e consentimento gerado. Motivo informado: ${reason || "Solicitação direta do titular"}`
+    // Honestidade do registro: a solicitação é REGISTRADA e fica pendente de
+    // processamento pelo encarregado. Antes o sistema declarava "concluído"
+    // sem gerar/depurar dados, o que cria risco de compliance (LGPD art. 19).
+    status: "pending" as const,
+    details: `Solicitação de portabilidade registrada e encaminhada ao encarregado (DPO) para extração e entrega em até 15 dias (LGPD art. 19). Motivo informado: ${reason || "Solicitação direta do titular"}`
   };
 
   LGPD_REQUESTS_DATA.unshift(reqItem);
 
+  recordAudit(req, caller, "LGPD_EXPORT_REQUESTED", "security_compliance", reqItem.id, "success", {
+    justification: reason || "Solicitação de titular registrada.",
+  });
+
   res.json({
     success: true,
-    message: "Dossiê de dados pessoais gerado em conformidade com o Art. 19 da LGPD.",
+    message:
+      "Solicitação de acesso/portabilidade registrada com protocolo. O encarregado (DPO) processará a extração dos dados pessoais em até 15 dias, conforme Art. 19 da LGPD.",
     request: reqItem
   });
 });
 
 // 19. Anonimizar Cadastro (LGPD)
-rbacRouter.post("/lgpd/anonymize", (req, res) => {
+rbacRouter.post("/lgpd/anonymize", requirePermission("security_compliance", { write: true }), (req, res) => {
   const caller = resolveAuthUser(req);
   const { document, name, reason } = req.body;
 
@@ -678,22 +723,30 @@ rbacRouter.post("/lgpd/anonymize", (req, res) => {
     requestType: "anonymize" as const,
     requestedBy: caller.name,
     requestedAt: new Date().toISOString(),
-    status: "completed" as const,
-    completedAt: new Date().toISOString(),
-    details: `Registro pessoal anonimizado. Dados contábeis/fiscais preservados sob salvaguarda do Art. 16, I da LGPD.`
+    // A anonimização exige execução sobre a base real (Supabase) e dupla
+    // conferência do encarregado: fica registrada como pendente, sem falso
+    // positivo de "dados anonimizados" que não foram de fato tratados.
+    status: "pending" as const,
+    details: `Solicitação de anonimização registrada e encaminhada ao encarregado (DPO) para execução sobre a base de dados. Registros contábeis/fiscais serão preservados conforme Art. 16, I da LGPD.`
   };
 
   LGPD_REQUESTS_DATA.unshift(reqItem);
 
+  recordAudit(req, caller, "LGPD_ANONYMIZATION_REQUESTED", "security_compliance", reqItem.id, "warning", {
+    justification: reason || "Solicitação de anonimização registrada.",
+  });
+
   res.json({
     success: true,
-    message: "Cadastro pessoal anonimizado com sucesso.",
+    message:
+      "Solicitação de anonimização registrada. A execução é feita pelo encarregado (DPO) sobre a base de dados, com preservação dos registros fiscais obrigatórios.",
     request: reqItem
   });
 });
 
 // 20. Executar Bateria de Testes Automatizados de Isolamento e Permissão
-rbacRouter.get("/test-isolation", (req, res) => {
+// Bateria de testes internos de segurança: execução restrita à equipe da plataforma.
+rbacRouter.get("/test-isolation", requireSaasScope, (req, res) => {
   const results = runSecurityIsolationTests();
   const allPassed = results.every((r) => r.passed);
 

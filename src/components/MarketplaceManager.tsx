@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../services/apiClient';
 import { 
   Share2, 
   RefreshCw, 
@@ -121,7 +122,7 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({
     setWebhookLogs([newLog, ...webhookLogs]);
 
     try {
-      await fetch('/api/marketplaces/webhook', {
+    await apiFetch('/api/marketplaces/webhook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

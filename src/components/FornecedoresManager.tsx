@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { apiFetch } from '../services/apiClient';
 import { 
   Building2, 
   Search, 
@@ -64,7 +65,7 @@ export const FornecedoresManager: React.FC<FornecedoresManagerProps> = ({
 
   // Check Supabase connection on mount
   useEffect(() => {
-    fetch('/api/db/suppliers')
+    apiFetch('/api/db/suppliers')
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -83,7 +84,7 @@ export const FornecedoresManager: React.FC<FornecedoresManagerProps> = ({
   const handleSyncWithSupabase = async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch('/api/db/suppliers');
+    const res = await apiFetch('/api/db/suppliers');
       const data = await res.json();
       if (data.success && Array.isArray(data.suppliers)) {
         setSupabaseConnected(true);
@@ -150,7 +151,7 @@ export const FornecedoresManager: React.FC<FornecedoresManagerProps> = ({
 
       // Try to register in Supabase database
       try {
-        await fetch('/api/db/suppliers', {
+    await apiFetch('/api/db/suppliers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -29,6 +29,7 @@ import {
 import { GatoBrand } from './GatoBrand';
 import { BranchUnit, UserSession, CompanyProfile } from '../types';
 import { INITIAL_BRANCHES, AVAILABLE_USERS, AppUser } from '../data/initialData';
+import { loginWithCredentials, registerCompany, getDemoLoginConfig } from '../utils/sessionService';
 
 interface LoginAreaProps {
   currentSession: UserSession | null;
@@ -58,6 +59,9 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
   const [emailCadastro, setEmailCadastro] = useState('');
   const [phoneCadastro, setPhoneCadastro] = useState('');
   const [stateUfCadastro, setStateUfCadastro] = useState('MS');
+  const [passwordCadastro, setPasswordCadastro] = useState('');
+  const [cityCadastro, setCityCadastro] = useState('Campo Grande');
+  const [ie, setIe] = useState('');
 
   // --- LOGIN EXISTENTE ---
   const [selectedUser, setSelectedUser] = useState<AppUser>(
@@ -83,6 +87,9 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
     setEmailCadastro('ricardo@autopecas.com.br');
     setPhoneCadastro('(67) 99234-5678');
     setStateUfCadastro('MS');
+    setCityCadastro('Campo Grande');
+    setIe('');
+    // Senha não é preenchida automaticamente: o usuário escolhe a própria.
     setErrorMessage(null);
   };
 
@@ -100,9 +107,15 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
       return;
     }
 
+    if (!passwordCadastro || passwordCadastro.length < 8) {
+      setErrorMessage('A senha de acesso deve ter no mínimo 8 caracteres.');
+      return;
+    }
+
     setIsLoading(true);
 
-    setTimeout(() => {
+    (async () => {
+      try {
       const newCompany: CompanyProfile = {
         id: `empresa-${Date.now()}`,
         tradeName: tradeName.trim(), // Nome Fantasia
@@ -139,20 +152,25 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
         status: 'ativa',
       };
 
-      const session: UserSession = {
-        id: `user-${Date.now()}`,
-        name: adminName.trim(),
-        email: emailCadastro.trim(),
-        role: 'administrador',
-        roleLabel: 'Diretor / Proprietário (Admin)',
-        branchId: newMatrizBranch.id,
-        branchUf: newMatrizBranch.uf,
-        branchName: newMatrizBranch.name,
-        cdName: newMatrizBranch.cdName,
-        cdCode: newMatrizBranch.cdCode,
-        avatarInitials: adminName.substring(0, 2).toUpperCase(),
-        loginTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      };
+        // Cadastro REAL no servidor: a conta e a senha são criadas no backend
+        // (SCrypt + tenant isolado) e a sessão volta com token assinado.
+        const result = await registerCompany(
+          {
+            tradeName: tradeName.trim(),
+            corporateName: corporateName.trim() || undefined,
+            cnpj: cnpj || undefined,
+            stateRegistration: ie || undefined,
+            segment,
+            adminName: adminName.trim(),
+            email: emailCadastro.trim(),
+            password: passwordCadastro,
+            phone: phoneCadastro || undefined,
+            city: cityCadastro || undefined,
+            uf: stateUfCadastro,
+          },
+          [newMatrizBranch, ...availableBranches.filter(b => !b.isMatriz)]
+        );
+        const session = result.session;
 
       try {
         localStorage.setItem('gato_company_profile', JSON.stringify(newCompany));
@@ -166,68 +184,67 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
         console.warn('LocalStorage error:', err);
       }
 
-      setIsLoading(false);
-      onLoginSuccess(session, newCompany);
-    }, 600);
+        setIsLoading(false);
+        onLoginSuccess(session, newCompany);
+      } catch (err: any) {
+        setIsLoading(false);
+        setErrorMessage(err?.message || 'Falha ao criar a conta. Verifique os dados e tente novamente.');
+      }
+    })();
   };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+    if (!emailInput.trim() || !passwordInput) {
+      setErrorMessage('Informe e-mail e senha corporativos.');
+      return;
+    }
     setIsLoading(true);
 
-    setTimeout(() => {
-      const session: UserSession = {
-        id: selectedUser.id,
-        name: selectedUser.name,
-        email: emailInput || selectedUser.email,
-        role: selectedUser.role,
-        roleLabel: selectedUser.roleLabel,
-        branchId: activeBranch.id,
-        branchUf: activeBranch.uf,
-        branchName: activeBranch.name,
-        cdName: activeBranch.cdName,
-        cdCode: activeBranch.cdCode,
-        avatarInitials: selectedUser.avatarInitials,
-        loginTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      };
-
+    (async () => {
       try {
-        localStorage.setItem('gato_user_session', JSON.stringify(session));
-        localStorage.setItem('gato_active_store', session.branchId);
+        // Autenticação REAL: senha conferida com SCrypt no servidor.
+        const result = await loginWithCredentials(emailInput.trim(), passwordInput, availableBranches, activeBranch.id);
+        try {
+          localStorage.setItem('gato_user_session', JSON.stringify(result.session));
+          localStorage.setItem('gato_active_store', result.session.branchId);
+        } catch (err) {
+          console.warn('LocalStorage error:', err);
+        }
+        setIsLoading(false);
+        onLoginSuccess(result.session);
+      } catch (err: any) {
+        setIsLoading(false);
+        setErrorMessage(err?.message || 'Falha no login. Verifique suas credenciais.');
+      }
+    })();
+  };
+
+  const handleQuickSelectUser = async (user: AppUser) => {
+    const branch = availableBranches.find(b => b.id === (user.defaultBranchId || 'matriz-ms')) || availableBranches[0];
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      // Acesso rápido também exige autenticação no servidor — antes qualquer
+      // visitante assumia o papel escolhido apenas editando o estado local.
+      const demo = getDemoLoginConfig();
+      if (!demo.enabled) {
+        throw new Error('Login rápido desabilitado. Use e-mail e senha para autenticar.');
+      }
+      const result = await loginWithCredentials(user.email, demo.password, availableBranches, branch.id);
+      try {
+        localStorage.setItem('gato_user_session', JSON.stringify(result.session));
+        localStorage.setItem('gato_active_store', branch.id);
       } catch (err) {
         console.warn('LocalStorage error:', err);
       }
-
       setIsLoading(false);
-      onLoginSuccess(session);
-    }, 400);
-  };
-
-  const handleQuickSelectUser = (user: AppUser) => {
-    const branch = availableBranches.find(b => b.id === (user.defaultBranchId || 'matriz-ms')) || availableBranches[0];
-    const session: UserSession = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      roleLabel: user.roleLabel,
-      branchId: branch.id,
-      branchUf: branch.uf,
-      branchName: branch.name,
-      cdName: branch.cdName,
-      cdCode: branch.cdCode,
-      avatarInitials: user.avatarInitials,
-      loginTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    try {
-      localStorage.setItem('gato_user_session', JSON.stringify(session));
-      localStorage.setItem('gato_active_store', session.branchId);
-    } catch (err) {
-      console.warn('LocalStorage error:', err);
+      onLoginSuccess(result.session);
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(err?.message || 'Login rápido indisponível. Autentique-se com e-mail e senha.');
     }
-
-    onLoginSuccess(session);
   };
 
   return (
@@ -450,6 +467,25 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Senha de Acesso do Administrador *
+                </label>
+                <input
+                  type="password"
+                  value={passwordCadastro}
+                  onChange={(e) => setPasswordCadastro(e.target.value)}
+                  placeholder="Mínimo 8 caracteres (letras e números)"
+                  minLength={8}
+                  autoComplete="new-password"
+                  required
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  A senha é conferida com segurança no servidor (SCrypt) — nunca fica guardada no navegador.
+                </p>
+              </div>
+
               <div className="flex items-center justify-between pt-1">
                 <button
                   type="button"
@@ -541,24 +577,7 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
               {AVAILABLE_USERS.map((user) => (
                 <div
                   key={user.id}
-                  onClick={() => {
-                    const branch = INITIAL_BRANCHES.find(b => b.id === (user.defaultBranchId || 'matriz-ms')) || INITIAL_BRANCHES[0];
-                    const session: UserSession = {
-                      id: user.id,
-                      name: user.name,
-                      email: user.email,
-                      role: user.role,
-                      roleLabel: user.roleLabel,
-                      branchId: branch.id,
-                      branchUf: branch.uf,
-                      branchName: branch.name,
-                      cdName: branch.cdName,
-                      cdCode: branch.cdCode,
-                      avatarInitials: user.avatarInitials,
-                      loginTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                    };
-                    onLoginSuccess(session);
-                  }}
+                  onClick={() => { void handleQuickSelectUser(user); }}
                   className="p-2.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 rounded-xl transition cursor-pointer flex items-center gap-3"
                 >
                   <div className="w-8 h-8 rounded-lg bg-[#0C4A6E] text-white font-black text-xs flex items-center justify-center shrink-0">

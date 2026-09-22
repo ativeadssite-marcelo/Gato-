@@ -4,7 +4,7 @@ import { ShieldAlert, Lock, X, KeyRound } from 'lucide-react';
 interface MasterPasswordModalProps {
   open: boolean;
   viewLabel: string;
-  onConfirm: (password: string) => boolean;
+  onConfirm: (password: string) => boolean | Promise<boolean>;
   onClose: () => void;
 }
 
@@ -16,6 +16,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
 }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isChecking, setIsChecking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -28,14 +29,26 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
 
   if (!open) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!onConfirm(password)) {
-      setError('Senha master incorreta. Acesso negado e registrado.');
+    e.stopPropagation();
+    if (isChecking) return;
+    setIsChecking(true);
+    setError('');
+    try {
+      const ok = await onConfirm(password);
+      if (!ok) {
+        setError('Senha master incorreta. Acesso negado e registrado.');
+        setPassword('');
+        return;
+      }
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || 'Senha master incorreta. Acesso negado e registrado.');
       setPassword('');
-      return;
+    } finally {
+      setIsChecking(false);
     }
-    onClose();
   };
 
   return (
@@ -103,10 +116,11 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               Cancelar
             </button>
             <button
+              disabled={isChecking}
               type="submit"
-              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm font-bold shadow-lg shadow-amber-600/25 hover:from-amber-500 hover:to-orange-500 transition cursor-pointer"
+              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm font-bold shadow-lg shadow-amber-600/25 hover:from-amber-500 hover:to-orange-500 transition disabled:opacity-60 disabled:cursor-wait cursor-pointer"
             >
-              Desbloquear
+              {isChecking ? 'Verificando...' : 'Desbloquear'}
             </button>
           </div>
         </form>

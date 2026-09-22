@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { apiFetch } from '../services/apiClient';
 import { 
   Car, 
   Search, 
@@ -131,7 +132,7 @@ export const GestaoFrotaVeiculos: React.FC<GestaoFrotaVeiculosProps> = ({
   const fetchBrandSuggestions = useCallback(async (query: string) => {
     setIsLoadingBrands(true);
     try {
-      const res = await fetch(`/api/vehicles/makes?q=${encodeURIComponent(query)}`);
+    const res = await apiFetch(`/api/vehicles/makes?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       if (data.success) {
         setBrandSuggestions(data.data);
@@ -147,7 +148,7 @@ export const GestaoFrotaVeiculos: React.FC<GestaoFrotaVeiculosProps> = ({
   const fetchModelSuggestions = useCallback(async (brand: string, query: string) => {
     setIsLoadingModels(true);
     try {
-      const res = await fetch(`/api/vehicles/models?brand=${encodeURIComponent(brand)}&q=${encodeURIComponent(query)}`);
+    const res = await apiFetch(`/api/vehicles/models?brand=${encodeURIComponent(brand)}&q=${encodeURIComponent(query)}`);
       const data = await res.json();
       if (data.success) {
         setModelSuggestions(data.data);
@@ -173,7 +174,7 @@ export const GestaoFrotaVeiculos: React.FC<GestaoFrotaVeiculosProps> = ({
       params.append('page', page.toString());
       params.append('pageSize', pageSize.toString());
 
-      const res = await fetch(`/api/vehicles?${params.toString()}`);
+    const res = await apiFetch(`/api/vehicles?${params.toString()}`);
       const data: VehicleApiResponse = await res.json();
 
       if (data.success) {
@@ -374,7 +375,7 @@ export const GestaoFrotaVeiculos: React.FC<GestaoFrotaVeiculosProps> = ({
       };
 
       if (modalMode === 'create') {
-        const res = await fetch('/api/vehicles', {
+    const res = await apiFetch('/api/vehicles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -390,7 +391,7 @@ export const GestaoFrotaVeiculos: React.FC<GestaoFrotaVeiculosProps> = ({
         }
       } else {
         const target = encodeURIComponent(editingTargetId || editingTargetVeiculo || formData.veiculo);
-        const res = await fetch(`/api/vehicles/${target}`, {
+    const res = await apiFetch(`/api/vehicles/${target}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -423,7 +424,7 @@ export const GestaoFrotaVeiculos: React.FC<GestaoFrotaVeiculosProps> = ({
     setIsDeleting(true);
     try {
       const target = encodeURIComponent(vehicleToDelete.id || vehicleToDelete.veiculo);
-      const res = await fetch(`/api/vehicles/${target}`, {
+    const res = await apiFetch(`/api/vehicles/${target}`, {
         method: 'DELETE',
       });
       const data = await res.json();

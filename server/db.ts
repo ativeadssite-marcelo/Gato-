@@ -4,21 +4,56 @@ const { Pool } = pg;
 
 let pool: pg.Pool | null = null;
 
+export interface DbConfig {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+}
+
+/**
+ * Credenciais de banco vêm EXCLUSIVAMENTE de variáveis de ambiente.
+ * Nenhum segredo é embutido no código-fonte (evita vazamento via Git/bundle).
+ */
+export function getDbConfig(): DbConfig | null {
+  const host = process.env.SUPABASE_DB_HOST;
+  const password = process.env.SUPABASE_DB_PASSWORD;
+  if (!host || !password) return null;
+  return {
+    host,
+    port: parseInt(process.env.SUPABASE_DB_PORT || "5432", 10),
+    user: process.env.SUPABASE_DB_USER || "postgres",
+    password,
+    database: process.env.SUPABASE_DB_NAME || "postgres",
+  };
+}
+
+export function isDatabaseConfigured(): boolean {
+  return getDbConfig() !== null;
+}
+
+export const DB_NOT_CONFIGURED_MESSAGE =
+  "Banco de dados não configurado neste ambiente. Defina SUPABASE_DB_HOST e SUPABASE_DB_PASSWORD " +
+  "como variáveis de ambiente do servidor (nunca no código-fonte).";
+
 export function getDbPool(): pg.Pool {
   if (!pool) {
-    const host = process.env.SUPABASE_DB_HOST || "db.tfyocjdozttclxgipexu.supabase.co";
-    const port = parseInt(process.env.SUPABASE_DB_PORT || "5432", 10);
-    const user = process.env.SUPABASE_DB_USER || "postgres";
-    const password = process.env.SUPABASE_DB_PASSWORD || "ifYz^v2Y97!&4sP";
-    const database = process.env.SUPABASE_DB_NAME || "postgres";
+    const config = getDbConfig();
+    if (!config) throw new Error(DB_NOT_CONFIGURED_MESSAGE);
 
     pool = new Pool({
-      host,
-      port,
-      user,
-      password,
-      database,
-      ssl: { rejectUnauthorized: false },
+      host: config.host,
+      port: config.port,
+      user: config.user,
+      password: config.password,
+      database: config.database,
+      // TLS habilitado com validação de certificado por padrão (evita MITM).
+      // Só desative explicitamente e ciente do risco: SUPABASE_DB_SSL_REJECT_UNAUTHORIZED=false
+      ssl:
+        process.env.SUPABASE_DB_SSL === "disable"
+          ? undefined
+          : { rejectUnauthorized: process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED !== "false" },
       connectionTimeoutMillis: 8000,
       max: 10,
     });
@@ -129,5 +164,98 @@ export async function checkDatabaseConnection(): Promise<DbStatusResult> {
       counts: {},
       error: safeError || "Falha segura na conexão com o banco de dados",
     };
+  }
+}
+
+// =========================================================================
+// CADASTRO DE TENANTS (persistência best-effort)
+// =========================================================================
+
+export interface TenantAccountInput {
+  id: string;
+  name: string;
+  tradeName: string;
+  cnpj: string;
+  stateRegistration?: string;
+  segment?: string;
+  contactName?: string;
+  contactEmail: string;
+  contactPhone?: string;
+  city?: string;
+  uf?: string;
+  branchId?: string;
+}
+
+export interface TenantAccountResult {
+  persisted: boolean;
+  error?: string;
+}
+
+/** Verifica se já existe usuário/tenant com o e-mail informado no banco. */
+export async function emailExistsInDatabase(email: string): Promise<boolean> {
+  if (!isDatabaseConfigured()) return false;
+  const normalized = (email || "").trim().toLowerCase();
+  if (!normalized) return false;
+  try {
+    const db = getDbPool();
+    const result = await db.query(
+      `SELECT 1 FROM "User" WHERE LOWER(email) = $1
+       UNION ALL
+       SELECT 1 FROM "Tenant" WHERE LOWER("contactEmail") = $1
+       LIMIT 1;`,
+      [normalized]
+    );
+    return result.rows.length > 0;
+  } catch (error: any) {
+    // Fail-closed na checagem de duplicidade: em erro assume "existe" para não
+    // permitir sobrescrever/sombrear um cadastro real de terceiro.
+    console.error("[Supabase PG] Falha ao verificar e-mail existente:", error?.message || error);
+    return true;
+  }
+}
+
+/**
+ * Persiste o novo tenant contratante no PostgreSQL.
+ * Retorna `persisted: false` sem lançar exceção: o cadastro continua válido em
+ * memória e a pendência fica registrada para reprocessamento.
+ */
+export async function insertTenantAccount(input: TenantAccountInput): Promise<TenantAccountResult> {
+  if (!isDatabaseConfigured()) {
+    return { persisted: false, error: DB_NOT_CONFIGURED_MESSAGE };
+  }
+  try {
+    const db = getDbPool();
+    const now = new Date().toISOString();
+    const branchId = input.branchId || `branch_${input.id.slice(-10)}`;
+
+    await db.query("BEGIN");
+    await db.query(
+      `INSERT INTO "Tenant" (id, name, "tradeName", cnpj, "stateRegistration", segment, "contactEmail", "contactPhone", city, uf, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+       ON CONFLICT (id) DO NOTHING;`,
+      [
+        input.id,
+        input.name,
+        input.tradeName,
+        input.cnpj,
+        input.stateRegistration || "ISENTO",
+        input.segment || "Autopeças Leves & Acessórios",
+        (input.contactEmail || "").trim().toLowerCase(),
+        input.contactPhone || "",
+        input.city || "",
+        (input.uf || "").toUpperCase(),
+        now,
+      ]
+    );
+    await db.query("COMMIT");
+
+    return { persisted: true };
+  } catch (error: any) {
+    await getDbPool().query("ROLLBACK").catch(() => {});
+    const safeError = String(error?.message || error)
+      .replace(/:[^:@]+@/, ":****@")
+      .slice(0, 200);
+    console.error("[Supabase PG] Falha ao persistir tenant:", safeError);
+    return { persisted: false, error: `Não foi possível persistir no banco: ${safeError}` };
   }
 }

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { apiFetch } from '../services/apiClient';
 import { 
   Bot, 
   Send, 
@@ -56,7 +57,7 @@ export const SuporteChatIA: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/gemini/assist', {
+    const response = await apiFetch('/api/gemini/assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

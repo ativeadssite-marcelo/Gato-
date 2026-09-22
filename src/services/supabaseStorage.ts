@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { apiFetch } from './apiClient';
 
 // Configuration defaults
 export const DEFAULT_SUPABASE_PROJECT_REF = 'tfyocjdozttclxgipexu';
@@ -37,38 +38,55 @@ export interface SupabaseStorageHealth {
 let cachedClient: SupabaseClient | null = null;
 let lastKeyUsed: string = '';
 
+const LEGACY_LOCAL_KEYS = ['gato_supabase_anon_key', 'gato_supabase_url'];
+
 /**
- * Retorna as credenciais configuradas para o Supabase (env ou local storage)
+ * Remove credenciais legadas salvas no navegador.
+ * Versões anteriores permitiam colar uma chave do Supabase na interface e
+ * guardá-la no localStorage — se fosse a service_role key, qualquer XSS
+ * resultaria em comprometimento total do banco. O acesso ao Storage agora
+ * acontece exclusivamente pelo backend autenticado.
+ */
+export function purgeLegacySupabaseCredentials(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    LEGACY_LOCAL_KEYS.forEach((key) => localStorage.removeItem(key));
+    cachedClient = null;
+    lastKeyUsed = '';
+  } catch {
+    /* noop */
+  }
+}
+
+purgeLegacySupabaseCredentials();
+
+/**
+ * Retorna as credenciais públicas do projeto Supabase.
+ * IMPORTANTE: nenhuma chave é lida do localStorage — somente a chave anônima
+ * publicada em build (VITE_SUPABASE_ANON_KEY), quando existir.
  */
 export function getSupabaseConfig(): SupabaseStorageConfig {
   const envUrl = import.meta.env?.VITE_SUPABASE_URL || '';
   const envKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
   const envBucket = import.meta.env?.VITE_SUPABASE_STORAGE_BUCKET || DEFAULT_STORAGE_BUCKET;
 
-  const storedKey = typeof window !== 'undefined' ? (localStorage.getItem('gato_supabase_anon_key') || '') : '';
-  const storedUrl = typeof window !== 'undefined' ? (localStorage.getItem('gato_supabase_url') || '') : '';
-
   return {
-    url: storedUrl || envUrl || DEFAULT_SUPABASE_URL,
-    anonKey: storedKey || envKey || '',
+    url: envUrl || DEFAULT_SUPABASE_URL,
+    anonKey: envKey || '',
     bucket: envBucket || DEFAULT_STORAGE_BUCKET,
     projectRef: DEFAULT_SUPABASE_PROJECT_REF,
   };
 }
 
 /**
- * Salva credenciais do Supabase no storage local caso o usuário queira configurar manualmente
+ * @deprecated Mantido apenas para compatibilidade de importação.
+ * Nunca persiste chaves do Supabase no navegador.
  */
-export function setCustomSupabaseCredentials(anonKey: string, customUrl?: string): void {
-  if (typeof window !== 'undefined') {
-    if (anonKey) localStorage.setItem('gato_supabase_anon_key', anonKey);
-    else localStorage.removeItem('gato_supabase_anon_key');
-
-    if (customUrl) localStorage.setItem('gato_supabase_url', customUrl);
-    else localStorage.removeItem('gato_supabase_url');
-
-    cachedClient = null;
-  }
+export function setCustomSupabaseCredentials(_anonKey?: string, _customUrl?: string): void {
+  console.warn(
+    '[GATO Security] setCustomSupabaseCredentials foi descontinuada: chaves de Storage não são mais armazenadas no navegador.'
+  );
+  purgeLegacySupabaseCredentials();
 }
 
 /**
@@ -119,7 +137,7 @@ export async function checkSupabaseStorageHealth(): Promise<SupabaseStorageHealt
   const client = getSupabaseClient();
 
   try {
-    const res = await fetch('/api/storage/health');
+    const res = await apiFetch('/api/storage/health');
     if (res.ok) {
       const data = await res.json();
       return {
@@ -187,41 +205,18 @@ export async function uploadLogoToSupabase(
   const safeFileName = `logo_${Date.now()}.${extension}`;
   const storagePath = `${cleanTenantId}/${safeFileName}`;
 
-  options?.onProgress?.(35, 'Conectando ao Supabase Storage...');
+  options?.onProgress?.(40, 'Enviando para o backend seguro...');
 
-  // 2. Se o cliente SDK direto estiver disponível e configurado, tenta via @supabase/supabase-js
-  const client = getSupabaseClient();
-  let directSdkSuccess = false;
-  let directPublicUrl = '';
-
-  if (client) {
-    try {
-      options?.onProgress?.(55, 'Enviando arquivo via API do Supabase Storage...');
-      const { data, error } = await client.storage
-        .from(bucketName)
-        .upload(storagePath, fileOrBlob, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: mimeType,
-        });
-
-      if (!error && data) {
-        const { data: pubData } = client.storage.from(bucketName).getPublicUrl(storagePath);
-        directPublicUrl = pubData.publicUrl;
-        directSdkSuccess = true;
-      } else {
-        console.warn('[Supabase JS SDK Upload Error, using backend proxy]:', error);
-      }
-    } catch (sdkErr) {
-      console.warn('[Supabase JS SDK exception]:', sdkErr);
-    }
-  }
-
-  // 3. Sincroniza com a API do backend para persistência estrita no banco PostgreSQL ("Tenant" table)
+  // 2. O upload acontece SEMPRE pelo backend autenticado:
+  //    - valida tipo/tamanho e o tenant da sessão (isolamento multi-tenant);
+  //    - usa a chave de serviço somente no servidor;
+  //    - registra o evento na trilha de auditoria.
+  //    Antes havia um caminho alternativo que enviava o arquivo direto do
+  //    navegador para o Supabase usando uma chave guardada em localStorage.
   options?.onProgress?.(75, 'Persistindo metadados e vinculando ao tenant_id...');
   const base64Data = await fileToDataUrl(fileOrBlob);
 
-  const response = await fetch('/api/storage/logo/upload', {
+    const response = await apiFetch('/api/storage/logo/upload', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -244,9 +239,7 @@ export async function uploadLogoToSupabase(
   const resultData = await response.json();
   options?.onProgress?.(100, 'Upload finalizado com sucesso!');
 
-  const finalPublicUrl = directSdkSuccess && directPublicUrl 
-    ? directPublicUrl 
-    : resultData.publicUrl || `${config.url}/storage/v1/object/public/${bucketName}/${storagePath}`;
+  const finalPublicUrl = resultData.publicUrl || `${config.url}/storage/v1/object/public/${bucketName}/${storagePath}`;
 
   return {
     success: true,
@@ -266,7 +259,7 @@ export async function uploadLogoToSupabase(
 export async function deleteLogoFromSupabase(tenantId: string): Promise<boolean> {
   const cleanTenantId = tenantId.trim();
   try {
-    const response = await fetch(`/api/storage/logo/${cleanTenantId}`, {
+    const response = await apiFetch(`/api/storage/logo/${cleanTenantId}`, {
       method: 'DELETE',
       headers: {
         'x-tenant-id': cleanTenantId,

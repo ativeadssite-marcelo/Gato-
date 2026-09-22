@@ -23,6 +23,7 @@ import {
 import { GatoBrand } from './GatoBrand';
 import { PushNotification, UserSession, CompanyProfile } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
+import { apiFetch } from '../services/apiClient';
 import marceloAvatar from '../assets/images/marcelo_avatar_1789396180527.jpg';
 
 interface HeaderProps {
@@ -88,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
   const activeBranch = INITIAL_BRANCHES.find(b => b.id === activeStore) || INITIAL_BRANCHES[0];
 
   useEffect(() => {
-    fetch('/api/db/status')
+    apiFetch('/api/db/status')
       .then(res => res.json())
       .then(data => {
         setDbStatus({
