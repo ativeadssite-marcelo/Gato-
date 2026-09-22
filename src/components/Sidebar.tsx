@@ -19,10 +19,9 @@ import {
   ChevronRight,
   ChevronLeft,
   ShieldCheck,
+  Shield,
   Zap,
   Globe,
-  PanelLeftClose,
-  PanelLeftOpen,
   Cable,
   MessageSquareShare
 } from 'lucide-react';
@@ -60,32 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed: externalIsCollapsed,
   onToggleCollapse: externalOnToggleCollapse,
 }) => {
-  // Local collapse state with localStorage persistence if not controlled externally
-  const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('gato_sidebar_collapsed') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const isCollapsed = externalIsCollapsed !== undefined ? externalIsCollapsed : internalCollapsed;
-
-  const toggleCollapse = () => {
-    if (externalOnToggleCollapse) {
-      externalOnToggleCollapse();
-    } else {
-      setInternalCollapsed(prev => {
-        const next = !prev;
-        try {
-          localStorage.setItem('gato_sidebar_collapsed', String(next));
-        } catch {
-          // ignore
-        }
-        return next;
-      });
-    }
-  };
+  const isCollapsed = externalIsCollapsed !== undefined ? externalIsCollapsed : false;
   // Primary items matching standard navigation with Início and Consulta de Peças
   const primaryNavItems = [
     {
@@ -163,6 +137,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: 'RFB',
     },
     {
+      id: 'rbac',
+      label: 'Governança & RBAC',
+      icon: Shield,
+      aliases: ['rbac', 'admin-rbac', 'governanca', 'tenants', 'acesso', 'seguranca'],
+      badge: 'Multi-Tenant',
+    },
+    {
       id: 'configuracoes',
       label: 'Configurações',
       icon: Settings,
@@ -222,24 +203,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => handleSelect('dashboard')}
             title="GATO Auto Peças - Início"
           >
-            <GatoBrand size="md" showSubtitle={!isCollapsed} iconOnly={isCollapsed} variant="dark" />
+            <GatoBrand 
+              size="md" 
+              showSubtitle={!isCollapsed} 
+              iconOnly={isCollapsed} 
+              variant="dark"
+              customLogoUrl={companyProfile?.logoUrl}
+              tradeName={companyProfile?.tradeName}
+            />
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Desktop Collapse Toggle Button */}
-            <button
-              type="button"
-              onClick={toggleCollapse}
-              title={isCollapsed ? 'Expandir barra de menu' : 'Recolher barra de menu'}
-              className="hidden lg:flex p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/40 hover:bg-slate-800 border border-slate-700/30 transition-all cursor-pointer shadow-xs"
-            >
-              {isCollapsed ? (
-                <PanelLeftOpen className="w-4 h-4 text-[#EA580C]" />
-              ) : (
-                <PanelLeftClose className="w-4 h-4" />
-              )}
-            </button>
-
             {/* Mobile close button */}
             <button
               type="button"

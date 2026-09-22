@@ -129,7 +129,12 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <div className="cursor-pointer" onClick={() => onNavigate('dashboard')}>
-            <GatoBrand size="md" showSubtitle={true} />
+            <GatoBrand 
+              size="md" 
+              showSubtitle={true} 
+              customLogoUrl={companyProfile?.logoUrl}
+              tradeName={companyProfile?.tradeName}
+            />
           </div>
 
           {/* Destaque do Nome Fantasia da Empresa Cadastrada */}
@@ -139,10 +144,14 @@ export const Header: React.FC<HeaderProps> = ({
               id="header-company-trade-name-btn"
               onClick={() => onNavigate('empresa-filiais')}
               className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100/80 border border-amber-300 text-slate-800 transition cursor-pointer text-left shadow-2xs group"
-              title="Clique para gerenciar dados da Empresa & Filiais"
+              title="Clique para gerenciar dados da Empresa & Baixar Logotipo"
             >
-              <div className="p-1 bg-amber-500 text-slate-950 rounded-md group-hover:scale-105 transition">
-                <Store className="w-3 h-3" />
+              <div className="w-6 h-6 rounded-md overflow-hidden bg-amber-500 text-slate-950 flex items-center justify-center group-hover:scale-105 transition shrink-0">
+                {companyProfile.logoUrl ? (
+                  <img src={companyProfile.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <Store className="w-3.5 h-3.5" />
+                )}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -361,6 +370,19 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <Store className="w-4 h-4 text-amber-600" />
                     <span>Gerenciar Empresa & Filiais</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="header-user-menu-download-logo-btn"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onNavigate('empresa-filiais');
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-slate-700 hover:bg-sky-50 hover:text-sky-900 font-bold flex items-center gap-2 transition cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-sky-600" />
+                    <span>Baixar Logo & Personalização</span>
                   </button>
 
                   <button

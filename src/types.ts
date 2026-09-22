@@ -68,6 +68,7 @@ export interface VehicleApplication {
 
 export interface CompanyProfile {
   id: string;
+  tenantId?: string;         // ID do Tenant no Supabase (Isolamento Multi-Tenant)
   tradeName: string;         // Nome Fantasia da Empresa Vendedora (Destaque Principal)
   corporateName: string;     // Razão Social Oficial
   cnpj: string;              // CNPJ formatado da Matriz

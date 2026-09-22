@@ -17,7 +17,7 @@ import {
   Tag,
   AlertCircle
 } from 'lucide-react';
-import { Quote, MarketingLead } from '../types';
+import { Quote, MarketingLead, CompanyProfile } from '../types';
 import {
   DEFAULT_COMPANY_RECEIPT_INFO,
   generateCupomFiscalText,
@@ -25,6 +25,7 @@ import {
   sendWhatsappMessage,
   CompanyReceiptInfo
 } from '../utils/quoteMarketingSync';
+import { downloadLogoFormat } from '../utils/logoDownloadKit';
 
 interface CupomFiscalModalProps {
   isOpen: boolean;
@@ -199,6 +200,36 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
             >
               <Download className="w-3.5 h-3.5" />
               <span>Texto Puro (TXT)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const compProfile: CompanyProfile = {
+                  id: 'current',
+                  corporateName: companyInfo.name,
+                  tradeName: companyInfo.fantasyName,
+                  cnpj: companyInfo.cnpj,
+                  stateRegistration: companyInfo.ie,
+                  address: companyInfo.address,
+                  city: companyInfo.city,
+                  uf: companyInfo.uf,
+                  phone: companyInfo.whatsapp || companyInfo.phone,
+                  email: '',
+                  segment: 'Autopeças & Serviços',
+                  isTrial: false,
+                  trialDaysRemaining: 0,
+                  planName: 'GATO Pro',
+                  createdAt: new Date().toISOString(),
+                };
+                downloadLogoFormat(compProfile, 'banner');
+                onShowNotification?.('Download Concluído', 'Cabeçalho e logotipo da empresa baixados para personalização do documento.', 'success');
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200"
+              title="Baixar Logotipo e Cabeçalho da Empresa"
+            >
+              <Download className="w-3.5 h-3.5 text-sky-600" />
+              <span>Baixar Logo / Cabeçalho</span>
             </button>
           </div>
 

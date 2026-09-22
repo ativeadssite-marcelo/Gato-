@@ -25,6 +25,7 @@ import { ConsultaPecasView } from './components/ConsultaPecasView';
 import { FornecedoresManager } from './components/FornecedoresManager';
 import { ConnectorsManager } from './components/ConnectorsManager';
 import { AdminImpostosFiscal } from './components/AdminImpostosFiscal';
+import { AdminRbacMultiTenant } from './components/AdminRbacMultiTenant';
 
 import { 
   INITIAL_PRODUCTS, 
@@ -1019,6 +1020,11 @@ export default function App() {
             <RelatoriosFinanceiros
               orders={orders}
               products={products}
+              customers={customers}
+              invoices={invoices}
+              payables={payables}
+              receivables={receivables}
+              companyProfile={companyProfile}
             />
           )}
 
@@ -1032,6 +1038,12 @@ export default function App() {
               branches={branches}
               products={products}
               onShowNotification={showNotification}
+            />
+          )}
+
+          {(currentView === 'rbac' || currentView === 'admin-rbac' || currentView === 'governanca' || currentView === 'tenants' || currentView === 'seguranca') && (
+            <AdminRbacMultiTenant
+              onNotify={(msg, type) => showNotification(msg, '', type === 'error' ? 'warning' : (type || 'info'))}
             />
           )}
 

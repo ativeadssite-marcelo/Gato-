@@ -30,10 +30,12 @@ import {
   Table as TableIcon,
   CreditCard,
   UserCheck,
-  Ban
+  Ban,
+  Download
 } from 'lucide-react';
 import { Customer, CustomerType, CustomerDiscountPolicy, Quote, QuoteStatus, Product, MarketingLead, CompanyProfile } from '../types';
 import { DEFAULT_DISCOUNT_POLICIES } from '../data/initialData';
+import { downloadLogoFormat } from '../utils/logoDownloadKit';
 import { CustomerModal } from './CustomerModal';
 import { CustomerDetailModal } from './CustomerDetailModal';
 import { CupomFiscalModal } from './CupomFiscalModal';
@@ -1368,6 +1370,21 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                   <MessageCircle className="w-4 h-4 text-emerald-200" />
                   <span>Enviar WhatsApp & CRM</span>
                 </button>
+
+                {companyProfile && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadLogoFormat(companyProfile, 'banner');
+                      onShowNotification?.('Download Concluído', 'Cabeçalho da empresa baixado para personalização do orçamento.', 'success');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                    title="Baixar Banner com Logo da Empresa para Personalizar Orçamento"
+                  >
+                    <Download className="w-4 h-4 text-amber-300" />
+                    <span>Baixar Logo / Banner</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

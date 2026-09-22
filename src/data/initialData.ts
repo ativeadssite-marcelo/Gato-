@@ -29,6 +29,7 @@ import {
 
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   id: 'empresa-001',
+  tenantId: 'cmtt58e6o0000ju346a0g6s32', // Tenant ID associado no Supabase
   tradeName: 'GATO Autopeças & Distribuidora', // Nome Fantasia Oficial
   corporateName: 'GATO Comércio e Distribuição de Autopeças LTDA', // Razão Social Oficial
   cnpj: '12.345.678/0001-90',

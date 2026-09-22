@@ -18,9 +18,13 @@ import {
   AlertTriangle,
   Layers,
   Sparkles,
-  Info
+  Info,
+  Database,
+  CloudUpload
 } from 'lucide-react';
 import { CompanyProfile, BranchUnit } from '../types';
+import { ClienteLogoCustomizer } from './ClienteLogoCustomizer';
+import { SupabaseLogoUploader } from './SupabaseLogoUploader';
 
 interface EmpresaFiliaisManagerProps {
   companyProfile: CompanyProfile;
@@ -44,6 +48,7 @@ export const EmpresaFiliaisManager: React.FC<EmpresaFiliaisManagerProps> = ({
   // Local state for editing Company Profile
   const [profileForm, setProfileForm] = useState<CompanyProfile>({ ...companyProfile });
   const [isSavedCompany, setIsSavedCompany] = useState(false);
+  const [logoMode, setLogoMode] = useState<'supabase' | 'customizer'>('supabase');
 
   // Local state for Branch Modal (Create or Edit)
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
@@ -106,6 +111,12 @@ export const EmpresaFiliaisManager: React.FC<EmpresaFiliaisManagerProps> = ({
     setIsSavedCompany(true);
     setTimeout(() => setIsSavedCompany(false), 2500);
     onShowNotification('Empresa Atualizada', 'Os dados da empresa foram salvos e atualizados em todo o Sistema GATO.', 'success');
+  };
+
+  const handleUpdateLogo = (newLogoUrl: string | undefined) => {
+    const updated = { ...profileForm, logoUrl: newLogoUrl };
+    setProfileForm(updated);
+    onUpdateCompanyProfile(updated);
   };
 
   const handleOpenAddBranch = () => {
@@ -247,6 +258,65 @@ export const EmpresaFiliaisManager: React.FC<EmpresaFiliaisManagerProps> = ({
         </div>
       </div>
 
+      {/* Seletor de Modo de Identidade Visual e Logotipo */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-2 bg-slate-100/90 rounded-2xl border border-slate-200">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setLogoMode('supabase')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                logoMode === 'supabase'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Database className="w-4 h-4 text-emerald-300" />
+              Upload via Supabase Storage
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-700/60 text-emerald-100 font-mono">
+                API
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLogoMode('customizer')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                logoMode === 'customizer'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              Gerador & Download Kit
+            </button>
+          </div>
+
+          <div className="text-[11px] text-slate-500 font-medium px-2">
+            {logoMode === 'supabase' ? (
+              <span>Salvamento em nuvem com isolamento estrito por <code className="text-emerald-700 font-mono font-bold">tenant_id</code></span>
+            ) : (
+              <span>Exportação em múltiplos formatos (PNG, SVG, Favicon) via Canvas</span>
+            )}
+          </div>
+        </div>
+
+        {logoMode === 'supabase' ? (
+          <SupabaseLogoUploader
+            companyProfile={profileForm}
+            tenantId={profileForm.tenantId || profileForm.id || 'cmtt58e6o0000ju346a0g6s32'}
+            onLogoUploaded={handleUpdateLogo}
+            onShowNotification={onShowNotification}
+          />
+        ) : (
+          <ClienteLogoCustomizer
+            companyProfile={profileForm}
+            onUpdateLogo={handleUpdateLogo}
+            onShowNotification={onShowNotification}
+          />
+        )}
+      </div>
+
       {/* Grid: 2 Colunas (Dados da Empresa + Unidades Matriz/Filiais) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
@@ -257,8 +327,12 @@ export const EmpresaFiliaisManager: React.FC<EmpresaFiliaisManagerProps> = ({
           <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                  <Store className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-400/30 flex items-center justify-center overflow-hidden shrink-0">
+                  {profileForm.logoUrl ? (
+                    <img src={profileForm.logoUrl} alt="Logo da Empresa" className="w-full h-full object-contain" />
+                  ) : (
+                    <Store className="w-5 h-5" />
+                  )}
                 </div>
                 <div>
                   <h2 className="text-sm font-extrabold text-slate-900">

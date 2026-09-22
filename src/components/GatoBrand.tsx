@@ -8,6 +8,8 @@ interface GatoBrandProps {
   variant?: 'dark' | 'light';
   iconOnly?: boolean;
   fullBanner?: boolean;
+  customLogoUrl?: string;
+  tradeName?: string;
   className?: string;
 }
 
@@ -18,6 +20,8 @@ export const GatoBrand: React.FC<GatoBrandProps> = ({
   variant = 'dark',
   iconOnly = false,
   fullBanner = false,
+  customLogoUrl,
+  tradeName,
   className = '',
 }) => {
   const isSm = size === 'sm';
@@ -45,16 +49,16 @@ export const GatoBrand: React.FC<GatoBrandProps> = ({
 
   return (
     <div className={`flex items-center gap-3 select-none ${className}`} id="gato-brand-header">
-      {/* Official 3D Mascot Emblem (Cat in Hoodie + Gear) */}
+      {/* Official 3D Mascot Emblem (Cat in Hoodie + Gear) or Client Custom Logo */}
       <div 
-        className={`relative overflow-hidden rounded-xl border border-amber-500/50 shadow-md bg-black shrink-0 transition-transform duration-300 hover:scale-105 ${
+        className={`relative overflow-hidden rounded-xl border border-amber-500/50 shadow-md ${customLogoUrl ? 'bg-white p-0.5' : 'bg-black'} shrink-0 transition-transform duration-300 hover:scale-105 ${
           isSm ? 'w-8 h-8' : isLg ? 'w-12 h-12' : isXl ? 'w-16 h-16' : 'w-10 h-10'
         }`}
       >
         <img 
-          src={gatoLogoOfficial} 
-          alt="GATO Logo" 
-          className="w-full h-full object-cover object-[center_28%] scale-125"
+          src={customLogoUrl || gatoLogoOfficial} 
+          alt={tradeName ? `Logo ${tradeName}` : 'GATO Logo'} 
+          className={`w-full h-full ${customLogoUrl ? 'object-contain' : 'object-cover object-[center_28%] scale-125'}`}
           referrerPolicy="no-referrer"
         />
         {/* Subtle glossy overlay rim */}

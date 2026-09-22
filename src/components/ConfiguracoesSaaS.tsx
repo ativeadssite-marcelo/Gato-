@@ -35,6 +35,7 @@ import {
 import { Product, Order, Customer, InvoiceRecord, CompanyProfile, BranchUnit } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
 import { formatImageSize, optimizeImageDataUrl } from '../utils/imageOptimizer';
+import { ClienteLogoCustomizer } from './ClienteLogoCustomizer';
 
 interface ConfiguracoesSaaSProps {
   products: Product[];
@@ -497,6 +498,19 @@ export const ConfiguracoesSaaS: React.FC<ConfiguracoesSaaSProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Logotipo da Empresa & Personalização Visual para Clientes */}
+      {companyProfile && (
+        <ClienteLogoCustomizer
+          companyProfile={companyProfile}
+          onUpdateLogo={(newLogo) => {
+            if (onUpdateCompanyProfile) {
+              onUpdateCompanyProfile({ ...companyProfile, logoUrl: newLogo });
+            }
+          }}
+          onShowNotification={onShowNotification}
+        />
+      )}
 
       {/* Smart WebP Database Storage & Image Optimization Card */}
       <div className="bg-white rounded-2xl p-5 border border-sky-100 shadow-sm space-y-4 text-xs" id="card-motor-imagens-webp">

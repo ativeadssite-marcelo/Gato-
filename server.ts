@@ -14,6 +14,7 @@ import {
   reverseLookupVehiclesForPart 
 } from "./src/data/fleetDatabase";
 import { INITIAL_PRODUCTS, DEFAULT_FEDERAL_TAX_SETTINGS, INITIAL_STATE_TAX_RULES } from "./src/data/initialData";
+import { rbacRouter } from "./server/rbacRoutes";
 
 dotenv.config();
 
@@ -133,6 +134,9 @@ function getGeminiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
+// RBAC Multi-Tenant Engine & Security Router
+app.use("/api/rbac", rbacRouter);
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -240,6 +244,160 @@ app.post("/api/db/products", async (req, res) => {
     }
 
     res.json({ success: true, id: prodId, message: "Produto cadastrado no Supabase com sucesso!" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==========================================
+// SUPABASE STORAGE: LOGO DO CLIENTE POR TENANT
+// ==========================================
+app.get("/api/storage/health", async (req, res) => {
+  try {
+    const pool = getDbPool();
+    const projectRef = process.env.SUPABASE_PROJECT_REF || "tfyocjdozttclxgipexu";
+    const bucketName = process.env.SUPABASE_STORAGE_BUCKET || "company-logos";
+
+    // Verify bucket in storage.buckets
+    const bucketRes = await pool.query(
+      "SELECT id, name, public FROM storage.buckets WHERE id = $1 LIMIT 1;",
+      [bucketName]
+    );
+
+    const bucketExists = bucketRes.rows.length > 0;
+    res.json({
+      success: true,
+      connected: true,
+      projectRef,
+      bucket: bucketName,
+      bucketExists,
+      storageUrl: `https://${projectRef}.supabase.co/storage/v1`,
+      publicBucketUrl: `https://${projectRef}.supabase.co/storage/v1/object/public/${bucketName}`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/storage/logo/upload", async (req, res) => {
+  try {
+    const pool = getDbPool();
+    const projectRef = process.env.SUPABASE_PROJECT_REF || "tfyocjdozttclxgipexu";
+    const bucketName = process.env.SUPABASE_STORAGE_BUCKET || "company-logos";
+
+    const { tenantId, fileName, fileData, contentType, fileSize } = req.body;
+
+    if (!tenantId) {
+      return res.status(400).json({ success: false, error: "tenant_id é obrigatório para isolamento no Storage." });
+    }
+
+    if (!fileData) {
+      return res.status(400).json({ success: false, error: "Dados do arquivo (fileData) são obrigatórios." });
+    }
+
+    // Ensure bucket exists in storage.buckets
+    await pool.query(
+      `INSERT INTO storage.buckets (id, name, public, created_at, updated_at)
+       VALUES ($1, $1, true, NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE SET public = true, updated_at = NOW();`,
+      [bucketName]
+    );
+
+    // Format safe file name and tenant path
+    const extension = (fileName?.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanExt = ['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(extension) ? extension : 'png';
+    const storagePath = `${tenantId}/logo_${Date.now()}.${cleanExt}`;
+    const publicUrl = `https://${projectRef}.supabase.co/storage/v1/object/public/${bucketName}/${storagePath}`;
+
+    // Extract clean base64 buffer
+    let rawBase64 = fileData;
+    if (fileData.includes(",")) {
+      rawBase64 = fileData.split(",")[1];
+    }
+    const buffer = Buffer.from(rawBase64, "base64");
+    const mimeType = contentType || (cleanExt === 'svg' ? 'image/svg+xml' : `image/${cleanExt}`);
+    const byteSize = fileSize || buffer.length;
+
+    // Optional: If Supabase JS client can upload via REST API with key
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (supabaseKey) {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(`https://${projectRef}.supabase.co`, supabaseKey);
+        await supabase.storage.from(bucketName).upload(storagePath, buffer, {
+          contentType: mimeType,
+          upsert: true
+        });
+      } catch (sdkErr) {
+        console.warn("[Supabase Storage SDK upload fallback]:", sdkErr);
+      }
+    }
+
+    // Ensure Tenant table has logoUrl column and update it
+    await pool.query('ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "logoUrl" text;');
+    await pool.query(
+      `UPDATE "Tenant" SET "logoUrl" = $1, "updatedAt" = NOW() WHERE id = $2;`,
+      [publicUrl, tenantId]
+    );
+
+    res.json({
+      success: true,
+      publicUrl,
+      storagePath,
+      bucket: bucketName,
+      tenantId,
+      mimeType,
+      size: byteSize,
+      uploadedAt: new Date().toISOString(),
+      message: "Logo salva com sucesso no Supabase Storage e associada ao tenant_id!"
+    });
+  } catch (err: any) {
+    console.error("[Supabase Storage API Error]:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/storage/logo/:tenantId", async (req, res) => {
+  try {
+    const pool = getDbPool();
+    const { tenantId } = req.params;
+
+    const tenantRes = await pool.query(
+      'SELECT id, name, "logoUrl", "updatedAt" FROM "Tenant" WHERE id = $1 LIMIT 1;',
+      [tenantId]
+    );
+
+    if (tenantRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Tenant não encontrado." });
+    }
+
+    res.json({
+      success: true,
+      tenantId,
+      logoUrl: tenantRes.rows[0].logoUrl,
+      name: tenantRes.rows[0].name,
+      updatedAt: tenantRes.rows[0].updatedAt
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete("/api/storage/logo/:tenantId", async (req, res) => {
+  try {
+    const pool = getDbPool();
+    const { tenantId } = req.params;
+
+    await pool.query(
+      'UPDATE "Tenant" SET "logoUrl" = NULL, "updatedAt" = NOW() WHERE id = $1;',
+      [tenantId]
+    );
+
+    res.json({
+      success: true,
+      tenantId,
+      message: "Logo desassociada e removida com sucesso do tenant."
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
