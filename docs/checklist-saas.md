@@ -46,7 +46,7 @@
 - [x] Ao cadastrar, criar tenant com `status = trial` e `trial_fim` — `register-company` cria `status: "trial"` (14 dias)
 - [ ] E-mail de boas-vindas com data de fim do trial <!-- parcial: template `trial_welcome` existe; não é disparado no cadastro -->
 - [x] Cron diário: aviso 3 dias, 1 dia e no dia do fim — `checkTrials()` em `server/notifications/cron.ts`
-- [ ] Ao expirar sem pagamento: `status = expired` → modo somente leitura <!-- parcial: `expireTrials()` marca `expired`; enforcement de acesso ainda não ligado ao middleware -->
+- [x] Ao expirar sem pagamento: `status = expired` → modo somente leitura <!-- enforcement no middleware: `expired` libera leitura e devolve 402 `SUBSCRIPTION_EXPIRED` em escrita -->
 - [ ] Após carência configurável: `status = suspended`
 - [x] Rota de conversão trial → pago — `POST /api/billing/subscribe`
 
@@ -63,7 +63,7 @@
 ## FASE 6 — Webhooks e Ciclo de Vida da Assinatura
 - [x] `invoice.paid` → fatura paga, assinatura `active`, estende próxima cobrança — `applyGatewayPaymentEvent`
 - [x] `invoice.payment_failed` → `past_due` + e-mail de cobrança <!-- parcial: status `past_due`; e-mail de cobrança via cron de vencimento -->
-- [ ] `subscription.canceled` → `canceled` + bloqueio de acesso <!-- parcial: `cancelSubscription` marca `canceled`; bloqueio de acesso não ligado ao middleware -->
+- [x] `subscription.canceled` → `canceled` + bloqueio de acesso <!-- enforcement no middleware: `canceled`/`suspended` devolvem 403 e bloqueiam leitura e escrita -->
 - [ ] `subscription.updated` → sincroniza plano <!-- parcial: `SUBSCRIPTION_UPDATE` mapeia para `active`; não sincroniza plano -->
 - [ ] Retentativas de cobrança (dunning) configuradas no gateway
 - [x] Mapeamento claro de status: trial / active / past_due / suspended / canceled / expired — `SubscriptionStatus` + `mapAsaasEventToStatus`

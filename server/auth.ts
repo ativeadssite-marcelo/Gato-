@@ -32,6 +32,7 @@ import {
   AVAILABLE_USERS,
   DEFAULT_COMPANY_PROFILE,
 } from "../src/data/initialData";
+import { evaluateSubscriptionAccess, getTenantAccess } from "./billing/subscriptions";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -809,7 +810,68 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     ip: getClientIp(req),
     tokenId: payload.jti,
   };
-  return next();
+  return enforceSubscriptionAccess(req, res, next);
+}
+
+/**
+ * Rota que permanece acessível mesmo com assinatura bloqueada: identidade/sessão
+ * (`/api/auth/*`) e autosserviço de billing (`/api/billing/*`) — o caminho para o
+ * tenant consultar e reativar a própria assinatura. Webhooks (sem sessão) e as
+ * rotas admin do billing (escopo SaaS) não chegam a este gate.
+ */
+function isSubscriptionSelfService(req: Request): boolean {
+  const fullPath = req.baseUrl + req.path;
+  return fullPath.startsWith("/api/auth") || fullPath.startsWith("/api/billing");
+}
+
+/**
+ * Gate de assinatura executado ao final do `requireAuth`. Isenta o escopo SaaS
+ * (a equipe da plataforma gerencia tenants em qualquer status) e o autosserviço.
+ * Tenant com trial/active/past_due segue; `expired` vira somente leitura (escrita
+ * retorna 402); `suspended`/`canceled` são bloqueados (403). Bloqueios geram
+ * trilha de auditoria.
+ */
+function enforceSubscriptionAccess(
+  req: Request,
+  res: Response,
+  proceed: NextFunction,
+): void {
+  const auth = req.auth;
+  if (!auth) return proceed();
+
+  if (auth.isSaasScope) return proceed();
+  if (isSubscriptionSelfService(req)) return proceed();
+
+  getTenantAccess(auth.tenantId)
+    .then((access) => {
+      const decision = evaluateSubscriptionAccess(access.status, req.method);
+      if (decision.kind === "allowed") return proceed();
+
+      recordAudit(
+        req,
+        auth.user,
+        `BLOCKED_${decision.code}`,
+        "billing_contracts",
+        auth.tenantId,
+        "blocked",
+        { details: `status=${access.status} method=${req.method}`, anomalous: true },
+      );
+
+      return res.status(decision.status).json({
+        success: false,
+        code: decision.code,
+        error: decision.error,
+        suggestion: decision.suggestion,
+        subscriptionStatus: decision.subscriptionStatus,
+      });
+    })
+    .catch((err: unknown) => {
+      // Falha ao consultar o store de billing: não derruba a aplicação
+      // (fail-open) — o espelho em memória raramente falha. Registra para triagem.
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[GATO Auth] Falha ao verificar acesso de assinatura:", message);
+      return proceed();
+    });
 }
 
 /** Bloqueia escrita (POST/PUT/PATCH/DELETE) para papéis somente leitura. */

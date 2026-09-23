@@ -63,6 +63,65 @@ export function isAccessGranted(status: SubscriptionStatus): boolean {
   return status === "trial" || status === "active" || status === "past_due";
 }
 
+/** Decisão de enforcement de acesso por status de assinatura + método HTTP. */
+export type SubscriptionAccessDecision =
+  | { kind: "allowed" }
+  | {
+      kind: "blocked";
+      status: number;
+      code:
+        | "SUBSCRIPTION_EXPIRED"
+        | "SUBSCRIPTION_SUSPENDED"
+        | "SUBSCRIPTION_CANCELED";
+      error: string;
+      suggestion: "upgrade" | "reactivate";
+      subscriptionStatus: SubscriptionStatus;
+    };
+
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * Regra de acesso por status (usada pelo middleware `requireAuth`):
+ * - trial / active / past_due: liberado.
+ * - expired: somente leitura — leituras passam, escritas retornam 402
+ *   (`SUBSCRIPTION_EXPIRED`) com sugestão de upgrade.
+ * - suspended / canceled: bloqueio total — 403 com sugestão de reativação.
+ */
+export function evaluateSubscriptionAccess(
+  status: SubscriptionStatus,
+  method: string,
+): SubscriptionAccessDecision {
+  if (isAccessGranted(status)) return { kind: "allowed" };
+
+  if (status === "expired") {
+    if (!WRITE_METHODS.has((method || "GET").toUpperCase())) return { kind: "allowed" };
+    return {
+      kind: "blocked",
+      status: 402,
+      code: "SUBSCRIPTION_EXPIRED",
+      error:
+        "Sua assinatura expirou. Renove o plano para voltar a editar os dados.",
+      suggestion: "upgrade",
+      subscriptionStatus: status,
+    };
+  }
+
+  return {
+    kind: "blocked",
+    status: 403,
+    code:
+      status === "suspended"
+        ? "SUBSCRIPTION_SUSPENDED"
+        : "SUBSCRIPTION_CANCELED",
+    error:
+      status === "suspended"
+        ? "Assinatura suspensa. Regularize o pagamento para voltar a usar o GATO."
+        : "Assinatura cancelada. Reative o plano para voltar a usar o GATO.",
+    suggestion: "reactivate",
+    subscriptionStatus: status,
+  };
+}
+
 /** Cria (ou devolve) a assinatura trial de um tenant. */
 export async function ensureTrialSubscription(
   tenantId: string,
