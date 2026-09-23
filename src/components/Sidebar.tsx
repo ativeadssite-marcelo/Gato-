@@ -25,7 +25,8 @@ import {
   Cable,
   MessageSquareShare,
   CreditCard,
-  DollarSign
+  DollarSign,
+  Database
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { UserSession, BranchUnit, CompanyProfile } from '../types';
@@ -152,6 +153,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: DollarSign,
       aliases: ['financeiro-saas', 'mrr', 'churn'],
       badge: 'MRR',
+    },
+    {
+      id: 'banco-dados',
+      label: 'Banco de Dados',
+      icon: Database,
+      aliases: ['banco-dados', 'database', 'credenciais'],
+      badge: 'DB',
     },
     {
       id: 'configuracoes',

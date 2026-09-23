@@ -11,7 +11,7 @@ import { TENANTS_DATA } from "../rbacEngine";
 import { listInvoices, listSubscriptions, setInvoiceStatus } from "../store";
 import { expireTrials } from "../billing/subscriptions";
 import { renderTemplate } from "./templates";
-import { sendTransactionalEmail } from "./email";
+import { enqueueEmail } from "./queue";
 
 const DAY_MS = 86400000;
 
@@ -69,7 +69,7 @@ export async function checkDueInvoices(): Promise<CronRunSummary> {
         daysText: daysText(d),
       });
       if (rendered) {
-        const res = await sendTransactionalEmail({
+        enqueueEmail({
           to: email,
           subject: rendered.subject,
           text: rendered.text,
@@ -77,7 +77,7 @@ export async function checkDueInvoices(): Promise<CronRunSummary> {
           tenantId: inv.tenantId,
           dedupeKey: `fatura:${inv.id}:d${d}`,
         });
-        if (res.sent) summary.remindersSent += 1;
+        summary.remindersSent += 1;
       }
     }
 
@@ -92,7 +92,7 @@ export async function checkDueInvoices(): Promise<CronRunSummary> {
           daysLate: String(late),
         });
         if (rendered) {
-          const res = await sendTransactionalEmail({
+          enqueueEmail({
             to: email,
             subject: rendered.subject,
             text: rendered.text,
@@ -100,7 +100,7 @@ export async function checkDueInvoices(): Promise<CronRunSummary> {
             tenantId: inv.tenantId,
             dedupeKey: `fatura:${inv.id}:late${late}`,
           });
-          if (res.sent) summary.overdueNoticesSent += 1;
+          summary.overdueNoticesSent += 1;
         }
       }
       await setInvoiceStatus(inv.id, "overdue");
@@ -129,7 +129,7 @@ export async function checkTrials(): Promise<number> {
         daysLeft: String(d),
       });
       if (rendered) {
-        await sendTransactionalEmail({
+        enqueueEmail({
           to: email,
           subject: rendered.subject,
           text: rendered.text,

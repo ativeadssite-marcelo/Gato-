@@ -29,6 +29,7 @@ import { INITIAL_PRODUCTS, DEFAULT_FEDERAL_TAX_SETTINGS, INITIAL_STATE_TAX_RULES
 import { rbacRouter } from "./server/rbacRoutes";
 import { authRouter } from "./server/authRoutes";
 import { billingRouter } from "./server/billing/routes";
+import { adminDatabaseRouter } from "./server/adminDatabaseRoutes";
 import { checkQuota, incrementUsage } from "./server/quotas";
 import { runMigrations } from "./server/migrate";
 import { seedBillingStore } from "./server/store";
@@ -193,6 +194,9 @@ app.use("/api/rbac", rbacRouter);
 
 // Billing & Assinaturas (webhooks do gateway + autosserviço do tenant)
 app.use("/api/billing", billingRouter);
+
+// Configuração do banco (cadastro de credenciais em runtime — Super Admin)
+app.use("/api/admin/database", adminDatabaseRouter);
 
 // Health check
 app.get("/api/health", (req, res) => {

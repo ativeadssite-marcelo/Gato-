@@ -1,4 +1,5 @@
 import pg from "pg";
+import { loadSavedDbConfig } from "./dbConfigStore";
 
 const { Pool } = pg;
 
@@ -10,13 +11,30 @@ export interface DbConfig {
   user: string;
   password: string;
   database: string;
+  sslDisable?: boolean;
+  sslRejectUnauthorized?: boolean;
+  source?: "env" | "file";
 }
 
 /**
- * Credenciais de banco vêm EXCLUSIVAMENTE de variáveis de ambiente.
- * Nenhum segredo é embutido no código-fonte (evita vazamento via Git/bundle).
+ * Credenciais de banco vêm das configurações salvas (tela Super Admin) ou de
+ * variáveis de ambiente. Nenhum segredo é embutido no código-fonte.
  */
 export function getDbConfig(): DbConfig | null {
+  const saved = loadSavedDbConfig();
+  if (saved?.host && saved?.password) {
+    return {
+      host: saved.host,
+      port: saved.port || 5432,
+      user: saved.user || "postgres",
+      password: saved.password,
+      database: saved.database || "postgres",
+      sslDisable: saved.sslDisable,
+      sslRejectUnauthorized: saved.sslRejectUnauthorized,
+      source: "file",
+    };
+  }
+
   const host = process.env.SUPABASE_DB_HOST;
   const password = process.env.SUPABASE_DB_PASSWORD;
   if (!host || !password) return null;
@@ -26,6 +44,9 @@ export function getDbConfig(): DbConfig | null {
     user: process.env.SUPABASE_DB_USER || "postgres",
     password,
     database: process.env.SUPABASE_DB_NAME || "postgres",
+    sslDisable: process.env.SUPABASE_DB_SSL === "disable",
+    sslRejectUnauthorized: process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED !== "false",
+    source: "env",
   };
 }
 
@@ -34,35 +55,71 @@ export function isDatabaseConfigured(): boolean {
 }
 
 export const DB_NOT_CONFIGURED_MESSAGE =
-  "Banco de dados não configurado neste ambiente. Defina SUPABASE_DB_HOST e SUPABASE_DB_PASSWORD " +
-  "como variáveis de ambiente do servidor (nunca no código-fonte).";
+  "Banco de dados não configurado. Cadastre as credenciais na tela 'Banco de Dados' (Super Admin) " +
+  "ou defina SUPABASE_DB_HOST e SUPABASE_DB_PASSWORD como variáveis de ambiente.";
+
+function buildPool(config: DbConfig): pg.Pool {
+  const newPool = new Pool({
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
+    database: config.database,
+    // TLS habilitado com validação de certificado por padrão (evita MITM).
+    ssl: config.sslDisable
+      ? undefined
+      : { rejectUnauthorized: config.sslRejectUnauthorized !== false },
+    connectionTimeoutMillis: 8000,
+    max: 10,
+  });
+  newPool.on("error", (err) => {
+    console.error("[Supabase PG] Pool background error:", err);
+  });
+  return newPool;
+}
 
 export function getDbPool(): pg.Pool {
   if (!pool) {
     const config = getDbConfig();
     if (!config) throw new Error(DB_NOT_CONFIGURED_MESSAGE);
-
-    pool = new Pool({
-      host: config.host,
-      port: config.port,
-      user: config.user,
-      password: config.password,
-      database: config.database,
-      // TLS habilitado com validação de certificado por padrão (evita MITM).
-      // Só desative explicitamente e ciente do risco: SUPABASE_DB_SSL_REJECT_UNAUTHORIZED=false
-      ssl:
-        process.env.SUPABASE_DB_SSL === "disable"
-          ? undefined
-          : { rejectUnauthorized: process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED !== "false" },
-      connectionTimeoutMillis: 8000,
-      max: 10,
-    });
-
-    pool.on("error", (err) => {
-      console.error("[Supabase PG] Pool background error:", err);
-    });
+    pool = buildPool(config);
   }
   return pool;
+}
+
+/** Descarta o pool em cache (chame após cadastrar novas credenciais). */
+export function resetDbPool(): void {
+  if (pool) {
+    pool.end().catch(() => {});
+    pool = null;
+  }
+}
+
+export interface DbConnectionTest {
+  ok: boolean;
+  version?: string;
+  latencyMs: number;
+  error?: string;
+}
+
+/** Testa uma configuração de banco sem persistir e sem afetar o pool ativo. */
+export async function testDbConnection(config: DbConfig): Promise<DbConnectionTest> {
+  const start = Date.now();
+  const testPool = buildPool(config);
+  try {
+    const res = await testPool.query("SELECT version() as v;");
+    const versionMatch = String(res.rows[0]?.v || "").match(/PostgreSQL\s+([\d.]+)/i);
+    return {
+      ok: true,
+      version: versionMatch ? `PostgreSQL ${versionMatch[1]}` : "PostgreSQL",
+      latencyMs: Date.now() - start,
+    };
+  } catch (err: any) {
+    const safe = String(err?.message || err).replace(/:[^:@]+@/, ":****@").slice(0, 200);
+    return { ok: false, latencyMs: Date.now() - start, error: safe };
+  } finally {
+    await testPool.end().catch(() => {});
+  }
 }
 
 export interface DbStatusResult {
