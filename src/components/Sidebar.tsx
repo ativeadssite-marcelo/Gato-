@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Home,
   Search,
-  Car,
   Boxes,
   ClipboardList,
   FileText, 
@@ -77,12 +76,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Consulta de Peças',
       icon: Search,
       aliases: ['consulta-pecas', 'consulta-aplicacao'],
-    },
-    {
-      id: 'frota',
-      label: 'Veículos',
-      icon: Car,
-      aliases: ['frota'],
     },
     {
       id: 'estoque',

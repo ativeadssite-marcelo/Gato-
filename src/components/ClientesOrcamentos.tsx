@@ -141,7 +141,8 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
       (c.ie && c.ie.toLowerCase().includes(term)) ||
       c.phone.includes(term) ||
       (c.whatsapp && c.whatsapp.includes(term)) ||
-      c.city.toLowerCase().includes(term)
+      c.city.toLowerCase().includes(term) ||
+      (c.vehicles && c.vehicles.some(v => v.plate.toLowerCase().includes(term) || v.model.toLowerCase().includes(term)));
 
     const matchesType = selectedCustomerType === 'all' || c.type === selectedCustomerType;
     const matchesStatus = customerStatusFilter === 'all' || (c.status || 'ativo') === customerStatusFilter;
@@ -626,7 +627,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Buscar por nome, fantasia, CPF/CNPJ, IE, telefone, cidade..."
+                  placeholder="Buscar por nome, fantasia, CPF/CNPJ, IE, telefone, cidade ou placa de veículo..."
                   value={searchCustomerTerm}
                   onChange={(e) => setSearchCustomerTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:bg-white text-slate-900"
@@ -820,6 +821,35 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                           </div>
                         </div>
 
+                        {/* Vehicles / Fleet preview */}
+                        {c.vehicles && c.vehicles.length > 0 && (
+                          <div className="pt-2 border-t border-slate-100">
+                            <div className="flex items-center justify-between text-[11px] text-slate-500 font-bold mb-1.5">
+                              <span className="flex items-center gap-1">
+                                <Car className="w-3 h-3 text-[#EA580C]" />
+                                <span>Frota Vinculada ({c.vehicles.length})</span>
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {c.vehicles.slice(0, 3).map((v) => (
+                                <span 
+                                  key={v.id}
+                                  className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold text-slate-800"
+                                  title={`${v.model} (${v.year || 'S/A'})`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" />
+                                  {v.plate} • {v.model.split(' ')[0]}
+                                </span>
+                              ))}
+                              {c.vehicles.length > 3 && (
+                                <span className="text-[10px] text-slate-400 font-bold self-center">
+                                  +{c.vehicles.length - 3} mais
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Policy and stats */}
                         <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
                           <div>
@@ -893,6 +923,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                       <th className="p-3">Perfil & Nível</th>
                       <th className="p-3 text-center">Desconto</th>
                       <th className="p-3 text-right">Limite Crédito</th>
+                      <th className="p-3 text-center">Frota</th>
                       <th className="p-3 text-center">Status</th>
                       <th className="p-3 text-right pr-4">Ações</th>
                     </tr>
@@ -900,7 +931,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {filteredCustomers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                        <td colSpan={8} className="p-8 text-center text-slate-400">
                           Nenhum cliente encontrado com os filtros aplicados.
                         </td>
                       </tr>
@@ -937,6 +968,13 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
 
                             <td className="p-3 text-right font-mono font-bold text-slate-800">
                               {formatBRL(c.creditLimit || 2000)}
+                            </td>
+
+                            <td className="p-3 text-center">
+                              <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-mono text-[11px]">
+                                <Car className="w-3 h-3 text-slate-500" />
+                                {c.vehicles?.length || 0}
+                              </span>
                             </td>
 
                             <td className="p-3 text-center">

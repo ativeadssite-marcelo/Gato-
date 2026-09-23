@@ -7,6 +7,7 @@ import {
   Mail, 
   MapPin, 
   CreditCard, 
+  Car, 
   MessageCircle, 
   ExternalLink, 
   Printer, 
@@ -269,6 +270,50 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Frota e Veículos */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
+                <Car className="w-4 h-4 text-[#EA580C]" />
+                <span>Frota / Veículos do Cliente ({customer.vehicles?.length || 0})</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => onEditCustomer(customer)}
+                className="text-[11px] font-bold text-[#0284C7] hover:underline cursor-pointer"
+              >
+                + Gerenciar Veículos
+              </button>
+            </div>
+
+            {!customer.vehicles || customer.vehicles.length === 0 ? (
+              <p className="text-slate-400 py-3 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Nenhum veículo vinculado a este cliente. Clique em Editar para cadastrar a placa e modelo.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {customer.vehicles.map((v) => (
+                  <div key={v.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                    <div className="border border-slate-300 rounded-md overflow-hidden shrink-0 shadow-2xs">
+                      <div className="bg-blue-700 px-1 py-0.5 text-[6px] font-bold text-white tracking-widest text-center">
+                        BRASIL
+                      </div>
+                      <div className="bg-white px-2 py-0.5 font-mono font-black text-xs text-slate-900 text-center">
+                        {v.plate}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-800 text-xs truncate">{v.model}</div>
+                      <div className="text-[10px] text-slate-500">
+                        {v.brand || 'Multimarcas'} {v.year ? `• ${v.year}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Histórico Recente de Orçamentos */}
