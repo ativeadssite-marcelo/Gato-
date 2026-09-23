@@ -11,7 +11,9 @@ import {
   InternalMessageTemplate,
   InternalMessageItem,
   IsolationTestResult,
-  LgpdSubjectRequest
+  LgpdSubjectRequest,
+  TenantPermissionKey,
+  TenantPermissionDefinition
 } from "../src/types/rbac";
 
 // =========================================================================
@@ -288,6 +290,47 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     }
   }
 };
+
+// =========================================================================
+// CATÁLOGO DE PERMISSÕES OPERACIONAIS DO TENANT (construtor flexível)
+// =========================================================================
+// O admin do tenant monta o acesso de cada sub-usuário escolhendo capacidades
+// desta lista. Diferente da matriz de papéis (SaaS), estas são capacidades
+// finas do dia a dia operacional (vendas, caixa, estoque, etc.).
+// =========================================================================
+
+export const TENANT_PERMISSION_CATALOG: TenantPermissionDefinition[] = [
+  { key: 'sales', name: 'Vendas', group: 'vendas', description: 'Orçamentos, pedidos e cotações' },
+  { key: 'customer_register', name: 'Cadastro de clientes', group: 'vendas', description: 'Criar e editar clientes' },
+  { key: 'invoicing', name: 'Faturamento', group: 'vendas', description: 'Contas a receber e faturas de venda' },
+  { key: 'invoice_issuance', name: 'Emissão de nota', group: 'caixa', description: 'Emitir NF-e / NFC-e' },
+  { key: 'payment_machines', name: 'Máquinas de pagamento', group: 'caixa', description: 'Conectar e operar TEF / Pix' },
+  { key: 'stock_inbound', name: 'Entrada de nota', group: 'estoque', description: 'Recebimento e entrada de mercadoria' },
+  { key: 'stock_picking', name: 'Lista de separação', group: 'estoque', description: 'Separar e despachar pedidos' },
+  { key: 'stock_location', name: 'Locação / endereçamento', group: 'estoque', description: 'Organizar posições de estoque' },
+  { key: 'item_register', name: 'Cadastro de peça / item', group: 'estoque', description: 'Criar e editar itens do catálogo' },
+  { key: 'accounting_config', name: 'Configuração contábil', group: 'administrativo', description: 'Plano de contas e parametrização contábil' },
+  { key: 'pricing_discounts', name: 'Descontos / campanhas / comissão', group: 'gerencia', description: 'Definir descontos, campanhas e comissões' },
+  { key: 'margin_reports', name: 'Faturamento / margem', group: 'gerencia', description: 'Acompanhar faturamento e margem' },
+  { key: 'marketplace', name: 'Marketplace', group: 'integracoes', description: 'Conectar e operar marketplaces (se contratado)' },
+];
+
+export const TENANT_PERMISSION_GROUPS: Array<{ id: TenantPermissionDefinition['group']; name: string }> = [
+  { id: 'vendas', name: 'Vendas' },
+  { id: 'caixa', name: 'Caixa' },
+  { id: 'estoque', name: 'Estoque' },
+  { id: 'administrativo', name: 'Administrativo' },
+  { id: 'gerencia', name: 'Gerência' },
+  { id: 'integracoes', name: 'Integrações' },
+];
+
+/** True quando o usuário possui a capacidade operacional fina solicitada. */
+export function hasTenantPermission(user: RbacUser, key: TenantPermissionKey): boolean {
+  // Admin do tenant e equipe SaaS possuem todas as capacidades por padrão.
+  if (user.roleCode === 'tenant_admin') return true;
+  if (ROLE_DEFINITIONS[user.roleCode]?.scope === 'saas') return true;
+  return !!user.tenantPermissions?.includes(key);
+}
 
 // =========================================================================
 // 2. MASCARAMENTO AUTOMÁTICO DE PII (LGPD & COMPLIANCE)
@@ -600,7 +643,8 @@ export const RBAC_USERS_DATA: RbacUser[] = [
     mfaEnforced: false,
     lastLoginAt: '2026-09-22T05:50:00Z',
     lastLoginIp: '187.64.90.15',
-    createdAt: '2026-01-12T08:00:00Z'
+    createdAt: '2026-01-12T08:00:00Z',
+    tenantPermissions: ['sales', 'customer_register', 'invoicing']
   },
   // Tenant Contratante 2: Pantanal Diesel
   {

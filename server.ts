@@ -9,6 +9,7 @@ import {
   requireAuth,
   requirePermission,
   requireAnyPermission,
+  requireTenantPermission,
   requireIngestAuth,
   resolveDataScope,
   sendScopeDenied,
@@ -312,7 +313,7 @@ app.get("/api/db/products", requireAuth, requirePermission("company_data"), asyn
 });
 
 // Create/Insert product into Supabase
-app.post("/api/db/products", requireAuth, requirePermission("company_data"), async (req, res) => {
+app.post("/api/db/products", requireAuth, requireTenantPermission("item_register"), requirePermission("company_data"), async (req, res) => {
   const client = await (async () => {
     try {
       return isDatabaseConfigured() ? await getDbPool().connect() : null;
@@ -685,7 +686,7 @@ app.get("/api/db/customers", requireAuth, requirePermission("customers_employees
 });
 
 // Insert customer into Supabase
-app.post("/api/db/customers", requireAuth, requirePermission("customers_employees"), async (req, res) => {
+app.post("/api/db/customers", requireAuth, requireTenantPermission("customer_register"), requirePermission("customers_employees"), async (req, res) => {
   try {
     if (!isDatabaseConfigured()) {
       return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
@@ -788,7 +789,7 @@ app.get("/api/db/suppliers", requireAuth, requirePermission("customers_employees
 });
 
 // Create/Register supplier in Supabase
-app.post("/api/db/suppliers", requireAuth, requirePermission("customers_employees"), async (req, res) => {
+app.post("/api/db/suppliers", requireAuth, requireTenantPermission("stock_inbound"), requirePermission("customers_employees"), async (req, res) => {
   try {
     if (!isDatabaseConfigured()) {
       return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
@@ -855,7 +856,7 @@ app.post("/api/db/suppliers", requireAuth, requirePermission("customers_employee
 //  - cliente restrito ao tenant e SEM fallback para "primeiro cliente da base"
 //    (antes um orçamento podia ser gravado no CPF/CNPJ de outra empresa);
 //  - gravação do orçamento + itens em transação atômica (evita DAV órfão).
-app.post("/api/db/quotes", requireAuth, requireAnyPermission(["customers_employees", "company_data"], { write: true }), async (req, res) => {
+app.post("/api/db/quotes", requireAuth, requireTenantPermission("sales"), requireAnyPermission(["customers_employees", "company_data"], { write: true }), async (req, res) => {
   if (!isDatabaseConfigured()) {
     return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
   }
@@ -941,7 +942,7 @@ app.post("/api/db/quotes", requireAuth, requireAnyPermission(["customers_employe
 
 // Sync GATO Catalog Products into Supabase (Rate limited and payload capped)
 // Protegido: sem autenticação qualquer terceiro sobrescrevia preços/estoque de outras empresas.
-app.post("/api/db/sync-catalog", syncLimiter, requireAuth, requirePermission("company_data", { write: true }), async (req, res) => {
+app.post("/api/db/sync-catalog", syncLimiter, requireAuth, requireTenantPermission("item_register"), requirePermission("company_data", { write: true }), async (req, res) => {
   if (!isDatabaseConfigured()) {
     return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
   }

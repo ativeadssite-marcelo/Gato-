@@ -13,6 +13,8 @@ import {
   PERMISSION_RESOURCE_LABELS,
   ACCESS_LEVELS,
   ACCESS_LEVEL_LABELS,
+  TENANT_PERMISSION_CATALOG,
+  TENANT_PERMISSION_GROUPS,
   evaluatePermission,
   evaluateTenantQuota,
   runSecurityIsolationTests,
@@ -28,7 +30,8 @@ import {
   RbacUser,
   TenantAccount,
   AuditLogRecord,
-  InternalMessageItem
+  InternalMessageItem,
+  TenantPermissionKey
 } from "../src/types/rbac";
 import {
   requireAuth,
@@ -40,6 +43,15 @@ import {
 } from "./auth";
 
 export const rbacRouter = Router();
+
+const VALID_TENANT_PERMISSIONS = new Set<string>(TENANT_PERMISSION_CATALOG.map((p) => p.key));
+
+/** Filtra e devolve apenas capacidades válidas do catálogo (ignora desconhecidas). */
+function sanitizeTenantPermissions(input: unknown): TenantPermissionKey[] | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const valid = input.filter((k): k is TenantPermissionKey => typeof k === "string" && VALID_TENANT_PERMISSIONS.has(k));
+  return valid.length > 0 ? valid : undefined;
+}
 
 // Todas as rotas do motor RBAC exigem sessão autenticada válida.
 // Sem isso, qualquer requisição anônima recebia identidade de Super Admin.
@@ -168,6 +180,15 @@ rbacRouter.get("/me", (req, res) => {
           department: u.department,
           mfaEnabled: u.mfaEnabled
         }))
+  });
+});
+
+// 1.1 Catálogo de permissões operacionais do tenant (para o construtor flexível)
+rbacRouter.get("/tenant-permissions", (req, res) => {
+  res.json({
+    success: true,
+    groups: TENANT_PERMISSION_GROUPS,
+    permissions: TENANT_PERMISSION_CATALOG,
   });
 });
 
@@ -302,7 +323,7 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
   const caller = resolveAuthUser(req);
   const callerRole = ROLE_DEFINITIONS[caller.roleCode];
 
-  const { name, email, roleCode, tenantId, department } = req.body;
+  const { name, email, roleCode, tenantId, department, tenantPermissions } = req.body;
 
   if (!name || !email || !roleCode) {
     return res.status(400).json({ success: false, error: "Nome, e-mail e papel são obrigatórios." });
@@ -336,7 +357,8 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
     mfaEnforced: roleDef?.requiresMfa || false,
     lastLoginAt: "Nunca",
     lastLoginIp: "N/A",
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    tenantPermissions: sanitizeTenantPermissions(tenantPermissions),
   };
 
   RBAC_USERS_DATA.push(newUser);
@@ -368,7 +390,7 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
 rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write: true }), (req, res) => {
   const caller = resolveAuthUser(req);
   const { id } = req.params;
-  const { roleCode, customOverrides } = req.body;
+  const { roleCode, customOverrides, tenantPermissions } = req.body;
 
   const targetUserIndex = RBAC_USERS_DATA.findIndex((u) => u.id === id);
   if (targetUserIndex === -1) {
@@ -390,6 +412,9 @@ rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write:
   if (customOverrides) {
     targetUser.customOverrides = customOverrides;
   }
+  if (Array.isArray(tenantPermissions)) {
+    targetUser.tenantPermissions = sanitizeTenantPermissions(tenantPermissions) ?? [];
+  }
 
   AUDIT_LOGS_DATA.unshift({
     id: `aud_role_${Date.now()}`,
@@ -403,7 +428,7 @@ rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write:
     entityId: targetUser.id,
     timestamp: new Date().toISOString(),
     beforeState: { roleCode: oldState.roleCode, roleName: oldState.roleName },
-    afterState: { roleCode: targetUser.roleCode, roleName: targetUser.roleName, customOverrides },
+    afterState: { roleCode: targetUser.roleCode, roleName: targetUser.roleName, customOverrides, tenantPermissions: targetUser.tenantPermissions },
     status: "success"
   });
 

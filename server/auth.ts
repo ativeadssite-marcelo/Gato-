@@ -20,6 +20,7 @@ import {
   RBAC_USERS_DATA,
   AUDIT_LOGS_DATA,
   ROLE_OVERRIDES,
+  hasTenantPermission,
 } from "./rbacEngine";
 import { TENANTS_DATA, SAAS_PLANS } from "./rbacEngine";
 import {
@@ -27,6 +28,7 @@ import {
   RbacRoleCode,
   PermissionAccessLevel,
   PermissionResource,
+  TenantPermissionKey,
 } from "../src/types/rbac";
 import {
   AVAILABLE_USERS,
@@ -1099,6 +1101,37 @@ export function requireSaasScope(
 }
 
 /**
+ * Exige uma capacidade operacional fina do tenant (construtor flexível).
+ * Deve vir DEPOIS de `requireAuth` e ANTES de `requirePermission`. O admin do
+ * tenant e o escopo SaaS possuem todas as capacidades; os demais usuários de
+ * tenant precisam da capacidade atribuída explicitamente pelo admin.
+ */
+export function requireTenantPermission(key: TenantPermissionKey) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const auth = req.auth;
+    if (!auth) return unauthorized(res);
+    if (hasTenantPermission(auth.user, key)) return next();
+
+    recordAudit(
+      req,
+      auth.user,
+      `BLOCKED_TENANT_PERMISSION_${key.toUpperCase()}`,
+      "customers_employees",
+      auth.tenantId,
+      "blocked",
+      { details: `capacidade '${key}' não atribuída ao usuário`, anomalous: true },
+    );
+
+    return res.status(403).json({
+      success: false,
+      code: "TENANT_PERMISSION_DENIED",
+      error: `Seu perfil não possui a permissão operacional '${key}'. Solicite ao administrador da sua empresa.`,
+      requiredPermission: key,
+    });
+  };
+}
+
+/**
  * Autoriza quando o usuário possui permissão em QUALQUER um dos recursos listados.
  * Útil para recursos operacionais compartilhados entre setores (ex.: pedidos de loja
  * e cadastros) sem abrir mão do isolamento por tenant.
@@ -1115,6 +1148,7 @@ export function requireAnyPermission(
     const tryNext = (): void => {
       const guard = guards[index++];
       if (!guard) {
+        // Todas as alternativas negaram acesso.
         if (!res.headersSent) {
           res.status(403).json({
             success: false,
@@ -1125,7 +1159,8 @@ export function requireAnyPermission(
         return;
       }
       const originalJson = res.json.bind(res);
-      // Intercepta negações para tentar o próximo recurso permitido.
+      // Intercepta negações (403) para tentar o próximo recurso; se qualquer
+      // recurso for permitido, segue imediatamente para o handler da rota.
       res.json = ((body: any) => {
         if (res.statusCode === 403) {
           res.json = originalJson;
@@ -1135,7 +1170,10 @@ export function requireAnyPermission(
         }
         return originalJson(body);
       }) as typeof res.json;
-      guard(req, res, tryNext);
+      guard(req, res, () => {
+        res.json = originalJson;
+        next();
+      });
     };
     tryNext();
   };

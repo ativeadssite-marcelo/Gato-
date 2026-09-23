@@ -37,6 +37,34 @@ export type PermissionResource =
   | 'audit_logs'              // Trilha de auditoria
   | 'security_compliance';    // LGPD, MFA, IP allowlist
 
+/**
+ * Permissões operacionais finas do tenant. O admin contratante monta o acesso
+ * de cada sub-usuário (vendedor, caixa, estoque, administrativo, gerente)
+ * escolhendo quais dessas capacidades o usuário possui — "construtor flexível".
+ * O `tenant_admin` e o escopo SaaS têm todas por padrão.
+ */
+export type TenantPermissionKey =
+  | 'sales'                 // Vendas: orçamentos, pedidos, cotações
+  | 'customer_register'     // Cadastro de clientes
+  | 'invoicing'             // Faturamento / contas a receber
+  | 'invoice_issuance'      // Emissão de NF-e / NFC-e (caixa)
+  | 'payment_machines'      // Conexão a máquinas de pagamento (caixa)
+  | 'stock_inbound'         // Entrada de nota / recebimento de mercadoria
+  | 'stock_picking'         // Lista de separação
+  | 'stock_location'        // Locação / endereçamento de estoque
+  | 'item_register'         // Cadastro de peça / item
+  | 'accounting_config'     // Configuração contábil (administrativo)
+  | 'pricing_discounts'     // Descontos / campanhas / comissão (gerente)
+  | 'margin_reports'        // Faturamento / margem (gerente)
+  | 'marketplace';          // Conexão com marketplace (se contratado)
+
+export interface TenantPermissionDefinition {
+  key: TenantPermissionKey;
+  name: string;
+  group: 'vendas' | 'caixa' | 'estoque' | 'administrativo' | 'gerencia' | 'integracoes';
+  description: string;
+}
+
 export interface PermissionDefinition {
   resource: PermissionResource;
   name: string;
@@ -92,6 +120,8 @@ export interface RbacUser {
   lastLoginIp: string;
   createdAt: string;
   customOverrides?: Partial<Record<PermissionResource, PermissionAccessLevel>>;
+  /** Capacidades operacionais finas atribuídas pelo admin do tenant (construtor flexível). */
+  tenantPermissions?: TenantPermissionKey[];
 }
 
 export interface PlanLimitConfig {
