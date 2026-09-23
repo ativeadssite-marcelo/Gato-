@@ -93,7 +93,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
   const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
   const [selectedCustomerType, setSelectedCustomerType] = useState<string>('all');
   const [customerStatusFilter, setCustomerStatusFilter] = useState<string>('all');
-  const [customerViewMode, setCustomerViewMode] = useState<'grid' | 'table'>('grid');
+  const [customerViewMode, setCustomerViewMode] = useState<'grid' | 'table'>('table');
 
   // Customer Modals
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
