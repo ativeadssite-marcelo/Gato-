@@ -276,9 +276,13 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if ((currentView === 'admin' || currentView === 'admin-impostos') && window.location.pathname !== '/superadmin') {
+      // Toda view administrativa/SaaS mantém a rota /superadmin, não apenas
+      // 'admin'/'admin-impostos' — evita "voltar" para / ao abrir Governança,
+      // Financeiro SaaS, Banco de Dados ou Camadas de Acesso.
+      const isAdminView = isRestrictedView(currentView);
+      if (isAdminView && window.location.pathname !== '/superadmin') {
         window.history.pushState({}, '', '/superadmin');
-      } else if (currentView !== 'admin' && currentView !== 'admin-impostos' && window.location.pathname === '/superadmin') {
+      } else if (!isAdminView && window.location.pathname === '/superadmin') {
         window.history.pushState({}, '', '/');
       }
     }
