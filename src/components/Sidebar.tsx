@@ -25,11 +25,13 @@ import {
   MessageSquareShare,
   CreditCard,
   DollarSign,
-  Database
+  Database,
+  Layers
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { UserSession, BranchUnit, CompanyProfile } from '../types';
 import { isElevatedAdmin, RESTRICTED_VIEWS } from '../utils/accessControl';
+import { isMenuVisible } from '../utils/menuAccess';
 
 interface SidebarProps {
   currentView: string;
@@ -155,6 +157,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: 'DB',
     },
     {
+      id: 'camadas-acesso',
+      label: 'Camadas de Acesso',
+      icon: Layers,
+      aliases: ['camadas-acesso', 'acessos', 'permissoes'],
+      badge: 'RBAC',
+    },
+    {
       id: 'configuracoes',
       label: 'Configurações',
       icon: Settings,
@@ -191,9 +200,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Oculta itens restritos (Admin Impostos / Governança) de quem não é admin.
   // Sem admin: os campos nem ficam visíveis.
   const adminVisible = isElevatedAdmin(userSession);
-  const visiblePrimaryNavItems = adminVisible
-    ? primaryNavItems
-    : primaryNavItems.filter((item) => !RESTRICTED_VIEWS.includes(item.id));
+  const visiblePrimaryNavItems = primaryNavItems.filter((item) => {
+    // Telas administrativas só aparecem para admins elevados.
+    if (!adminVisible && RESTRICTED_VIEWS.includes(item.id)) return false;
+    // Demais itens seguem a permissão RBAC do papel (camada de acesso).
+    return isMenuVisible(item.id, userSession);
+  });
+  const visibleSecondaryNavItems = secondaryNavItems.filter((item) => isMenuVisible(item.id, userSession));
 
   const isItemActive = (item: typeof primaryNavItems[0]) => {
     if (currentView === item.id) return true;
@@ -295,7 +308,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="h-px bg-gradient-to-r from-transparent via-slate-800 to-transparent rounded-full" />
           </div>
 
-          {secondaryNavItems.map((item) => {
+          {visibleSecondaryNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
             return (

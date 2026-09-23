@@ -8,6 +8,11 @@ import {
   MESSAGE_TEMPLATES,
   INTERNAL_MESSAGES_DATA,
   LGPD_REQUESTS_DATA,
+  ROLE_OVERRIDES,
+  PERMISSION_RESOURCES,
+  PERMISSION_RESOURCE_LABELS,
+  ACCESS_LEVELS,
+  ACCESS_LEVEL_LABELS,
   evaluatePermission,
   evaluateTenantQuota,
   runSecurityIsolationTests,
@@ -761,4 +766,49 @@ rbacRouter.get("/test-isolation", requireSaasScope, (req, res) => {
     },
     results
   });
+});
+
+// =========================================================================
+// 21. OVERRIDES POR PAPEL — Super Admin define o que a camada inferior vê
+// =========================================================================
+
+// Lista a matriz, os recursos, os níveis e os overrides vigentes por papel.
+rbacRouter.get("/role-overrides", requireSaasScope, (req, res) => {
+  res.json({
+    success: true,
+    roles: ROLE_DEFINITIONS,
+    resources: PERMISSION_RESOURCES,
+    resourceLabels: PERMISSION_RESOURCE_LABELS,
+    accessLevels: ACCESS_LEVELS,
+    accessLevelLabels: ACCESS_LEVEL_LABELS,
+    overrides: ROLE_OVERRIDES,
+  });
+});
+
+// Define os acessos de um papel (camada). Restrito ao escopo SaaS com manage_accounts.
+rbacRouter.put("/role-overrides/:code", requireSaasScope, requirePermission("manage_accounts", { write: true }), (req, res) => {
+  const { code } = req.params;
+  const { permissions } = req.body || {};
+
+  if (!ROLE_DEFINITIONS[code as RbacRoleCode]) {
+    return res.status(404).json({ success: false, error: "Papel não encontrado." });
+  }
+  if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
+    return res.status(400).json({ success: false, error: "Informe um objeto de permissões válido." });
+  }
+
+  ROLE_OVERRIDES[code as RbacRoleCode] = permissions;
+  recordAudit(req, req.auth!.user, "UPDATE_ROLE_OVERRIDES", "security_compliance", code, "success", {
+    justification: `Acessos do papel '${code}' redefinidos pelo Super Admin.`,
+  });
+
+  res.json({ success: true, overrides: ROLE_OVERRIDES, message: `Acessos do papel '${code}' atualizados.` });
+});
+
+// Remove os overrides de um papel (volta à matriz padrão).
+rbacRouter.delete("/role-overrides/:code", requireSaasScope, requirePermission("manage_accounts", { write: true }), (req, res) => {
+  const { code } = req.params;
+  delete ROLE_OVERRIDES[code as RbacRoleCode];
+  recordAudit(req, req.auth!.user, "RESET_ROLE_OVERRIDES", "security_compliance", code, "success");
+  res.json({ success: true, overrides: ROLE_OVERRIDES, message: `Overrides do papel '${code}' removidos (voltou ao padrão).` });
 });

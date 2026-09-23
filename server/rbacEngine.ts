@@ -15,6 +15,58 @@ import {
 } from "../src/types/rbac";
 
 // =========================================================================
+// LISTA DE RECURSOS E OVERRIDES POR PAPEL (editáveis pelo Super Admin)
+// =========================================================================
+
+export const PERMISSION_RESOURCES: PermissionResource[] = [
+  'updates',
+  'billing_contracts',
+  'bug_support',
+  'fiscal_config',
+  'connectors',
+  'layout_ui',
+  'manage_accounts',
+  'company_data',
+  'customers_employees',
+  'contractor_users',
+  'limits_quotas',
+  'internal_messages',
+  'audit_logs',
+  'security_compliance',
+];
+
+export const PERMISSION_RESOURCE_LABELS: Record<PermissionResource, string> = {
+  updates: 'Atualizações da plataforma',
+  billing_contracts: 'Cobrança / Contratos',
+  bug_support: 'Suporte a bugs',
+  fiscal_config: 'Configuração fiscal',
+  connectors: 'Conectores & integrações',
+  layout_ui: 'Layout / customização',
+  manage_accounts: 'Gerenciar contas de tenants',
+  company_data: 'Dados da empresa',
+  customers_employees: 'Clientes & funcionários',
+  contractor_users: 'Usuários contratantes',
+  limits_quotas: 'Limites & cotas',
+  internal_messages: 'Mensagens internas',
+  audit_logs: 'Trilha de auditoria',
+  security_compliance: 'Segurança & LGPD',
+};
+
+export const ACCESS_LEVELS: PermissionAccessLevel[] = ['none', 'read_only', 'masked', 'own_tenant_only', 'full', 'audit_required'];
+
+export const ACCESS_LEVEL_LABELS: Record<PermissionAccessLevel, string> = {
+  none: 'Sem acesso',
+  read_only: 'Somente leitura',
+  masked: 'Leitura mascarada',
+  own_tenant_only: 'Somente próprio tenant',
+  full: 'Acesso total',
+  audit_required: 'Total + justificativa',
+};
+
+// Overrides aplicados POR PAPEL pelo Super Admin (sobrescrevem ROLE_DEFINITIONS).
+export const ROLE_OVERRIDES: Partial<Record<RbacRoleCode, Partial<Record<PermissionResource, PermissionAccessLevel>>>> = {};
+
+// =========================================================================
 // 1. MATRIZ OFICIAL DE PAPÉIS E PERMISSÕES (CONFORME ESPECIFICAÇÃO DO USUÁRIO)
 // =========================================================================
 
@@ -813,8 +865,8 @@ export function evaluatePermission(
     return { allowed: false, reason: 'Papel de usuário desconhecido.', requiresAudit: false };
   }
 
-  // Verificar se há override customizado do usuário
-  let accessLevel = user.customOverrides?.[resource] ?? roleDef.permissions[resource];
+  // Prioridade: override por usuário > override por papel (Super Admin) > matriz padrão.
+  let accessLevel = user.customOverrides?.[resource] ?? ROLE_OVERRIDES[user.roleCode]?.[resource] ?? roleDef.permissions[resource];
 
   // 1. Sem Acesso
   if (!accessLevel || accessLevel === 'none') {

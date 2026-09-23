@@ -90,7 +90,13 @@ function pickBranch(branches: BranchUnit[], branchId?: string): BranchUnit {
 }
 
 /** Monta a sessão de interface a partir do usuário autenticado no servidor. */
-export function buildUserSession(user: ServerUser, branches: BranchUnit[], branchId?: string): UserSession {
+export function buildUserSession(
+  user: ServerUser,
+  branches: BranchUnit[],
+  branchId?: string,
+  permissions?: Record<string, string>,
+  isSaasScope?: boolean,
+): UserSession {
   const branch = pickBranch(branches, branchId);
   return {
     id: user.id,
@@ -98,6 +104,9 @@ export function buildUserSession(user: ServerUser, branches: BranchUnit[], branc
     email: user.email,
     role: toUiRole(user.roleCode),
     roleLabel: user.roleName,
+    roleCode: user.roleCode,
+    isSaasScope: isSaasScope ?? user.tenantId === 'system',
+    permissions,
     branchId: branch.id,
     branchUf: branch.uf,
     branchName: branch.name,
@@ -125,7 +134,7 @@ export async function loginWithCredentials(
   markSessionVerified();
 
   return {
-    session: buildUserSession(data.user, branches, branchId),
+    session: buildUserSession(data.user, branches, branchId, data.role.permissions, data.role.scope === 'saas'),
     user: data.user,
     role: data.role,
     expiresAt: data.expiresAt,
@@ -167,7 +176,7 @@ export async function registerCompany(
   markSessionVerified();
 
   return {
-    session: buildUserSession(data.user, branches),
+    session: buildUserSession(data.user, branches, undefined, data.role.permissions, data.role.scope === 'saas'),
     user: data.user,
     company: data.company || {},
   };

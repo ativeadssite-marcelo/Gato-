@@ -29,6 +29,7 @@ import { AdminRbacMultiTenant } from './components/AdminRbacMultiTenant';
 import { AssinaturaFaturas } from './components/AssinaturaFaturas';
 import { DashboardFinanceiroSaaS } from './components/DashboardFinanceiroSaaS';
 import { ConfiguracaoBancoDados } from './components/ConfiguracaoBancoDados';
+import { CamadasAcesso } from './components/CamadasAcesso';
 import { MasterPasswordModal } from './components/MasterPasswordModal';
 import {
   isElevatedAdmin,
@@ -189,7 +190,7 @@ export default function App() {
           return undefined;
         }
       })();
-      const verifiedSession = buildUserSession(context.user, branchList, savedBranchId);
+      const verifiedSession = buildUserSession(context.user, branchList, savedBranchId, context.role?.permissions, context.isSaasScope);
       setUserSession(verifiedSession);
       try {
         localStorage.setItem('gato_user_session', JSON.stringify(verifiedSession));
@@ -1167,6 +1168,10 @@ export default function App() {
           {(adminUnlocked && currentView === 'banco-dados') && (
             <ConfiguracaoBancoDados onShowNotification={showNotification} />
           )}
+
+          {(adminUnlocked && currentView === 'camadas-acesso') && (
+            <CamadasAcesso onShowNotification={showNotification} />
+          )}
         </main>
       </div>
 
@@ -1205,7 +1210,9 @@ export default function App() {
               ? 'Financeiro SaaS — MRR & Churn'
               : pendingRestrictedView === 'banco-dados'
                 ? 'Banco de Dados — Credenciais'
-                : 'Admin — Impostos e Regras Fiscais'
+                : pendingRestrictedView === 'camadas-acesso'
+                  ? 'Camadas de Acesso — Permissões por Papel'
+                  : 'Admin — Impostos e Regras Fiscais'
         }
         onConfirm={async (password) => {
           // A senha master é conferida no SERVIDOR (nenhum segredo existe no bundle).

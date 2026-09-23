@@ -19,6 +19,7 @@ import {
   ROLE_DEFINITIONS,
   RBAC_USERS_DATA,
   AUDIT_LOGS_DATA,
+  ROLE_OVERRIDES,
 } from "./rbacEngine";
 import { TENANTS_DATA, SAAS_PLANS } from "./rbacEngine";
 import {
@@ -821,7 +822,7 @@ export function effectiveAccessLevel(
   resource: PermissionResource,
 ): PermissionAccessLevel | undefined {
   const role = ROLE_DEFINITIONS[user.roleCode];
-  return user.customOverrides?.[resource] ?? role?.permissions?.[resource];
+  return user.customOverrides?.[resource] ?? ROLE_OVERRIDES[user.roleCode]?.[resource] ?? role?.permissions?.[resource];
 }
 
 export interface AuthorizationDecision {

@@ -116,6 +116,12 @@ export interface UserSession {
   email: string;
   role: UserRole;
   roleLabel: string;
+  /** Papel RBAC real (super_admin, tenant_admin, ...) — fonte de verdade do servidor. */
+  roleCode?: string;
+  /** true quando o usuário é da equipe SaaS (escopo plataforma). */
+  isSaasScope?: boolean;
+  /** Matriz de permissões por recurso (nível de acesso) resolvida no servidor. */
+  permissions?: Record<string, string>;
   branchId: string;
   branchUf: string;
   branchName: string;
