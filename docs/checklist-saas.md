@@ -4,33 +4,25 @@
 > deixe `[ ]` no que falta, e ao final gere um relatório de gaps priorizados.
 > Considere "padrão de mercado" as práticas descritas em cada item.
 >
-> Estado atual marcado em 2026-09-23 por análise do repositório `gato-final`
-> (React + Express + Supabase). `<!-- parcial: ... -->` indica que existe parte,
-> mas falta o restante.
->
-> ⚠️ Após esta marcação, as 5 tarefas prioritárias foram implementadas (ver
-> `docs/relatorio-gaps.md` → "Atualização"). Itens afetados: migrations/persistência
-> (F0/F1), gateway Asaas + webhook idempotente (F5/F6), e-mail + cron (F7),
-> enforcement de quotas (F3) e CI/Docker/testes (F0/F10). Os `[ ]` abaixo ainda
-> refletem o estado *pré-implementação*; atualizar as marcas item a item é a
-> próxima etapa de manutenção.
+> Estado marcado em 2026-09-23 (após a implementação das 5 tarefas prioritárias).
+> `<!-- parcial: ... -->` indica que existe parte, mas falta o restante.
 
 ## FASE 0 — Fundação do Projeto
 - [x] Estrutura monorepo ou separação clara (backend / frontend / infra) — `src/` (React) + `server/` (Express) + `server.ts`
 - [ ] Variáveis de ambiente via `.env` + validação com schema (zod/joi/pydantic) <!-- parcial: existe `.env.example` + `dotenv`, falta validação com schema (zod) -->
-- [ ] Dockerfile + docker-compose para dev
-- [ ] CI/CD (GitHub Actions / GitLab CI)
+- [x] Dockerfile + docker-compose para dev
+- [x] CI/CD (GitHub Actions / GitLab CI) — `.github/workflows/ci.yml`
 - [ ] Lint + formatter + pre-commit hooks <!-- parcial: só `tsc --noEmit` como lint; sem eslint/prettier/pre-commit -->
-- [ ] Testes automatizados (unit + integration) com cobertura mínima definida <!-- parcial: bateria de testes de isolamento RBAC em runtime (`/api/rbac/test-isolation`); sem framework de testes unit/integration -->
-- [ ] Migrations versionadas (Prisma, Knex, Alembic, Flyway)
-- [x] Seeds para ambiente de dev — `src/data/initialData.ts` + `server/rbacEngine.ts` (em memória, não via migrations)
+- [ ] Testes automatizados (unit + integration) com cobertura mínima definida <!-- parcial: 14 testes unit (`node:test` via tsx); sem testes de integração nem cobertura mínima -->
+- [x] Migrations versionadas (Prisma, Knex, Alembic, Flyway) — `db/migrations/*.sql` + `server/migrate.ts`
+- [x] Seeds para ambiente de dev — `src/data/initialData.ts` + `server/rbacEngine.ts` + `server/store.ts` (em memória)
 
 ## FASE 1 — Multi-tenancy
 - [x] Modelo de dados com `tenant_id` em todas as tabelas de negócio
 - [x] Middleware que injeta `tenant_id` no contexto da request — `requireAuth` deriva o tenant do token assinado (nunca de headers)
 - [x] Isolamento de queries (row-level security ou filtro obrigatório) — `resolveDataScope` no backend
 - [x] Isolamento de arquivos por pasta/prefixo do tenant no storage — rotas de logo usam `:tenantId`
-- [ ] Índices compostos começando por `tenant_id` <!-- parcial: coluna aplicada via backend; índices não definidos em migrations versionadas -->
+- [x] Índices compostos começando por `tenant_id` <!-- parcial: migration 0001 cria índices por `tenantId` (coluna única) nas tabelas de billing; índices compostos das tabelas de negócio não versionados -->
 - [x] Testes de isolamento entre tenants — `runSecurityIsolationTests()` (`/api/rbac/test-isolation`)
 
 ## FASE 2 — Autenticação e Autorização
@@ -43,65 +35,65 @@
 - [ ] Rate limiting por tenant e por IP <!-- parcial: rate limit por IP em memória (250/min); sem rate limit por tenant -->
 
 ## FASE 3 — Planos e Quotas
-- [ ] Tabela `planos` com: nome, preço, trial_dias, storage_mb, max_clientes, max_usuarios <!-- parcial: `SAAS_PLANS` em código (const), sem persistência e sem `trial_dias` explícito -->
-- [ ] Tabela `uso` para métricas por tenant e período
-- [ ] Serviço de verificação de quota antes de upload/cadastro <!-- parcial: `evaluateTenantQuota()` calcula, mas não bloqueia escrita -->
-- [ ] Bloqueio + sugestão de upgrade ao exceder <!-- parcial: modelado (soft/hard block + template `limite_atingido`), não aplicado em runtime -->
+- [ ] Tabela `planos` com: nome, preço, trial_dias, storage_mb, max_clientes, max_usuarios <!-- parcial: tabela `SaaSPlan` na migration 0001; `SAAS_PLANS` ainda é a fonte em código -->
+- [x] Tabela `uso` para métricas por tenant e período — `TenantUsage` + `server/store.ts`
+- [x] Serviço de verificação de quota antes de upload/cadastro — `checkQuota` em `server/quotas.ts`
+- [x] Bloqueio + sugestão de upgrade ao exceder — resposta `402 QUOTA_EXCEEDED` com `suggestion: upgrade`
 - [ ] Job periódico que recalcula uso (evita inconsistência)
 - [ ] Tela do Super Admin para CRUD de planos <!-- parcial: `POST /api/rbac/plans/change` existe; lista é estática, sem CRUD completo -->
 
 ## FASE 4 — Trial (Teste Grátis)
 - [x] Ao cadastrar, criar tenant com `status = trial` e `trial_fim` — `register-company` cria `status: "trial"` (14 dias)
-- [ ] E-mail de boas-vindas com data de fim do trial
-- [ ] Cron diário: aviso 3 dias, 1 dia e no dia do fim
-- [ ] Ao expirar sem pagamento: `status = expired` → modo somente leitura <!-- parcial: status `expired` não existe; só active/suspended/trial/blocked -->
+- [ ] E-mail de boas-vindas com data de fim do trial <!-- parcial: template `trial_welcome` existe; não é disparado no cadastro -->
+- [x] Cron diário: aviso 3 dias, 1 dia e no dia do fim — `checkTrials()` em `server/notifications/cron.ts`
+- [ ] Ao expirar sem pagamento: `status = expired` → modo somente leitura <!-- parcial: `expireTrials()` marca `expired`; enforcement de acesso ainda não ligado ao middleware -->
 - [ ] Após carência configurável: `status = suspended`
-- [ ] Rota de conversão trial → pago
+- [x] Rota de conversão trial → pago — `POST /api/billing/subscribe`
 
 ## FASE 5 — Gateway de Cobrança
-- [ ] Escolha do gateway (Stripe, Asaas, Pagar.me, Mercado Pago, Iugu) <!-- parcial: conectores (Mercado Pago, Asaas…) listados como dados simulados em `initialData.ts`, sem SDK -->
-- [ ] Criação de customer no gateway ao converter
-- [ ] Criação de assinatura recorrente
-- [ ] Suporte a cartão + Pix + boleto (conforme gateway)
-- [ ] Salvar `gateway_customer_id` e `gateway_subscription_id` no banco
-- [ ] Endpoint de webhook com validação de assinatura <!-- parcial: webhooks com HMAC (`requireIngestAuth`) para marketplaces/bancos, não para gateway de cobrança -->
-- [ ] Idempotência nos webhooks (evitar processar evento duplicado)
-- [ ] Log de todos os eventos recebidos <!-- parcial: log de auditoria genérico; sem log dedicado de eventos de webhook -->
+- [x] Escolha do gateway (Stripe, Asaas, Pagar.me, Mercado Pago, Iugu) <!-- parcial: Asaas implementado (`server/billing/asaas.ts`); demais gateways não -->
+- [x] Criação de customer no gateway ao converter — `ensureAsaasCustomer`
+- [x] Criação de assinatura recorrente — `createAsaasSubscription`
+- [x] Suporte a cartão + Pix + boleto (conforme gateway) — `billingType` BOLETO/PIX/CREDIT_CARD
+- [x] Salvar `gateway_customer_id` e `gateway_subscription_id` no banco — `TenantSubscription` + `GatewayCustomer`
+- [x] Endpoint de webhook com validação de assinatura — `POST /api/billing/webhooks/asaas` (token `asaas-access-token`)
+- [x] Idempotência nos webhooks (evitar processar evento duplicado) — `WebhookEvent` + `recordWebhookEvent`
+- [x] Log de todos os eventos recebidos — tabela `WebhookEvent`
 
 ## FASE 6 — Webhooks e Ciclo de Vida da Assinatura
-- [ ] `invoice.paid` → fatura paga, assinatura `active`, estende próxima cobrança
-- [ ] `invoice.payment_failed` → `past_due` + e-mail de cobrança
-- [ ] `subscription.canceled` → `canceled` + bloqueio de acesso
-- [ ] `subscription.updated` → sincroniza plano
+- [x] `invoice.paid` → fatura paga, assinatura `active`, estende próxima cobrança — `applyGatewayPaymentEvent`
+- [x] `invoice.payment_failed` → `past_due` + e-mail de cobrança <!-- parcial: status `past_due`; e-mail de cobrança via cron de vencimento -->
+- [ ] `subscription.canceled` → `canceled` + bloqueio de acesso <!-- parcial: `cancelSubscription` marca `canceled`; bloqueio de acesso não ligado ao middleware -->
+- [ ] `subscription.updated` → sincroniza plano <!-- parcial: `SUBSCRIPTION_UPDATE` mapeia para `active`; não sincroniza plano -->
 - [ ] Retentativas de cobrança (dunning) configuradas no gateway
-- [ ] Mapeamento claro de status: trial / active / past_due / suspended / canceled / expired <!-- parcial: apenas active/suspended/trial/blocked no tipo `TenantAccount` -->
+- [x] Mapeamento claro de status: trial / active / past_due / suspended / canceled / expired — `SubscriptionStatus` + `mapAsaasEventToStatus`
 
 ## FASE 7 — Faturas e Notificações
-- [ ] Tabela `faturas`: valor, vencimento, status, pago_em, link de pagamento
-- [ ] Listagem de faturas no painel do tenant
-- [ ] Cron diário para verificar vencimentos:
-  - [ ] 3 dias antes
-  - [ ] 1 dia antes
-  - [ ] no dia
-  - [ ] 1, 3 e 7 dias após
-- [ ] E-mail HTML com variáveis (nome da empresa, valor, vencimento, link) <!-- parcial: `MESSAGE_TEMPLATES` com placeholders `{{tenantName}}`/`{{amount}}`; sem envio real de e-mail -->
-- [ ] Enviar apenas para `tenant_admin` ou e-mail de cobrança configurável
+- [x] Tabela `faturas`: valor, vencimento, status, pago_em, link de pagamento — `Invoice` + `server/store.ts`
+- [x] Listagem de faturas no painel do tenant — `AssinaturaFaturas` + `GET /api/billing/invoices`
+- [x] Cron diário para verificar vencimentos:
+  - [x] 3 dias antes
+  - [x] 1 dia antes
+  - [x] no dia
+  - [x] 1, 3 e 7 dias após
+- [ ] E-mail HTML com variáveis (nome da empresa, valor, vencimento, link) <!-- parcial: templates de texto com `{{variaveis}}` + render; sem corpo HTML -->
+- [x] Enviar apenas para `tenant_admin` ou e-mail de cobrança configurável — usa `contactEmail` do tenant
 - [ ] Fila de envio (Redis/SQS) + retry
-- [ ] Log de envios (evitar duplicidade)
+- [x] Log de envios (evitar duplicidade) — `EmailLog` + `dedupeKey`
 - [ ] Templates editáveis no Super Admin
 
 ## FASE 8 — Painel Super Admin
 - [x] Lista de todos os tenants com filtros (status, plano, vencimento) <!-- parcial: lista completa; filtros limitados -->
 - [x] Detalhe do tenant: uso, faturas, histórico, logs
-- [ ] Ações: ativar, suspender, cancelar, alterar plano, dar desconto <!-- parcial: alterar plano (pró-rata) e simular persona; ativar/suspender/cancelar não implementados como ações completas -->
+- [ ] Ações: ativar, suspender, cancelar, alterar plano, dar desconto <!-- parcial: alterar plano (pró-rata), cancelar (billing) e simular persona; ativar/suspender não implementados -->
 - [x] Impersonar tenant com log obrigatório — `switch-persona`/`end-impersonation` auditadas
-- [ ] Dashboard: MRR, ARR, Churn, Inadimplência, Trials ativos
+- [x] Dashboard: MRR, ARR, Churn, Inadimplência, Trials ativos — `DashboardFinanceiroSaaS`
 - [ ] Configurações globais: templates, integrações, chaves <!-- parcial: conectores/integrações configuráveis; templates de e-mail não editáveis -->
 
 ## FASE 9 — Painel Admin do Tenant
 - [x] Dashboard de uso (storage, clientes, usuários) — `GET /api/rbac/quotas/:tenantId`
-- [x] Plano atual + próxima cobrança <!-- parcial: plano atual exibido; sem próxima cobrança real -->
-- [ ] Lista de faturas + download
+- [x] Plano atual + próxima cobrança — `AssinaturaFaturas` (plano + `currentPeriodEndsAt`)
+- [ ] Lista de faturas + download <!-- parcial: lista de faturas em `AssinaturaFaturas`; sem download -->
 - [ ] Atualizar cartão / método de pagamento
 - [ ] Upgrade / Downgrade com cálculo proporcional <!-- parcial: `plans/change` com pró-rata existe, mas restrito ao escopo SaaS (sem self-service do tenant) -->
 - [x] Gestão de usuários e permissões

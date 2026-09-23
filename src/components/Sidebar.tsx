@@ -23,7 +23,9 @@ import {
   Zap,
   Globe,
   Cable,
-  MessageSquareShare
+  MessageSquareShare,
+  CreditCard,
+  DollarSign
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { UserSession, BranchUnit, CompanyProfile } from '../types';
@@ -145,10 +147,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: 'Multi-Tenant',
     },
     {
+      id: 'financeiro-saas',
+      label: 'Financeiro SaaS',
+      icon: DollarSign,
+      aliases: ['financeiro-saas', 'mrr', 'churn'],
+      badge: 'MRR',
+    },
+    {
       id: 'configuracoes',
       label: 'Configurações',
       icon: Settings,
       aliases: ['configuracoes', 'empresa-filiais'],
+    },
+    {
+      id: 'assinatura',
+      label: 'Assinatura & Faturas',
+      icon: CreditCard,
+      aliases: ['assinatura', 'faturas'],
     },
   ];
 

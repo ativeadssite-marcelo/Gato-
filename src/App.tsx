@@ -26,6 +26,8 @@ import { FornecedoresManager } from './components/FornecedoresManager';
 import { ConnectorsManager } from './components/ConnectorsManager';
 import { AdminImpostosFiscal } from './components/AdminImpostosFiscal';
 import { AdminRbacMultiTenant } from './components/AdminRbacMultiTenant';
+import { AssinaturaFaturas } from './components/AssinaturaFaturas';
+import { DashboardFinanceiroSaaS } from './components/DashboardFinanceiroSaaS';
 import { MasterPasswordModal } from './components/MasterPasswordModal';
 import {
   isElevatedAdmin,
@@ -1152,6 +1154,14 @@ export default function App() {
               onShowNotification={showNotification}
             />
           )}
+
+          {currentView === 'assinatura' && (
+            <AssinaturaFaturas onShowNotification={showNotification} />
+          )}
+
+          {(adminUnlocked && currentView === 'financeiro-saas') && (
+            <DashboardFinanceiroSaaS />
+          )}
         </main>
       </div>
 
@@ -1186,7 +1196,9 @@ export default function App() {
         viewLabel={
           pendingRestrictedView === 'rbac' || pendingRestrictedView === 'admin-rbac' || pendingRestrictedView === 'governanca' || pendingRestrictedView === 'tenants' || pendingRestrictedView === 'seguranca'
             ? 'Admin — Imposto e Governança'
-            : 'Admin — Impostos e Regras Fiscais'
+            : pendingRestrictedView === 'financeiro-saas'
+              ? 'Financeiro SaaS — MRR & Churn'
+              : 'Admin — Impostos e Regras Fiscais'
         }
         onConfirm={async (password) => {
           // A senha master é conferida no SERVIDOR (nenhum segredo existe no bundle).
