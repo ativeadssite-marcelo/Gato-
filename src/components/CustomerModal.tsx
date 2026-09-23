@@ -9,8 +9,6 @@ import {
   Mail, 
   MapPin, 
   CreditCard, 
-  Car, 
-  Plus, 
   Search, 
   CheckCircle2, 
   AlertTriangle,
@@ -41,7 +39,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
   onDeleteCustomer,
   onShowNotification,
 }) => {
-  const [activeTab, setActiveTab] = useState<'geral' | 'contato' | 'financeiro' | 'veiculos'>('geral');
+  const [activeTab, setActiveTab] = useState<'geral' | 'contato' | 'financeiro'>('geral');
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -73,16 +71,6 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
     notes: '',
     status: 'ativo' as 'ativo' | 'inativo' | 'bloqueado',
     vehicles: [] as CustomerVehicle[],
-  });
-
-  // Vehicle sub-form
-  const [newVehicle, setNewVehicle] = useState({
-    plate: '',
-    model: '',
-    brand: '',
-    year: '',
-    engine: '',
-    notes: '',
   });
 
   // Initialize or reset form when customerToEdit changes or modal opens
@@ -344,50 +332,6 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
     }
   };
 
-  // Add vehicle to list
-  const handleAddVehicle = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newVehicle.plate.trim() || !newVehicle.model.trim()) {
-      onShowNotification('Dados do Veículo', 'Informe ao menos a Placa e o Modelo do veículo.', 'warning');
-      return;
-    }
-
-    const cleanedPlate = newVehicle.plate.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const vehicle: CustomerVehicle = {
-      id: `v-${Date.now()}`,
-      plate: cleanedPlate,
-      model: newVehicle.model.trim(),
-      brand: newVehicle.brand.trim() || 'Multimarcas',
-      year: newVehicle.year.trim(),
-      engine: newVehicle.engine.trim(),
-      notes: newVehicle.notes.trim(),
-    };
-
-    setFormData(prev => ({
-      ...prev,
-      vehicles: [...prev.vehicles, vehicle],
-    }));
-
-    setNewVehicle({
-      plate: '',
-      model: '',
-      brand: '',
-      year: '',
-      engine: '',
-      notes: '',
-    });
-
-    onShowNotification('Veículo Adicionado', `Placa ${vehicle.plate} (${vehicle.model}) vinculada ao cliente.`, 'info');
-  };
-
-  // Remove vehicle
-  const handleRemoveVehicle = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      vehicles: prev.vehicles.filter(v => v.id !== id),
-    }));
-  };
-
   // Submit Main Customer Form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -489,7 +433,6 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
             { id: 'geral', label: '1. Geral & Fiscal', icon: Building2 },
             { id: 'contato', label: '2. Contato & Endereço', icon: MapPin },
             { id: 'financeiro', label: '3. Comercial & Crédito', icon: CreditCard },
-            { id: 'veiculos', label: `4. Frota & Veículos (${formData.vehicles.length})`, icon: Car },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -950,143 +893,6 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: FROTA & VEÍCULOS */}
-          {activeTab === 'veiculos' && (
-            <div className="space-y-4">
-              
-              {/* Formulário para Adicionar Veículo */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                <h4 className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
-                  <Plus className="w-3.5 h-3.5 text-[#EA580C]" />
-                  <span>Vincular Novo Veículo à Frota do Cliente</span>
-                </h4>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Placa *</label>
-                    <input
-                      type="text"
-                      placeholder="BRA2E19 ou ABC1234"
-                      maxLength={8}
-                      value={newVehicle.plate}
-                      onChange={(e) => setNewVehicle({ ...newVehicle, plate: e.target.value.toUpperCase() })}
-                      className="w-full p-2 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900 uppercase"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Modelo do Veículo *</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Scania R450 ou Onix 1.0"
-                      value={newVehicle.model}
-                      onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Marca / Montadora</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Scania, Chevrolet, VW"
-                      value={newVehicle.brand}
-                      onChange={(e) => setNewVehicle({ ...newVehicle, brand: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Ano / Fab</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: 2022"
-                      value={newVehicle.year}
-                      onChange={(e) => setNewVehicle({ ...newVehicle, year: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Motor / Versão</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: DC13 450cv ou 1.0 Turbo"
-                      value={newVehicle.engine}
-                      onChange={(e) => setNewVehicle({ ...newVehicle, engine: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900"
-                    />
-                  </div>
-
-                  <div className="flex items-end">
-                    <button
-                      type="button"
-                      onClick={handleAddVehicle}
-                      className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-orange-400" />
-                      <span>Adicionar Veículo</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Lista de Veículos Cadastrados */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span>Veículos Cadastrados ({formData.vehicles.length})</span>
-                  <span className="text-[10px] text-slate-400 font-normal">
-                    Facilita a busca de peças compatíveis para este cliente no balcão
-                  </span>
-                </div>
-
-                {formData.vehicles.length === 0 ? (
-                  <div className="p-6 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center text-slate-400">
-                    Nenhum veículo cadastrado na frota deste cliente ainda. Preencha os campos acima para adicionar.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {formData.vehicles.map((v) => (
-                      <div 
-                        key={v.id} 
-                        className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          {/* Placa Mercosul visual badge */}
-                          <div className="border border-slate-300 rounded-md overflow-hidden shrink-0 shadow-2xs">
-                            <div className="bg-blue-700 px-1.5 py-0.5 text-[7px] font-bold text-white tracking-widest text-center">
-                              BRASIL
-                            </div>
-                            <div className="bg-white px-2 py-0.5 font-mono font-black text-xs text-slate-900 text-center">
-                              {v.plate}
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="font-bold text-slate-800 text-xs">{v.model}</div>
-                            <div className="text-[10px] text-slate-500">
-                              {v.brand || 'Multimarcas'} {v.year ? `• ${v.year}` : ''} {v.engine ? `• ${v.engine}` : ''}
-                            </div>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveVehicle(v.id)}
-                          className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition cursor-pointer"
-                          title="Remover veículo"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Confirm Delete Warning */}
           {showDeleteConfirm && (
