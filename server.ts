@@ -28,6 +28,11 @@ import {
 import { INITIAL_PRODUCTS, DEFAULT_FEDERAL_TAX_SETTINGS, INITIAL_STATE_TAX_RULES } from "./src/data/initialData";
 import { rbacRouter } from "./server/rbacRoutes";
 import { authRouter } from "./server/authRoutes";
+import { billingRouter } from "./server/billing/routes";
+import { checkQuota, incrementUsage } from "./server/quotas";
+import { runMigrations } from "./server/migrate";
+import { seedBillingStore } from "./server/store";
+import { startBillingCron } from "./server/notifications/cron";
 
 dotenv.config();
 
@@ -186,6 +191,9 @@ app.use("/api/auth", authRouter);
 // RBAC Multi-Tenant Engine & Security Router (exige sessão autenticada)
 app.use("/api/rbac", rbacRouter);
 
+// Billing & Assinaturas (webhooks do gateway + autosserviço do tenant)
+app.use("/api/billing", billingRouter);
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -324,6 +332,12 @@ app.post("/api/db/products", requireAuth, requirePermission("company_data"), asy
     }
     const tenantId = scope.tenantId;
 
+    // Enforcement de cota: bloqueia cadastro de item quando o plano excedeu o limite.
+    const quota = await checkQuota(tenantId, "items", 1);
+    if (!quota.allowed) {
+      return res.status(402).json({ success: false, error: quota.reason, code: "QUOTA_EXCEEDED", quota, suggestion: "upgrade" });
+    }
+
     const sku = String(req.body?.sku || "").trim().slice(0, 100);
     const name = String(req.body?.name || "").trim().slice(0, 255);
     const brand = String(req.body?.brand || "Genérica").trim().slice(0, 100);
@@ -387,6 +401,7 @@ app.post("/api/db/products", requireAuth, requirePermission("company_data"), asy
       details: `Produto ${sku} cadastrado no tenant ${tenantId}.`,
       targetTenantId: tenantId,
     });
+    await incrementUsage(tenantId, "items", 1);
 
     res.json({ success: true, id: prodId, message: "Produto cadastrado no Supabase com sucesso!" });
   } catch (err: any) {
@@ -489,6 +504,13 @@ app.post("/api/storage/logo/upload", requireAuth, requireAnyPermission(["company
     const mimeType = contentType || `image/${cleanExt}`;
     const byteSize = buffer.length;
 
+    // Enforcement de cota de storage: bloqueia upload quando o plano excedeu o limite.
+    const storageMb = Math.max(1, Math.ceil(byteSize / (1024 * 1024)));
+    const quota = await checkQuota(tenantId, "storage", storageMb);
+    if (!quota.allowed) {
+      return res.status(402).json({ success: false, error: quota.reason, code: "QUOTA_EXCEEDED", quota, suggestion: "upgrade" });
+    }
+
     // Optional: If Supabase JS client can upload via REST API with key
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
     if (supabaseKey) {
@@ -515,6 +537,7 @@ app.post("/api/storage/logo/upload", requireAuth, requireAnyPermission(["company
       details: `Logo ${storagePath} (${byteSize} bytes) publicada.`,
       targetTenantId: tenantId,
     });
+    await incrementUsage(tenantId, "storage", storageMb);
 
     res.json({
       success: true,
@@ -694,6 +717,12 @@ app.post("/api/db/customers", requireAuth, requirePermission("customers_employee
       return res.status(400).json({ success: false, error: "Tenant inválido para cadastro de cliente." });
     }
 
+    // Enforcement de cota: bloqueia cadastro de cliente quando o plano excedeu o limite.
+    const quota = await checkQuota(tenantId, "customers", 1);
+    if (!quota.allowed) {
+      return res.status(402).json({ success: false, error: quota.reason, code: "QUOTA_EXCEEDED", quota, suggestion: "upgrade" });
+    }
+
     const duplicate = await pool.query(
       'SELECT id FROM "Customer" WHERE document = $1 AND "tenantId" = $2 LIMIT 1;',
       [document, tenantId]
@@ -725,6 +754,7 @@ app.post("/api/db/customers", requireAuth, requirePermission("customers_employee
       details: `Cliente cadastrado (documento mascarado) no tenant ${tenantId}.`,
       targetTenantId: tenantId,
     });
+    await incrementUsage(tenantId, "customers", 1);
 
     res.json({ success: true, id: customerId, message: "Cliente registrado no Supabase com sucesso!" });
   } catch (err: any) {
@@ -2113,6 +2143,13 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 async function startServer() {
+  // Domínio de cobrança: seed de demonstração, migrações versionadas e cron de vencimentos.
+  seedBillingStore();
+  await runMigrations().catch((err) =>
+    console.error("[GATO Migrate] Falha geral ao aplicar migrações:", err?.message || err),
+  );
+  startBillingCron();
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

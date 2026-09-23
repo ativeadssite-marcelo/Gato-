@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+*.log
+*.pid
+*.err.log
+.env
+.env.local
+docs
+.agents
+.githooks
