@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -31,6 +31,7 @@ import { DashboardFinanceiroSaaS } from './components/DashboardFinanceiroSaaS';
 import { ConfiguracaoBancoDados } from './components/ConfiguracaoBancoDados';
 import { CamadasAcesso } from './components/CamadasAcesso';
 import { MasterPasswordModal } from './components/MasterPasswordModal';
+import { SubscriptionBlockedScreen } from './components/SubscriptionBlockedScreen';
 import {
   isElevatedAdmin,
   isRestrictedView,
@@ -83,8 +84,9 @@ import {
 } from './types';
 import { syncQuoteToMarketingLead } from './utils/quoteMarketingSync';
 import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
-import { onUnauthorized, hasSessionToken, clearSessionToken } from './services/apiClient';
+import { onUnauthorized, hasSessionToken, clearSessionToken, apiJson } from './services/apiClient';
 import { fetchServerSession, logoutSession, buildUserSession } from './utils/sessionService';
+import type { SubscriptionStatus, TenantSubscription } from './types/billing';
 
 export default function App() {
   // Company Profile & Nome Fantasia State
@@ -146,6 +148,33 @@ export default function App() {
   const [pendingRestrictedView, setPendingRestrictedView] = useState<string | null>(null);
   const [showMasterPasswordModal, setShowMasterPasswordModal] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState<boolean>(() => hasValidAdminUnlock(userSession));
+
+  // ===== Enforcement de acesso por status da assinatura (espelho da regra server-side) =====
+  // O middleware já bloqueia as APIs; aqui só refletimos o status para mostrar a
+  // tela de reativação quando o tenant estiver expirado/suspenso/cancelado.
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [subscriptionPlanName, setSubscriptionPlanName] = useState<string>('');
+
+  const refreshSubscriptionStatus = useCallback(async () => {
+    if (!userSession || userSession.isSaasScope) {
+      setSubscriptionStatus(null);
+      setSubscriptionPlanName('');
+      return;
+    }
+    try {
+      const res = await apiJson<{ success: boolean; subscription: TenantSubscription | null }>('/api/billing/subscription');
+      setSubscriptionStatus(res.subscription?.status ?? 'trial');
+      setSubscriptionPlanName(res.subscription?.planName ?? '');
+    } catch {
+      // Falha ao consultar: não bloqueia a UI (a autoridade é o servidor).
+      setSubscriptionStatus(null);
+      setSubscriptionPlanName('');
+    }
+  }, [userSession]);
+
+  useEffect(() => {
+    void refreshSubscriptionStatus();
+  }, [refreshSubscriptionStatus]);
 
   // ===== Verificação da sessão real contra o servidor =====
   // O espelho do localStorage nunca é autoridade: no mount confirmamos o token
@@ -734,6 +763,25 @@ export default function App() {
           onBackToApp={handleOpenSystemDirectly}
         />
       </div>
+    );
+  }
+
+  // Bloqueio de acesso: tenant expirado/suspenso/cancelado enxerga apenas a tela
+  // de reativação (o escopo SaaS nunca é bloqueado).
+  if (
+    !userSession?.isSaasScope &&
+    (subscriptionStatus === 'expired' ||
+      subscriptionStatus === 'suspended' ||
+      subscriptionStatus === 'canceled')
+  ) {
+    return (
+      <SubscriptionBlockedScreen
+        status={subscriptionStatus}
+        planName={subscriptionPlanName}
+        canManageBilling={userSession?.roleCode === 'tenant_admin'}
+        onLogout={handleLogout}
+        onReactivated={() => void refreshSubscriptionStatus()}
+      />
     );
   }
 
