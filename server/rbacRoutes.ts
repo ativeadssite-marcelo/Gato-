@@ -27,6 +27,7 @@ import {
 import {
   RbacRoleCode,
   PermissionResource,
+  PermissionAccessLevel,
   RbacUser,
   TenantAccount,
   AuditLogRecord,
@@ -57,6 +58,29 @@ const VALID_TENANT_PERMISSIONS = new Set<string>(TENANT_PERMISSION_CATALOG.map((
 export function sanitizeTenantPermissions(input: unknown): TenantPermissionKey[] | undefined {
   if (!Array.isArray(input)) return undefined;
   return input.filter((k): k is TenantPermissionKey => typeof k === "string" && VALID_TENANT_PERMISSIONS.has(k));
+}
+
+const VALID_PERMISSION_RESOURCES = new Set<string>(PERMISSION_RESOURCES);
+const VALID_ACCESS_LEVELS = new Set<string>(ACCESS_LEVELS);
+
+/**
+ * Mantém apenas overrides de recursos e níveis conhecidos.
+ *
+ * `customOverrides` tem precedência sobre a matriz do papel em
+ * `effectiveAccessLevel`, então um valor arbitrário aqui vira privilégio —
+ * daí a filtragem na entrada, e não só na leitura.
+ */
+export function sanitizeCustomOverrides(
+  input: unknown,
+): Partial<Record<PermissionResource, PermissionAccessLevel>> | undefined {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined;
+  const sanitized: Partial<Record<PermissionResource, PermissionAccessLevel>> = {};
+  for (const [resource, level] of Object.entries(input as Record<string, unknown>)) {
+    if (!VALID_PERMISSION_RESOURCES.has(resource)) continue;
+    if (typeof level !== "string" || !VALID_ACCESS_LEVELS.has(level)) continue;
+    sanitized[resource as PermissionResource] = level as PermissionAccessLevel;
+  }
+  return sanitized;
 }
 
 // Todas as rotas do motor RBAC exigem sessão autenticada válida.
@@ -410,11 +434,12 @@ rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write:
     return res.status(403).json({ success: false, error: "Você só pode alterar usuários do seu próprio tenant." });
   }
 
-  // Fronteira de papéis — mesma regra que o POST já aplica ao criar usuários.
-  // Sem isto, um admin do tenant se promovia a super_admin enviando o `roleCode`
-  // no corpo: o `requireAuth` relê o usuário vivo, então a promoção valia já na
-  // requisição seguinte e abria escopo SaaS (todos os tenants).
+  // Fronteira de escopo do tenant. O escopo de tenant administra apenas as
+  // contas operacionais da própria empresa — nada de camada de plataforma.
   if (ROLE_DEFINITIONS[caller.roleCode].scope === "tenant") {
+    // a) Não concede papéis da equipe SaaS. Sem isto um admin do tenant se
+    //    promovia a super_admin pelo corpo e, como o requireAuth relê o usuário
+    //    vivo, ganhava escopo SaaS (todos os tenants) na requisição seguinte.
     if (typeof roleCode === "string" && (roleCode.startsWith("saas_") || roleCode === "super_admin")) {
       recordAudit(req, caller, "BLOCKED_ROLE_ESCALATION", "contractor_users", targetUser.id, "blocked", {
         anomalous: true,
@@ -426,6 +451,35 @@ rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write:
         code: "RBAC_ROLE_ESCALATION_DENIED",
       });
     }
+
+    // b) Não altera conta de escopo SaaS, mesmo que ela viva no mesmo tenant
+    //    (as personas de demonstração criam exatamente esse caso).
+    if (ROLE_DEFINITIONS[targetUser.roleCode]?.scope === "saas") {
+      recordAudit(req, caller, "BLOCKED_PLATFORM_ACCOUNT_UPDATE", "contractor_users", targetUser.id, "blocked", {
+        anomalous: true,
+        justification: "Tentativa de alterar conta da equipe SaaS a partir do escopo de tenant.",
+      });
+      return res.status(403).json({
+        success: false,
+        error: "Contas da equipe SaaS só podem ser administradas pela própria plataforma.",
+        code: "RBAC_PLATFORM_ACCOUNT_DENIED",
+      });
+    }
+
+    // c) Não define `customOverrides`. Eles sobrepõem a matriz do papel em
+    //    `effectiveAccessLevel`, e era por aí que um admin do tenant concedia a
+    //    si mesmo recursos negados (security_compliance, manage_accounts...).
+    if (customOverrides) {
+      recordAudit(req, caller, "BLOCKED_CUSTOM_OVERRIDES", "contractor_users", targetUser.id, "blocked", {
+        anomalous: true,
+        justification: "Tentativa de definir overrides por usuário a partir do escopo de tenant.",
+      });
+      return res.status(403).json({
+        success: false,
+        error: "Ajustes finos de permissão por usuário são exclusivos da plataforma.",
+        code: "RBAC_CUSTOM_OVERRIDES_DENIED",
+      });
+    }
   }
 
   const oldState = { ...targetUser };
@@ -435,8 +489,9 @@ rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write:
   // o corpo antigo gravava `undefined` no usuário e apagava o papel dele.
   targetUser.roleCode = roleDef.code;
   targetUser.roleName = roleDef.name;
-  if (customOverrides) {
-    targetUser.customOverrides = customOverrides;
+  const cleanOverrides = sanitizeCustomOverrides(customOverrides);
+  if (cleanOverrides) {
+    targetUser.customOverrides = cleanOverrides;
   }
   if (Array.isArray(tenantPermissions)) {
     targetUser.tenantPermissions = sanitizeTenantPermissions(tenantPermissions);
@@ -454,7 +509,7 @@ rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write:
     entityId: targetUser.id,
     timestamp: new Date().toISOString(),
     beforeState: { roleCode: oldState.roleCode, roleName: oldState.roleName },
-    afterState: { roleCode: targetUser.roleCode, roleName: targetUser.roleName, customOverrides, tenantPermissions: targetUser.tenantPermissions },
+    afterState: { roleCode: targetUser.roleCode, roleName: targetUser.roleName, customOverrides: targetUser.customOverrides, tenantPermissions: targetUser.tenantPermissions },
     status: "success"
   });
 
@@ -473,6 +528,25 @@ rbacRouter.post("/users/:id/reset-password", requirePermission("contractor_users
   const targetUser = RBAC_USERS_DATA.find((u) => u.id === id);
   if (!targetUser) {
     return res.status(404).json({ success: false, error: "Usuário não encontrado." });
+  }
+
+  // Fronteira de escopo: o escopo de tenant só reseta quem é da própria empresa
+  // e do próprio escopo. Sem isto, um admin do tenant disparava reset para
+  // usuário de outro tenant — e via o e-mail mascarado dele na resposta.
+  if (ROLE_DEFINITIONS[caller.roleCode].scope === "tenant") {
+    const sameTenant = targetUser.tenantId === caller.tenantId;
+    const targetIsPlatform = ROLE_DEFINITIONS[targetUser.roleCode]?.scope === "saas";
+    if (!sameTenant || targetIsPlatform) {
+      recordAudit(req, caller, "BLOCKED_CROSS_TENANT_PASSWORD_RESET", "contractor_users", targetUser.id, "blocked", {
+        anomalous: true,
+        justification: "Tentativa de redefinir senha de usuário fora do escopo do próprio tenant.",
+      });
+      return res.status(403).json({
+        success: false,
+        error: "Você só pode redefinir senhas de usuários da sua própria empresa.",
+        code: "RBAC_TENANT_ISOLATION",
+      });
+    }
   }
 
   // Regra: Suporte pode resetar, mas sem ver a senha em texto plano (envio de link seguro)

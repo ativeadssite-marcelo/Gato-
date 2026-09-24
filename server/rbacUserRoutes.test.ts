@@ -44,11 +44,13 @@ function snapshot(user: RbacUser) {
     roleCode: user.roleCode,
     roleName: user.roleName,
     tenantPermissions: user.tenantPermissions ? [...user.tenantPermissions] : user.tenantPermissions,
+    customOverrides: user.customOverrides ? { ...user.customOverrides } : user.customOverrides,
   };
   return () => {
     user.roleCode = state.roleCode;
     user.roleName = state.roleName;
     user.tenantPermissions = state.tenantPermissions;
+    user.customOverrides = state.customOverrides;
   };
 }
 
@@ -206,6 +208,90 @@ test("admin do tenant não concede papéis da equipe SaaS a terceiros", async ()
   } finally {
     restore();
   }
+});
+
+test("admin do tenant não altera conta da plataforma que vive no mesmo tenant", async () => {
+  // As personas de demonstração criam super_admin/saas_* dentro de um tenant.
+  const token = issueSessionToken(mgnAdmin).token;
+  const platformUser: RbacUser = {
+    ...mgnUser,
+    id: `usr_test_platform_${Date.now()}`,
+    email: `platform_${Date.now()}@gato.com.br`,
+    roleCode: "saas_suporte",
+    roleName: "Admin SaaS — Suporte",
+    tenantId: MGN_TENANT,
+  };
+  RBAC_USERS_DATA.push(platformUser);
+
+  try {
+    const res = await request("PUT", `/api/rbac/users/${platformUser.id}/role`, token, {
+      roleCode: "tenant_readonly",
+    });
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.code, "RBAC_PLATFORM_ACCOUNT_DENIED");
+    assert.equal(platformUser.roleCode, "saas_suporte", "o papel não pode ter mudado");
+  } finally {
+    const idx = RBAC_USERS_DATA.findIndex((u) => u.id === platformUser.id);
+    if (idx >= 0) RBAC_USERS_DATA.splice(idx, 1);
+  }
+});
+
+test("admin do tenant não define overrides por usuário", async () => {
+  // `customOverrides` sobrepõe a matriz do papel: era por aí que o admin do
+  // tenant concedia a si mesmo security_compliance / manage_accounts.
+  const token = issueSessionToken(mgnAdmin).token;
+  const restore = snapshot(mgnAdmin);
+
+  try {
+    const res = await request("PUT", `/api/rbac/users/${mgnAdmin.id}/role`, token, {
+      roleCode: "tenant_admin",
+      customOverrides: { security_compliance: "full", manage_accounts: "full" },
+    });
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.code, "RBAC_CUSTOM_OVERRIDES_DENIED");
+    assert.equal(mgnAdmin.customOverrides, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("escopo SaaS ainda define overrides, com recursos desconhecidos filtrados", async () => {
+  const superAdmin = RBAC_USERS_DATA.find((u) => u.id === "usr_super_admin")!;
+  const token = issueSessionToken(superAdmin).token;
+  const restore = snapshot(mgnUser);
+
+  try {
+    const res = await request("PUT", `/api/rbac/users/${mgnUser.id}/role`, token, {
+      roleCode: "tenant_user",
+      customOverrides: { company_data: "none", recurso_inventado: "full" },
+    });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(mgnUser.customOverrides, { company_data: "none" });
+  } finally {
+    restore();
+  }
+});
+
+test("admin do tenant não dispara reset de senha de usuário de outra empresa", async () => {
+  const token = issueSessionToken(mgnAdmin).token;
+
+  const res = await request("POST", `/api/rbac/users/${pantanalReadonly.id}/reset-password`, token);
+
+  assert.equal(res.status, 403);
+  assert.equal(res.body.code, "RBAC_TENANT_ISOLATION");
+  assert.equal(res.body.maskedEmail, undefined, "não pode vazar o e-mail do outro tenant");
+});
+
+test("admin do tenant ainda reseta senha da própria equipe", async () => {
+  const token = issueSessionToken(mgnAdmin).token;
+
+  const res = await request("POST", `/api/rbac/users/${mgnUser.id}/reset-password`, token);
+
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.success, true);
 });
 
 test("admin do tenant continua podendo trocar papéis dentro do próprio escopo", async () => {
