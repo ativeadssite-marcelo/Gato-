@@ -46,11 +46,17 @@ export const rbacRouter = Router();
 
 const VALID_TENANT_PERMISSIONS = new Set<string>(TENANT_PERMISSION_CATALOG.map((p) => p.key));
 
-/** Filtra e devolve apenas capacidades válidas do catálogo (ignora desconhecidas). */
-function sanitizeTenantPermissions(input: unknown): TenantPermissionKey[] | undefined {
+/**
+ * Filtra e devolve apenas capacidades válidas do catálogo (ignora desconhecidas).
+ *
+ * Um array vazio é preservado como `[]`: significa "configurado sem nenhuma
+ * capacidade", que o menu do usuário precisa distinguir de "nunca configurado".
+ * Antes o vazio virava `undefined`, e como `undefined` mantém o acesso padrão do
+ * papel, criar um usuário sem capacidade alguma o deixava com o menu inteiro.
+ */
+export function sanitizeTenantPermissions(input: unknown): TenantPermissionKey[] | undefined {
   if (!Array.isArray(input)) return undefined;
-  const valid = input.filter((k): k is TenantPermissionKey => typeof k === "string" && VALID_TENANT_PERMISSIONS.has(k));
-  return valid.length > 0 ? valid : undefined;
+  return input.filter((k): k is TenantPermissionKey => typeof k === "string" && VALID_TENANT_PERMISSIONS.has(k));
 }
 
 // Todas as rotas do motor RBAC exigem sessão autenticada válida.
@@ -404,16 +410,36 @@ rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write:
     return res.status(403).json({ success: false, error: "Você só pode alterar usuários do seu próprio tenant." });
   }
 
+  // Fronteira de papéis — mesma regra que o POST já aplica ao criar usuários.
+  // Sem isto, um admin do tenant se promovia a super_admin enviando o `roleCode`
+  // no corpo: o `requireAuth` relê o usuário vivo, então a promoção valia já na
+  // requisição seguinte e abria escopo SaaS (todos os tenants).
+  if (ROLE_DEFINITIONS[caller.roleCode].scope === "tenant") {
+    if (typeof roleCode === "string" && (roleCode.startsWith("saas_") || roleCode === "super_admin")) {
+      recordAudit(req, caller, "BLOCKED_ROLE_ESCALATION", "contractor_users", targetUser.id, "blocked", {
+        anomalous: true,
+        justification: `Tentativa de conceder o papel '${roleCode}' a partir do escopo de tenant.`,
+      });
+      return res.status(403).json({
+        success: false,
+        error: "Administradores de tenant não podem conceder papéis da equipe SaaS.",
+        code: "RBAC_ROLE_ESCALATION_DENIED",
+      });
+    }
+  }
+
   const oldState = { ...targetUser };
   const roleDef = ROLE_DEFINITIONS[roleCode as RbacRoleCode] || ROLE_DEFINITIONS[targetUser.roleCode];
 
-  targetUser.roleCode = roleCode as RbacRoleCode;
+  // Usa o papel efetivamente resolvido, não o valor cru do body: sem `roleCode`
+  // o corpo antigo gravava `undefined` no usuário e apagava o papel dele.
+  targetUser.roleCode = roleDef.code;
   targetUser.roleName = roleDef.name;
   if (customOverrides) {
     targetUser.customOverrides = customOverrides;
   }
   if (Array.isArray(tenantPermissions)) {
-    targetUser.tenantPermissions = sanitizeTenantPermissions(tenantPermissions) ?? [];
+    targetUser.tenantPermissions = sanitizeTenantPermissions(tenantPermissions);
   }
 
   AUDIT_LOGS_DATA.unshift({
