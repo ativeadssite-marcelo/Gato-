@@ -16,7 +16,11 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import dotenv from "dotenv";
 import { getDbPool, isDatabaseConfigured, DB_NOT_CONFIGURED_MESSAGE } from "./db";
+
+// Ponto de entrada: carrega o .env como o server.ts faz.
+dotenv.config();
 
 const levelIcon = { ok: "[ok]  ", warn: "[aviso]", fail: "[FALHA]" } as const;
 type Level = keyof typeof levelIcon;
