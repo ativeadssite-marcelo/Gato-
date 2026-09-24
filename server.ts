@@ -28,6 +28,10 @@ import {
 } from "./src/data/fleetDatabase";
 import { INITIAL_PRODUCTS, DEFAULT_FEDERAL_TAX_SETTINGS, INITIAL_STATE_TAX_RULES } from "./src/data/initialData";
 import { rbacRouter } from "./server/rbacRoutes";
+import { createRateLimiter } from "./server/rateLimit";
+import { credentialsRouter } from "./server/credentialsRoutes";
+import { licenseRouter } from "./server/licenseRoutes";
+import { v1Router } from "./server/v1Routes";
 import { authRouter } from "./server/authRoutes";
 import { billingRouter } from "./server/billing/routes";
 import { adminDatabaseRouter } from "./server/adminDatabaseRoutes";
@@ -90,48 +94,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // Security: In-Memory Sliding-Window Rate Limiter (Brute-force and DoS Defense)
-interface RateLimitRecord {
-  count: number;
-  resetAt: number;
-}
-const rateLimits = new Map<string, RateLimitRecord>();
-
-function createRateLimiter(maxRequests: number, windowMs: number, keyPrefix = "std") {
-  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    // IP resolvido no servidor (não confia em cabeçalhos do cliente sem proxy confiável).
-    // Impede burlar o rate limit forjando "x-forwarded-for".
-    const ip = getClientIp(req);
-    const key = `${keyPrefix}:${ip}`;
-    const now = Date.now();
-
-    let record = rateLimits.get(key);
-    if (!record || now > record.resetAt) {
-      record = { count: 1, resetAt: now + windowMs };
-      rateLimits.set(key, record);
-    } else {
-      record.count++;
-    }
-
-    // Auto-clean old records periodically
-    if (rateLimits.size > 5000) {
-      for (const [k, v] of rateLimits.entries()) {
-        if (now > v.resetAt) rateLimits.delete(k);
-      }
-    }
-
-    if (record.count > maxRequests) {
-      const retryAfter = Math.max(1, Math.ceil((record.resetAt - now) / 1000));
-      res.setHeader("Retry-After", String(retryAfter));
-      return res.status(429).json({
-        success: false,
-        error: "Limite de requisições excedido. Por favor, aguarde alguns instantes.",
-        retryAfter,
-      });
-    }
-    next();
-  };
-}
-
+// Implementação em server/rateLimit.ts, compartilhada com o router de licenças.
 const standardApiLimiter = createRateLimiter(250, 60 * 1000, "std");
 const aiLimiter = createRateLimiter(30, 60 * 1000, "ai");
 const syncLimiter = createRateLimiter(40, 60 * 1000, "sync");
@@ -198,6 +161,15 @@ app.use("/api/billing", billingRouter);
 
 // Configuração do banco (cadastro de credenciais em runtime — Super Admin)
 app.use("/api/admin/database", adminDatabaseRouter);
+
+// Gestão das credenciais de integração do tenant (chave de API e licença)
+app.use("/api/credentials", credentialsRouter);
+
+// Ativação da licença de máquina — sem sessão, a própria licença é a credencial
+app.use("/api/license", licenseRouter);
+
+// API v1 de integração do tenant — autenticada por chave de API (x-api-key)
+app.use("/api/v1", v1Router);
 
 // Health check
 app.get("/api/health", (req, res) => {

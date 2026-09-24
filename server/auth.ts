@@ -35,12 +35,21 @@ import {
   DEFAULT_COMPANY_PROFILE,
 } from "../src/data/initialData";
 import { evaluateSubscriptionAccess, getTenantAccess } from "./billing/subscriptions";
+import { findCredentialBySecret, touchLastUsed } from "./credentials";
+import { consumeApiQuota } from "./quotas";
+import type { ApiAuthContext } from "../src/types/credentials";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       auth?: AuthContext;
+      /**
+       * Identidade resolvida por CHAVE DE API (integração por tenant). É separada
+       * de `auth` de propósito: as rotas de /api/v1 leem daqui, então o alcance da
+       * chave é exatamente as rotas que declaram `requireApiKey`.
+       */
+      apiAuth?: ApiAuthContext;
       rawBody?: Buffer;
     }
   }
@@ -1208,6 +1217,133 @@ export function requireIngestAuth(apiKeyEnvName = "GATO_INGEST_API_KEY") {
         : `Webhook fechado: configure a variável de ambiente ${apiKeyEnvName} para habilitar integrações externas.`,
       code: configured ? "GATO_UNAUTHENTICATED" : "GATO_WEBHOOK_NOT_CONFIGURED",
     });
+  };
+}
+
+/**
+ * Ator sintético APENAS para a trilha de auditoria — nunca para autorização.
+ *
+ * A chave de API não tem usuário, mas o registro de auditoria precisa de um nome
+ * para exibir. Se este objeto fosse usado para decidir acesso, a chave herdaria
+ * todo o alcance do papel escolhido aqui — por isso a autorização de /api/v1 sai
+ * de `req.apiAuth`, não daqui.
+ */
+export function apiActorFor(credential: { id: string; tenantId: string; label: string }): RbacUser {
+  return {
+    id: credential.id,
+    tenantId: credential.tenantId,
+    tenantName:
+      TENANTS_DATA.find((t) => t.id === credential.tenantId)?.name || credential.tenantId,
+    name: `${credential.label} (chave de API)`,
+    email: "",
+    roleCode: "tenant_user",
+    roleName: "Integração via chave de API",
+    active: true,
+    avatarInitials: "API",
+    mfaEnabled: false,
+    mfaEnforced: false,
+    lastLoginAt: "",
+    lastLoginIp: "",
+    createdAt: "",
+  };
+}
+
+function denyApiKey(
+  req: Request,
+  res: Response,
+  credential: { id: string; tenantId: string; label: string },
+  status: number,
+  code: string,
+  error: string,
+  details: string,
+  extra: Record<string, unknown> = {},
+) {
+  recordAudit(req, apiActorFor(credential), code, "tenant_credentials", credential.id, "blocked", {
+    targetTenantId: credential.tenantId,
+    details,
+    anomalous: true,
+  });
+  return res.status(status).json({ success: false, error, code, ...extra });
+}
+
+/**
+ * Autentica e autoriza uma requisição por CHAVE DE API do tenant.
+ *
+ * Diferente de `requireIngestAuth` (chave global de env, sem tenant), aqui a chave
+ * resolve um contratante e o escopo fica travado nele: o `tenantId` sai de
+ * `req.apiAuth` e nunca do corpo ou da query string.
+ *
+ * Ordem das checagens — assinatura, assinatura vencida, capacidade, cota. A
+ * capacidade vem ANTES da cota de propósito: uma requisição que a chave nem tem
+ * permissão de fazer não deve consumir a franquia diária do cliente.
+ */
+export function requireApiKey(requiredCapability: TenantPermissionKey) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const provided = String(req.headers["x-api-key"] || "").trim();
+    if (!provided) {
+      return res.status(401).json({
+        success: false,
+        error: "Informe a chave de API no cabeçalho x-api-key.",
+        code: "API_KEY_REQUIRED",
+      });
+    }
+
+    const credential = await findCredentialBySecret(provided);
+
+    // Chave desconhecida não é auditada: não há tenant para registrar, e qualquer
+    // prefixo inventado viraria flood na trilha de auditoria.
+    if (!credential) {
+      return res.status(401).json({
+        success: false,
+        error: "Chave de API inválida.",
+        code: "API_KEY_INVALID",
+      });
+    }
+
+    if (!credential.active) {
+      return denyApiKey(req, res, credential, 401, "API_KEY_REVOKED",
+        "Esta chave de API foi revogada.", "Requisição com chave de API revogada.");
+    }
+
+    // A integração respeita o mesmo bloqueio de assinatura que a interface: um
+    // tenant suspenso não continua sincronizando dados por API.
+    const access = await getTenantAccess(credential.tenantId);
+    const subscriptionDecision = evaluateSubscriptionAccess(access.status, req.method);
+    if (subscriptionDecision.kind !== "allowed") {
+      return denyApiKey(req, res, credential, subscriptionDecision.status, subscriptionDecision.code,
+        subscriptionDecision.error,
+        `Assinatura do tenant impediu a chamada de API (status=${access.status}).`,
+        { suggestion: subscriptionDecision.suggestion, subscriptionStatus: subscriptionDecision.status });
+    }
+
+    if (!credential.capabilities.includes(requiredCapability)) {
+      return denyApiKey(req, res, credential, 403, "API_KEY_CAPABILITY_DENIED",
+        `Esta chave não tem a permissão operacional '${requiredCapability}'.`,
+        `Chave sem a capacidade '${requiredCapability}'.`);
+    }
+
+    const quota = await consumeApiQuota(credential.tenantId);
+    res.setHeader("X-RateLimit-Limit", String(quota.limit));
+    if (!quota.allowed) {
+      res.setHeader("X-RateLimit-Remaining", "0");
+      res.setHeader("Retry-After", String(quota.retryAfterSeconds));
+      return denyApiKey(req, res, credential, 429, "API_QUOTA_EXCEEDED",
+        `Cota diária de ${quota.limit} requisições de API do plano foi atingida. Tente novamente após a virada do dia.`,
+        `Cota diária de API atingida (${quota.used}/${quota.limit}).`,
+        { quota: { used: quota.used, limit: quota.limit, resetInSeconds: quota.retryAfterSeconds } });
+    }
+    res.setHeader("X-RateLimit-Remaining", String(quota.remaining));
+
+    req.apiAuth = {
+      credentialId: credential.id,
+      tenantId: credential.tenantId,
+      label: credential.label,
+      capabilities: credential.capabilities,
+    };
+
+    // Não bloqueia a resposta: o carimbo de uso é acessório.
+    void touchLastUsed(credential.id);
+    return next();
   };
 }
 

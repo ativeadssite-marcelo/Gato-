@@ -346,15 +346,26 @@ function periodOf(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export async function getUsage(tenantId: string): Promise<TenantUsage> {
+/**
+ * Bucket DIÁRIO ('YYYY-MM-DD'), usado pela cota de API.
+ *
+ * A mesma tabela `TenantUsage` serve aos dois grãos: a UNIQUE ("tenantId",
+ * period) do 0001 distingue 'YYYY-MM' de 'YYYY-MM-DD' sem conflito. A virada do
+ * dia é automática porque a chave do período muda — não existe job de reset.
+ */
+function periodOfDay(d = new Date()): string {
+  return `${periodOf(d)}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+async function getUsageForPeriod(tenantId: string, period: string): Promise<TenantUsage> {
   await hydrate();
-  const key = `${tenantId}:${periodOf()}`;
+  const key = `${tenantId}:${period}`;
   const cached = usage.get(key);
   if (cached) return cached;
 
   const fresh: TenantUsage = {
     tenantId,
-    period: periodOf(),
+    period,
     customers: 0,
     items: 0,
     users: 0,
@@ -367,11 +378,14 @@ export async function getUsage(tenantId: string): Promise<TenantUsage> {
   return fresh;
 }
 
-export async function setUsage(tenantId: string, patch: Partial<Omit<TenantUsage, "tenantId" | "period" | "updatedAt">>): Promise<TenantUsage> {
-  const current = await getUsage(tenantId);
+async function setUsageForPeriod(
+  tenantId: string,
+  period: string,
+  patch: Partial<Omit<TenantUsage, "tenantId" | "period" | "updatedAt">>,
+): Promise<TenantUsage> {
+  const current = await getUsageForPeriod(tenantId, period);
   const updated: TenantUsage = { ...current, ...patch, updatedAt: now() };
-  const key = `${tenantId}:${periodOf()}`;
-  usage.set(key, updated);
+  usage.set(`${tenantId}:${period}`, updated);
   mirror(
     `INSERT INTO "TenantUsage" (id, "tenantId", period, customers, items, users, employees, "storageMb", "apiRequestsToday", "updatedAt")
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
@@ -379,6 +393,29 @@ export async function setUsage(tenantId: string, patch: Partial<Omit<TenantUsage
     [`u_${tenantId}_${updated.period}`, tenantId, updated.period, updated.customers, updated.items, updated.users, updated.employees, updated.storageMb, updated.apiRequestsToday, updated.updatedAt],
   );
   return updated;
+}
+
+export async function getUsage(tenantId: string): Promise<TenantUsage> {
+  return getUsageForPeriod(tenantId, periodOf());
+}
+
+export async function setUsage(tenantId: string, patch: Partial<Omit<TenantUsage, "tenantId" | "period" | "updatedAt">>): Promise<TenantUsage> {
+  return setUsageForPeriod(tenantId, periodOf(), patch);
+}
+
+/** Consome `amount` requisições da cota de API do dia e devolve o total de hoje. */
+export async function consumeApiRequest(tenantId: string, amount = 1): Promise<number> {
+  const period = periodOfDay();
+  const current = await getUsageForPeriod(tenantId, period);
+  const updated = await setUsageForPeriod(tenantId, period, {
+    apiRequestsToday: current.apiRequestsToday + amount,
+  });
+  return updated.apiRequestsToday;
+}
+
+/** Uso de API de hoje, sem consumir (para exibir a cota). */
+export async function getApiRequestsToday(tenantId: string): Promise<number> {
+  return (await getUsageForPeriod(tenantId, periodOfDay())).apiRequestsToday;
 }
 
 // -------------------------------------------------------------------------

@@ -31,6 +31,7 @@ import { DashboardFinanceiroSaaS } from './components/DashboardFinanceiroSaaS';
 import { ConfiguracaoBancoDados } from './components/ConfiguracaoBancoDados';
 import { CamadasAcesso } from './components/CamadasAcesso';
 import { EquipeAcessos } from './components/EquipeAcessos';
+import { ChavesIntegracoes } from './components/ChavesIntegracoes';
 import { MasterPasswordModal } from './components/MasterPasswordModal';
 import { SubscriptionBlockedScreen } from './components/SubscriptionBlockedScreen';
 import {
@@ -1197,6 +1198,13 @@ export default function App() {
               senão o tenant_admin (papel 'gerente' na UI) ficaria de fora. */}
           {currentView === 'equipe-acessos' && (
             <EquipeAcessos userSession={userSession} onShowNotification={showNotification} />
+          )}
+
+          {/* Chaves de API e licença de máquina. View comum (sem adminUnlocked):
+              o admin do tenant precisa entrar sem senha master; o dono/SaaS entra
+              pelo recurso `tenant_credentials`. */}
+          {currentView === 'chaves' && (
+            <ChavesIntegracoes userSession={userSession} onShowNotification={showNotification} />
           )}
 
           {currentView === 'configuracoes' && (

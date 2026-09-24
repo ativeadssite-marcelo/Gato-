@@ -29,6 +29,10 @@ export const MENU_RESOURCE: Record<string, string> = {
   'xml-import': 'company_data',
   configuracoes: 'company_data',
   assinatura: 'billing_contracts',
+  // Chaves de API / licença de máquina. `tenant_credentials` é `own_tenant_only`
+  // para o admin do tenant e `full` para o dono/SaaS, então a tela serve às duas
+  // audiências com um único mapeamento.
+  chaves: 'tenant_credentials',
   conectores: 'connectors',
   admin: 'fiscal_config',
   rbac: 'manage_accounts',
@@ -73,6 +77,7 @@ export const MENU_ITEM_LABELS: Record<string, string> = {
   relatorios: 'Relatórios',
   'ordem-servico': 'Ordem de Serviço',
   'xml-import': 'Baixar NF-e / XML',
+  chaves: 'Chaves & Integrações',
 };
 
 /**

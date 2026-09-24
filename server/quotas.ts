@@ -8,7 +8,7 @@
 // =========================================================================
 
 import { SAAS_PLANS, TENANTS_DATA } from "./rbacEngine";
-import { getUsage, setUsage } from "./store";
+import { consumeApiRequest, getApiRequestsToday, getUsage, setUsage } from "./store";
 import { QuotaCheckResult, QuotaStatus } from "../src/types/billing";
 
 export type QuotaResource = "customers" | "items" | "users" | "storage";
@@ -86,4 +86,60 @@ export async function incrementUsage(
   const patch: Record<string, number> = {};
   patch[USAGE_KEY[resource]] = usageValue(current, resource) + amount;
   await setUsage(tenantId, patch);
+}
+
+// -------------------------------------------------------------------------
+// COTA DIÁRIA DE API (integração por chave de API)
+// -------------------------------------------------------------------------
+// Diferente de `checkQuota`, que apenas projeta e deixa a escrita efetivar: aqui
+// a requisição já está acontecendo, então o consumo é atômico. Requisição RECUSADA
+// não é contada — senão uma integração acima da cota se afundaria cada vez mais.
+
+export interface ApiQuotaDecision {
+  allowed: boolean;
+  used: number;
+  limit: number;
+  remaining: number;
+  /** Segundos até a virada do dia, para o header Retry-After quando bloqueado. */
+  retryAfterSeconds: number;
+}
+
+function secondsUntilTomorrow(): number {
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  return Math.max(1, Math.ceil((tomorrow.getTime() - now.getTime()) / 1000));
+}
+
+/** Uso do dia e limite do plano, sem consumir nada (para exibir a cota). */
+export async function getApiQuota(tenantId: string): Promise<{ used: number; limit: number }> {
+  const { plan } = planFor(tenantId);
+  return { used: await getApiRequestsToday(tenantId), limit: plan.quotas.maxApiRequestsPerDay };
+}
+
+/** Consome 1 requisição da cota de API do dia, ou recusa por limite atingido. */
+export async function consumeApiQuota(tenantId: string): Promise<ApiQuotaDecision> {
+  const { plan } = planFor(tenantId);
+  const limit = plan.quotas.maxApiRequestsPerDay;
+  const retryAfterSeconds = secondsUntilTomorrow();
+
+  // Plano sem cota de API (0) = sem acesso por integração.
+  if (limit <= 0) {
+    return {
+      allowed: false,
+      used: await getApiRequestsToday(tenantId),
+      limit,
+      remaining: 0,
+      retryAfterSeconds,
+    };
+  }
+
+  const current = await getApiRequestsToday(tenantId);
+  if (current >= limit) {
+    return { allowed: false, used: current, limit, remaining: 0, retryAfterSeconds };
+  }
+
+  const used = await consumeApiRequest(tenantId);
+  return { allowed: true, used, limit, remaining: Math.max(0, limit - used), retryAfterSeconds };
 }

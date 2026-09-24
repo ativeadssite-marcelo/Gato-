@@ -36,6 +36,7 @@ export const PERMISSION_RESOURCES: PermissionResource[] = [
   'audit_logs',
   'security_compliance',
   'catalog_reference',
+  'tenant_credentials',
 ];
 
 export const PERMISSION_RESOURCE_LABELS: Record<PermissionResource, string> = {
@@ -54,6 +55,7 @@ export const PERMISSION_RESOURCE_LABELS: Record<PermissionResource, string> = {
   audit_logs: 'Trilha de auditoria',
   security_compliance: 'Segurança & LGPD',
   catalog_reference: 'Catálogo de referência (veículos/aplicação)',
+  tenant_credentials: 'Chaves de API & licença de máquina',
 };
 
 export const ACCESS_LEVELS: PermissionAccessLevel[] = ['none', 'read_only', 'masked', 'own_tenant_only', 'full', 'audit_required'];
@@ -83,6 +85,7 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     description: 'Acesso total. Cria/remove admins da equipe, define permissões, gerencia planos, limites, contratos, fiscal, conectores e mensagens.',
     requiresMfa: true,
     permissions: {
+      tenant_credentials: 'full',
       updates: 'full',
       billing_contracts: 'full',
       bug_support: 'full',
@@ -114,6 +117,7 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     description: 'Gerencia mensalidades, boletos, contratos, cobrança, notas e relatórios financeiros da plataforma. Sem acesso a dados de clientes/funcionários dos tenants.',
     requiresMfa: true,
     permissions: {
+      tenant_credentials: 'none',
       updates: 'none',
       billing_contracts: 'full',
       bug_support: 'none',
@@ -139,6 +143,7 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     description: 'Configura e altera regras fiscais, impostos, CFOP/NCM e integrações fiscais. Sem acesso a cobrança e dados pessoais.',
     requiresMfa: true,
     permissions: {
+      tenant_credentials: 'none',
       updates: 'none',
       billing_contracts: 'none',
       bug_support: 'none',
@@ -164,6 +169,8 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     description: 'Atende bugs e tickets. Vê logs técnicos mascarados. Pode resetar senha de usuários, sem ver dados financeiros/fiscais sensíveis.',
     requiresMfa: true,
     permissions: {
+      // Suporte pode rotacionar a chave de um cliente que perdeu acesso.
+      tenant_credentials: 'full',
       updates: 'read_only',                   // 👁️ Vê versão e releases
       billing_contracts: 'none',
       bug_support: 'full',
@@ -189,6 +196,7 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     description: 'Gerencia atualizações, conectores, layout, feature flags e configurações da plataforma. Sem acesso a dados pessoais.',
     requiresMfa: true,
     permissions: {
+      tenant_credentials: 'none',
       updates: 'full',
       billing_contracts: 'none',
       bug_support: 'read_only',               // 👁️ Acompanha telemetria de erros
@@ -214,6 +222,7 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     description: 'Vê contas, uso, limites e pode enviar mensagens internas e de engajamento. Sem acesso a dados sensíveis.',
     requiresMfa: true,
     permissions: {
+      tenant_credentials: 'none',
       updates: 'none',
       billing_contracts: 'read_only',         // 👁️ Visualiza status do plano
       bug_support: 'read_only',               // 👁️ Acompanha satisfação
@@ -239,6 +248,7 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     description: 'Gerencia usuários da própria empresa, clientes, funcionários, itens de estoque, dados da empresa, faturas e upgrade.',
     requiresMfa: false,
     permissions: {
+      tenant_credentials: 'own_tenant_only',
       updates: 'none',
       billing_contracts: 'own_tenant_only',   // 👁️ Própria fatura
       bug_support: 'none',
@@ -264,6 +274,7 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     description: 'Acesso operacional conforme a função diária (vendas, caixa, estoque). Não altera configurações críticas nem visualiza outros tenants.',
     requiresMfa: false,
     permissions: {
+      tenant_credentials: 'none',
       updates: 'none',
       billing_contracts: 'none',
       bug_support: 'none',
@@ -289,6 +300,7 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
     description: 'Visualiza relatórios e itens sem permissão de gravação ou alteração de dados.',
     requiresMfa: false,
     permissions: {
+      tenant_credentials: 'none',
       updates: 'none',
       billing_contracts: 'read_only',
       bug_support: 'none',

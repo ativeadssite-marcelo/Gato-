@@ -42,7 +42,13 @@ export type PermissionResource =
    * `company_data`/`customers_employees` para que restringir o acesso do dono
    * aos dados dos tenants não lhe tire também as consultas de catálogo.
    */
-  | 'catalog_reference';
+  | 'catalog_reference'
+  /**
+   * Credenciais de integração do contratante: chave de API e licença de máquina.
+   * O admin do tenant administra as da própria empresa; o dono/SaaS pode ver e
+   * rotacionar em nome do cliente, para suporte.
+   */
+  | 'tenant_credentials';
 
 /**
  * Permissões operacionais finas do tenant. O admin contratante monta o acesso

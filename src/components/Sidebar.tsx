@@ -26,7 +26,8 @@ import {
   CreditCard,
   DollarSign,
   Database,
-  Layers
+  Layers,
+  KeyRound
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { UserSession, BranchUnit, CompanyProfile } from '../types';
@@ -171,6 +172,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       // Só o admin do tenant define acessos da própria equipe. Não é view
       // restrita (não exige senha master) — ver RESTRICTED_VIEWS.
       tenantAdminOnly: true,
+    },
+    {
+      id: 'chaves',
+      label: 'Chaves & Integrações',
+      icon: KeyRound,
+      aliases: ['chaves', 'chaves-integracoes', 'api', 'licenca', 'integracao'],
     },
     {
       id: 'configuracoes',
