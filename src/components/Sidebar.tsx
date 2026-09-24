@@ -164,6 +164,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: 'RBAC',
     },
     {
+      id: 'equipe-acessos',
+      label: 'Equipe & Acessos',
+      icon: Users,
+      aliases: ['equipe-acessos', 'equipe', 'acessos', 'usuarios', 'permissoes-equipe'],
+      // Só o admin do tenant define acessos da própria equipe. Não é view
+      // restrita (não exige senha master) — ver RESTRICTED_VIEWS.
+      tenantAdminOnly: true,
+    },
+    {
       id: 'configuracoes',
       label: 'Configurações',
       icon: Settings,
@@ -203,6 +212,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const visiblePrimaryNavItems = primaryNavItems.filter((item) => {
     // Telas administrativas só aparecem para admins elevados.
     if (!adminVisible && RESTRICTED_VIEWS.includes(item.id)) return false;
+    // Itens exclusivos do admin do tenant (gestão da própria equipe).
+    if (item.tenantAdminOnly && userSession?.roleCode !== 'tenant_admin') return false;
     // Demais itens seguem a permissão RBAC do papel (camada de acesso).
     return isMenuVisible(item.id, userSession);
   });

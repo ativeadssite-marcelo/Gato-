@@ -50,9 +50,12 @@ import {
   InternalMessageTemplate,
   InternalMessageItem,
   IsolationTestResult,
-  LgpdSubjectRequest
+  LgpdSubjectRequest,
+  TenantPermissionDefinition,
+  TenantPermissionKey
 } from '../types/rbac';
 import { apiFetch } from '../services/apiClient';
+import { TenantPermissionMatrix } from './TenantPermissionMatrix';
 
 interface AdminRbacProps {
   onNotify?: (message: string, type?: 'success' | 'warning' | 'error') => void;
@@ -97,6 +100,16 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
   const [newUserRole, setNewUserRole] = useState<RbacRoleCode>('tenant_user');
   const [newUserTenant, setNewUserTenant] = useState('cmtt58e6o0000ju346a0g6s32');
   const [newUserDept, setNewUserDept] = useState('Operacional');
+
+  // Construtor flexível: catálogo de capacidades do tenant (vindo do servidor)
+  // e o rascunho de checkboxes do usuário em edição.
+  const [tenantCatalog, setTenantCatalog] = useState<TenantPermissionDefinition[]>([]);
+  const [tenantGroups, setTenantGroups] = useState<
+    Array<{ id: TenantPermissionDefinition['group']; name: string }>
+  >([]);
+  const [newUserTenantPermissions, setNewUserTenantPermissions] = useState<TenantPermissionKey[]>([]);
+  /** Quando definido, o modal está editando os acessos de um usuário existente. */
+  const [editingUser, setEditingUser] = useState<RbacUser | null>(null);
 
   // Form State: Nova Mensagem
   const [msgTitle, setMsgTitle] = useState('');
@@ -175,6 +188,14 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
       if (dataLgpd.success) {
         setLgpdRequests(dataLgpd.requests);
       }
+
+      // Catálogo do construtor flexível (grupos + capacidades operacionais)
+      const resTenantPerms = await apiFetch('/api/rbac/tenant-permissions');
+      const dataTenantPerms = await resTenantPerms.json();
+      if (dataTenantPerms.success) {
+        setTenantCatalog(dataTenantPerms.permissions || []);
+        setTenantGroups(dataTenantPerms.groups || []);
+      }
     } catch (err: any) {
       console.error('Erro ao carregar dados RBAC:', err);
       notify('Falha ao conectar com o serviço de segurança RBAC', 'error');
@@ -208,34 +229,72 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
     }
   };
 
-  // Criar Usuário
-  const handleCreateUser = async (e: React.FormEvent) => {
+  // Abrir o modal em modo criação (limpa o rascunho de capacidades).
+  const openCreateUserModal = () => {
+    setEditingUser(null);
+    setNewUserName('');
+    setNewUserEmail('');
+    setNewUserTenantPermissions([]);
+    setIsUserModalOpen(true);
+  };
+
+  // Abrir o modal em modo edição de acessos de um usuário existente.
+  const openEditAccesses = (user: RbacUser) => {
+    setEditingUser(user);
+    setNewUserTenantPermissions([...(user.tenantPermissions || [])]);
+    setIsUserModalOpen(true);
+  };
+
+  const closeUserModal = () => {
+    setIsUserModalOpen(false);
+    setEditingUser(null);
+  };
+
+  // Criar usuário OU gravar os acessos de um usuário existente.
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUserName || !newUserEmail) return;
+
+    const isEdit = !!editingUser;
+    if (!isEdit && (!newUserName || !newUserEmail)) return;
 
     try {
-      const res = await apiFetch('/api/rbac/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const res = await apiFetch(
+        isEdit ? `/api/rbac/users/${editingUser!.id}/role` : '/api/rbac/users',
+        {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(
+            isEdit
+              ? {
+                  // `roleCode` vai junto para o endpoint não perder o papel.
+                  roleCode: editingUser!.roleCode,
+                  tenantPermissions: newUserTenantPermissions,
+                }
+              : {
+                  name: newUserName,
+                  email: newUserEmail,
+                  roleCode: newUserRole,
+                  tenantId: newUserTenant,
+                  department: newUserDept,
+                  tenantPermissions: newUserTenantPermissions,
+                },
+          ),
         },
-        body: JSON.stringify({
-          name: newUserName,
-          email: newUserEmail,
-          roleCode: newUserRole,
-          tenantId: newUserTenant,
-          department: newUserDept
-        })
-      });
+      );
       const data = await res.json();
       if (data.success) {
-        notify(`Usuário ${data.user.name} cadastrado com sucesso!`, 'success');
-        setIsUserModalOpen(false);
-        setNewUserName('');
-        setNewUserEmail('');
+        notify(
+          isEdit
+            ? `Acessos de ${editingUser!.name} atualizados (${newUserTenantPermissions.length} capacidades).`
+            : `Usuário ${data.user.name} cadastrado com sucesso!`,
+          'success',
+        );
+        closeUserModal();
         loadRbacData();
       } else {
-        notify(data.error || 'Falha ao criar usuário', 'error');
+        notify(data.error || 'Falha ao salvar usuário', 'error');
       }
     } catch (err) {
       notify('Erro na requisição de cadastro', 'error');
@@ -746,7 +805,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
             </div>
 
             <button
-              onClick={() => setIsUserModalOpen(true)}
+              onClick={openCreateUserModal}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 transition-colors flex items-center gap-2"
             >
               <Users className="w-4 h-4" /> Convidar / Novo Usuário
@@ -825,6 +884,13 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => openEditAccesses(user)}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors"
+                              title="Editar as capacidades operacionais deste usuário (construtor flexível)"
+                            >
+                              Editar Acessos
+                            </button>
                             <button
                               onClick={() => handleResetPassword(user)}
                               className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors"
@@ -1691,20 +1757,32 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
       {/* ========================================================================= */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-400" /> Cadastrar Novo Usuário
+                <Users className="w-5 h-5 text-indigo-400" />
+                {editingUser ? `Acessos de ${editingUser.name}` : 'Cadastrar Novo Usuário'}
               </h3>
               <button
-                onClick={() => setIsUserModalOpen(false)}
+                onClick={closeUserModal}
                 className="text-slate-400 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateUser} className="space-y-3.5 text-xs">
+            <form onSubmit={handleSaveUser} className="space-y-3.5 text-xs">
+              {editingUser ? (
+                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                  <span className="text-slate-300 block">
+                    <span className="font-semibold text-white">{editingUser.name}</span> — {editingUser.email}
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Papel: {editingUser.roleName}. Esta janela altera apenas as capacidades operacionais.
+                  </span>
+                </div>
+              ) : (
+              <>
               <div>
                 <label className="text-slate-300 block font-semibold mb-1">Nome Completo</label>
                 <input
@@ -1775,11 +1853,28 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                 />
               </div>
+              </>
+              )}
+
+              <div className="pt-3 border-t border-slate-800">
+                <h4 className="text-xs font-bold text-white mb-3">
+                  Capacidades operacionais
+                  <span className="text-[11px] font-normal text-slate-400 ml-2">
+                    (o admin do tenant sempre tem todas; a matriz vale para os demais papéis)
+                  </span>
+                </h4>
+                <TenantPermissionMatrix
+                  catalog={tenantCatalog}
+                  groups={tenantGroups}
+                  selected={newUserTenantPermissions}
+                  onChange={setNewUserTenantPermissions}
+                />
+              </div>
 
               <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsUserModalOpen(false)}
+                  onClick={closeUserModal}
                   className="px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-semibold"
                 >
                   Cancelar
@@ -1788,7 +1883,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                   type="submit"
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20"
                 >
-                  Concluir Cadastro
+                  {editingUser ? 'Salvar Acessos' : 'Concluir Cadastro'}
                 </button>
               </div>
             </form>

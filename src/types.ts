@@ -122,6 +122,14 @@ export interface UserSession {
   isSaasScope?: boolean;
   /** Matriz de permissões por recurso (nível de acesso) resolvida no servidor. */
   permissions?: Record<string, string>;
+  /**
+   * Capacidades operacionais finas atribuídas ao usuário pelo admin do tenant
+   * (construtor flexível): vendas, caixa, estoque, gerência, etc.
+   *
+   * `undefined` = nunca configurado (mantém o acesso padrão do papel);
+   * `[]` = configurado deliberadamente sem nenhuma capacidade.
+   */
+  tenantPermissions?: string[];
   branchId: string;
   branchUf: string;
   branchName: string;

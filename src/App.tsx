@@ -30,6 +30,7 @@ import { AssinaturaFaturas } from './components/AssinaturaFaturas';
 import { DashboardFinanceiroSaaS } from './components/DashboardFinanceiroSaaS';
 import { ConfiguracaoBancoDados } from './components/ConfiguracaoBancoDados';
 import { CamadasAcesso } from './components/CamadasAcesso';
+import { EquipeAcessos } from './components/EquipeAcessos';
 import { MasterPasswordModal } from './components/MasterPasswordModal';
 import { SubscriptionBlockedScreen } from './components/SubscriptionBlockedScreen';
 import {
@@ -1189,6 +1190,13 @@ export default function App() {
             <AdminRbacMultiTenant
               onNotify={(msg, type) => showNotification(msg, '', type === 'error' ? 'warning' : (type || 'info'))}
             />
+          )}
+
+          {/* Construtor flexível do admin do tenant. Deliberadamente SEM
+              `adminUnlocked`: é uma view comum, não uma tela /superadmin —
+              senão o tenant_admin (papel 'gerente' na UI) ficaria de fora. */}
+          {currentView === 'equipe-acessos' && (
+            <EquipeAcessos userSession={userSession} onShowNotification={showNotification} />
           )}
 
           {currentView === 'configuracoes' && (

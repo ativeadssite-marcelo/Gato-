@@ -28,6 +28,8 @@ export interface ServerUser {
   avatarInitials: string;
   mfaEnabled?: boolean;
   requiresMfa?: boolean;
+  /** Capacidades operacionais finas do tenant (construtor flexível). */
+  tenantPermissions?: string[];
 }
 
 export interface ServerRole {
@@ -107,6 +109,8 @@ export function buildUserSession(
     roleCode: user.roleCode,
     isSaasScope: isSaasScope ?? user.tenantId === 'system',
     permissions,
+    // Vem do próprio usuário do servidor (login e /me devolvem o campo).
+    tenantPermissions: user.tenantPermissions,
     branchId: branch.id,
     branchUf: branch.uf,
     branchName: branch.name,

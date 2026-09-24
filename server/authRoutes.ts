@@ -141,6 +141,10 @@ authRouter.post("/login", (req: Request, res: Response) => {
       avatarInitials: user.avatarInitials,
       mfaEnabled: user.mfaEnabled,
       requiresMfa: !!role?.requiresMfa,
+      // Capacidades operacionais finas do tenant (construtor flexível).
+      // Lidas sempre vivas do RBAC_USERS_DATA em cada requisição, então uma
+      // concessão nova vale sem exigir novo login.
+      tenantPermissions: user.tenantPermissions,
     },
     role: {
       code: role?.code,

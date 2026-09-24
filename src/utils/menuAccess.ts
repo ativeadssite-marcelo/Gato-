@@ -8,6 +8,8 @@
 // =========================================================================
 
 import type { UserSession } from '../types';
+import type { TenantPermissionKey } from '../types/rbac';
+import { hasAllTenantPermissions } from './tenantPermissions';
 
 /** Item do menu -> recurso RBAC que o habilita. */
 export const MENU_RESOURCE: Record<string, string> = {
@@ -32,13 +34,82 @@ export const MENU_RESOURCE: Record<string, string> = {
   'camadas-acesso': 'manage_accounts',
 };
 
-/** Nível de acesso suficiente para o item aparecer no menu (qualquer nível que não seja 'none'). */
+/**
+ * Item do menu -> capacidades operacionais do tenant que o habilitam.
+ * "Visível se o usuário tiver QUALQUER UMA destas" (ver isMenuVisible).
+ */
+export const MENU_TENANT_PERMISSION: Record<string, TenantPermissionKey[]> = {
+  estoque: ['stock_inbound', 'stock_picking', 'stock_location', 'item_register'],
+  cotacao: ['sales'],
+  orcamentos: ['sales', 'customer_register'],
+  clientes: ['customer_register'],
+  'leads-marketing': ['customer_register'],
+  fornecedores: ['stock_inbound', 'item_register'],
+  conectores: ['marketplace'],
+  relatorios: ['margin_reports'],
+  'ordem-servico': ['sales'],
+  'xml-import': ['stock_inbound'],
+  // `configuracoes` fica de fora de propósito: ali mora dado da empresa,
+  // filiais e impostos, bem mais amplo que `accounting_config`.
+};
+
+/**
+ * Rótulos dos itens do menu, usados na prévia de acesso do construtor flexível.
+ * Os rótulos reais vivem no Sidebar; aqui é só para exibir o efeito do recorte.
+ */
+export const MENU_ITEM_LABELS: Record<string, string> = {
+  dashboard: 'Início',
+  'consulta-pecas': 'Consulta de Peças',
+  estoque: 'Estoque',
+  cotacao: 'Vendas',
+  orcamentos: 'Orçamentos',
+  clientes: 'Clientes',
+  'leads-marketing': 'Marketing & WhatsApp',
+  fornecedores: 'Fornecedores',
+  conectores: 'Conectores & Integrações',
+  relatorios: 'Relatórios',
+  'ordem-servico': 'Ordem de Serviço',
+  'xml-import': 'Baixar NF-e / XML',
+};
+
+/**
+ * As capacidades finas foram configuradas para este usuário?
+ *
+ * Só então o gate por capacidade é aplicado. `undefined` significa "nunca
+ * configurado" (papéis legados e seeds como `tenant_readonly`) e mantém o
+ * comportamento por recurso RBAC — sem isso, todo usuário que nunca passou
+ * pelo construtor perderia o menu inteiro. Admin do tenant e escopo SaaS têm
+ * tudo por definição e nunca são restringidos aqui.
+ */
+export function hasConfiguredTenantPermissions(user?: UserSession | null): boolean {
+  if (!user) return false;
+  if (hasAllTenantPermissions(user)) return false;
+  return Array.isArray(user.tenantPermissions);
+}
+
+/**
+ * Nível de acesso suficiente para o item aparecer no menu.
+ *
+ * Dois critérios, ambos precisam passar:
+ * 1. Recurso RBAC do papel (qualquer nível que não seja 'none');
+ * 2. Capacidade operacional fina — apenas quando o admin do tenant já
+ *    configurou as capacidades daquele usuário.
+ */
 export function isMenuVisible(itemId: string, user?: UserSession | null): boolean {
   if (!user) return true;
+
   const resource = MENU_RESOURCE[itemId];
-  if (!resource) return true; // item sem mapeamento: visível por padrão
-  const level = (user.permissions || {})[resource];
-  return level !== 'none' && !!level;
+  if (resource) {
+    const level = (user.permissions || {})[resource];
+    if (level === 'none' || !level) return false;
+  }
+
+  const capabilities = MENU_TENANT_PERMISSION[itemId];
+  if (capabilities && hasConfiguredTenantPermissions(user)) {
+    return capabilities.some((key) => user.tenantPermissions!.includes(key));
+  }
+
+  return true;
 }
 
 /** Nível de acesso efetivo do usuário para um item do menu (para badges/tooltips). */
