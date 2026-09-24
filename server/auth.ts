@@ -1018,7 +1018,7 @@ interface PermissionOptions {
  * clientes, fornecedores, filiais, orçamentos. Isolados por tenant e invisíveis
  * para a plataforma — inclusive para o dono do SaaS.
  */
-const TENANT_OPERATIONAL_RESOURCES: PermissionResource[] = [
+export const TENANT_OPERATIONAL_RESOURCES: PermissionResource[] = [
   "company_data",
   "customers_employees",
 ];

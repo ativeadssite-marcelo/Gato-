@@ -1935,21 +1935,33 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4 text-xs font-mono">
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
-                <span className="text-rose-400 font-bold block mb-2 font-sans">Estado Anterior (Before State):</span>
-                <pre className="text-slate-400 text-[11px] whitespace-pre-wrap overflow-x-auto max-h-48">
-                  {JSON.stringify(selectedLog.beforeState || { info: 'Sem alterações prévias registradas' }, null, 2)}
-                </pre>
+            {selectedLog.payloadWithheld ? (
+              <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex items-start gap-3">
+                <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-slate-300 leading-relaxed">
+                  <span className="font-bold text-white block mb-1">Conteúdo não exibido à plataforma</span>
+                  Este evento é do cadastro operacional do contratante. O registro completo — com o
+                  antes e o depois — fica na trilha da própria empresa; aqui a plataforma vê quem fez,
+                  quando, em qual empresa e com que resultado.
+                </div>
               </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                  <span className="text-rose-400 font-bold block mb-2 font-sans">Estado Anterior (Before State):</span>
+                  <pre className="text-slate-400 text-[11px] whitespace-pre-wrap overflow-x-auto max-h-48">
+                    {JSON.stringify(selectedLog.beforeState || { info: 'Sem alterações prévias registradas' }, null, 2)}
+                  </pre>
+                </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
-                <span className="text-emerald-400 font-bold block mb-2 font-sans">Estado Posterior (After State):</span>
-                <pre className="text-slate-300 text-[11px] whitespace-pre-wrap overflow-x-auto max-h-48">
-                  {JSON.stringify(selectedLog.afterState || { info: 'Ação executada sem mutação estrutural' }, null, 2)}
-                </pre>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                  <span className="text-emerald-400 font-bold block mb-2 font-sans">Estado Posterior (After State):</span>
+                  <pre className="text-slate-300 text-[11px] whitespace-pre-wrap overflow-x-auto max-h-48">
+                    {JSON.stringify(selectedLog.afterState || { info: 'Ação executada sem mutação estrutural' }, null, 2)}
+                  </pre>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="text-[11px] text-slate-500 flex items-center gap-1.5 pt-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />

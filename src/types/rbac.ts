@@ -195,6 +195,11 @@ export interface AuditLogRecord {
   afterState?: Record<string, any>;
   status: 'success' | 'warning' | 'blocked';
   anomalous?: boolean;
+  /**
+   * true quando o payload foi omitido NESTA resposta por ser conteúdo de negócio
+   * do contratante. O registro original segue íntegro para o próprio tenant.
+   */
+  payloadWithheld?: boolean;
 }
 
 export interface InternalMessageTemplate {

@@ -41,6 +41,7 @@ import {
   issueSessionToken,
   getClientIp,
   recordAudit,
+  TENANT_OPERATIONAL_RESOURCES,
 } from "./auth";
 
 export const rbacRouter = Router();
@@ -587,6 +588,28 @@ rbacRouter.get("/audit-logs", requirePermission("audit_logs"), (req, res) => {
   // Se for usuário de tenant, só vê logs do seu próprio tenant
   if (roleDef.scope === "tenant") {
     logs = logs.filter((l) => l.tenantId === user.tenantId);
+  }
+
+  // A trilha preserva CONTEÚDO — é o que a torna uma auditoria de verdade, e é o
+  // que o contratante vê dos próprios eventos. Mas conteúdo de NEGÓCIO do
+  // contratante não é exibido ao escopo da plataforma: o isolamento entre
+  // contratantes vale inclusive para o dono do SaaS.
+  //
+  // O evento continua visível (quem, quando, qual empresa, qual ação, qual
+  // resultado) — o que se omite é o payload (nome de cliente, valores, PII). Sem
+  // isto a trilha virava a via pela qual a plataforma lia o cadastro do cliente.
+  if (roleDef.scope === "saas") {
+    logs = logs.map((l) =>
+      TENANT_OPERATIONAL_RESOURCES.includes(l.resource as PermissionResource)
+        ? {
+            ...l,
+            beforeState: undefined,
+            afterState: undefined,
+            justification: undefined,
+            payloadWithheld: true,
+          }
+        : l,
+    );
   }
 
   // Se for Suporte SaaS, logs com PII mascarado estritamente
