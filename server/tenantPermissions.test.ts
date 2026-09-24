@@ -32,6 +32,7 @@ function session(overrides: Partial<UserSession> = {}): UserSession {
       customers_employees: "full",
       connectors: "full",
       billing_contracts: "full",
+      catalog_reference: "full",
     },
     branchId: "br1",
     branchUf: "MS",
@@ -150,7 +151,8 @@ test("menu: capacidades vazias escondem o operacional mas mantêm o básico", ()
   assert.equal(isMenuVisible("cotacao", semNada), false);
   assert.equal(isMenuVisible("relatorios", semNada), false);
 
-  // Itens sem mapeamento de capacidade continuam visíveis pelo recurso RBAC.
+  // `consulta-pecas` consulta a base de veículos/aplicação (dado de referência),
+  // então não é gateada por capacidade operacional e segue visível.
   assert.equal(isMenuVisible("consulta-pecas", semNada), true);
   // `configuracoes` ficou fora do gate por capacidade de propósito.
   assert.equal(isMenuVisible("configuracoes", semNada), true);

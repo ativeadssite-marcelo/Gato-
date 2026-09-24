@@ -1071,7 +1071,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                     <td className="py-3 px-3.5 font-bold text-white bg-slate-900/90 sticky left-0 z-10 border-r border-slate-800">
                       Dados da Empresa
                     </td>
-                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('audit_required')}</td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
                     <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
                     <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
                     <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
@@ -1085,7 +1085,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                     <td className="py-3 px-3.5 font-bold text-white bg-slate-900/90 sticky left-0 z-10 border-r border-slate-800">
                       Dados Clientes / Funcionários
                     </td>
-                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('audit_required')}</td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
                     <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
                     <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
                     <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
@@ -1135,6 +1135,20 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                     <td className="py-3 px-2.5 text-center">{renderAccessBadge('full')}</td>
                     <td className="py-3 px-2.5 text-center">{renderAccessBadge('own_tenant_only')}</td>
                     <td className="py-3 px-2.5 text-center">{renderAccessBadge('read_only')}</td>
+                  </tr>
+
+                  <tr className="hover:bg-slate-800/30">
+                    <td className="py-3 px-3.5 font-bold text-white bg-slate-900/90 sticky left-0 z-10 border-r border-slate-800">
+                      Catálogo de Referência
+                    </td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('read_only')}</td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('none')}</td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('full')}</td>
+                    <td className="py-3 px-2.5 text-center">{renderAccessBadge('full')}</td>
                   </tr>
                 </tbody>
               </table>

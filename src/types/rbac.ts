@@ -35,7 +35,14 @@ export type PermissionResource =
   | 'limits_quotas'           // Limites e cadastros por plano
   | 'internal_messages'       // Mensagens internas
   | 'audit_logs'              // Trilha de auditoria
-  | 'security_compliance';    // LGPD, MFA, IP allowlist
+  | 'security_compliance'     // LGPD, MFA, IP allowlist
+  /**
+   * Dados de REFERÊNCIA do catálogo: base de veículos/frota, aplicação de peças
+   * e logo do tenant. Não é dado operacional do contratante — separado de
+   * `company_data`/`customers_employees` para que restringir o acesso do dono
+   * aos dados dos tenants não lhe tire também as consultas de catálogo.
+   */
+  | 'catalog_reference';
 
 /**
  * Permissões operacionais finas do tenant. O admin contratante monta o acesso

@@ -1264,6 +1264,23 @@ export function resolveDataScope(
   const requested = readTargetTenantId(req);
 
   if (!requested) {
+    // Recurso com auditoria obrigatória continua exigindo justificativa AQUI
+    // também. Sem isto bastava omitir o tenant alvo para trocar a justificativa
+    // por um escopo MAIOR: o caminho global devolve todas as empresas, então a
+    // saída para não se justificar era pedir mais dado, não menos.
+    if (effectiveAccessLevel(auth.user, resource) === "audit_required") {
+      const justificativaGlobal = readJustification(req);
+      if (!justificativaGlobal || justificativaGlobal.trim().length < 8) {
+        return {
+          ok: false,
+          status: 403,
+          code: "RBAC_JUSTIFICATION_REQUIRED",
+          error:
+            "Consulta global a dados de tenants exige justificativa técnica formal (mínimo 8 caracteres), registrada na trilha de auditoria.",
+        };
+      }
+    }
+
     // Equipe da plataforma consultando o portfólio inteiro: acesso amplo, porém auditado.
     recordAudit(
       req,
@@ -1275,6 +1292,7 @@ export function resolveDataScope(
       {
         details:
           "Consulta global de dados de tenants executada pela equipe administrativa da plataforma.",
+        justification: readJustification(req),
       },
     );
     return { ok: true, status: 200, global: true };

@@ -35,6 +35,7 @@ export const PERMISSION_RESOURCES: PermissionResource[] = [
   'internal_messages',
   'audit_logs',
   'security_compliance',
+  'catalog_reference',
 ];
 
 export const PERMISSION_RESOURCE_LABELS: Record<PermissionResource, string> = {
@@ -52,6 +53,7 @@ export const PERMISSION_RESOURCE_LABELS: Record<PermissionResource, string> = {
   internal_messages: 'Mensagens internas',
   audit_logs: 'Trilha de auditoria',
   security_compliance: 'Segurança & LGPD',
+  catalog_reference: 'Catálogo de referência (veículos/aplicação)',
 };
 
 export const ACCESS_LEVELS: PermissionAccessLevel[] = ['none', 'read_only', 'masked', 'own_tenant_only', 'full', 'audit_required'];
@@ -88,13 +90,20 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       connectors: 'full',
       layout_ui: 'full',
       manage_accounts: 'full',
-      company_data: 'audit_required',        // ✅* Com auditoria e justificativa
-      customers_employees: 'audit_required', // ✅* Com auditoria e justificativa
+      // O dono do SaaS NÃO opera o balcão: sem acesso aos dados operacionais
+      // dos contratantes (produtos, filiais, clientes, funcionários). Antes era
+      // `audit_required`, mas o caminho global de `resolveDataScope` contornava
+      // a justificativa — ver `catalog_reference` para o que ele mantém.
+      company_data: 'none',
+      customers_employees: 'none',
       contractor_users: 'full',
       limits_quotas: 'full',
       internal_messages: 'full',
       audit_logs: 'full',
-      security_compliance: 'full'
+      security_compliance: 'full',
+      // Mantém as consultas de catálogo (base de veículos, aplicação de peças),
+      // que são dado de referência e não do contratante.
+      catalog_reference: 'read_only'
     }
   },
   saas_financeiro: {
@@ -118,7 +127,8 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       limits_quotas: 'none',
       internal_messages: 'full',              // Dispara lembretes de cobrança
       audit_logs: 'read_only',
-      security_compliance: 'none'
+      security_compliance: 'none',
+      catalog_reference: 'none'
     }
   },
   saas_fiscal: {
@@ -142,7 +152,8 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       limits_quotas: 'none',
       internal_messages: 'none',
       audit_logs: 'read_only',
-      security_compliance: 'none'
+      security_compliance: 'none',
+      catalog_reference: 'none'
     }
   },
   saas_suporte: {
@@ -166,7 +177,8 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       limits_quotas: 'none',
       internal_messages: 'none',
       audit_logs: 'masked',                   // Logs técnicos mascarados
-      security_compliance: 'none'
+      security_compliance: 'none',
+      catalog_reference: 'none'
     }
   },
   saas_config: {
@@ -190,7 +202,8 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       limits_quotas: 'none',
       internal_messages: 'none',
       audit_logs: 'read_only',
-      security_compliance: 'none'
+      security_compliance: 'none',
+      catalog_reference: 'none'
     }
   },
   saas_cs: {
@@ -214,7 +227,8 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       limits_quotas: 'read_only',             // 👁️ Métricas de uso
       internal_messages: 'full',              // ✅ Envia mensagens e onboarding
       audit_logs: 'read_only',
-      security_compliance: 'none'
+      security_compliance: 'none',
+      catalog_reference: 'none'
     }
   },
   tenant_admin: {
@@ -238,7 +252,8 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       limits_quotas: 'own_tenant_only',       // 👁️ Próprio consumo de cota
       internal_messages: 'own_tenant_only',   // 👁️ Próprias mensagens recebidas
       audit_logs: 'own_tenant_only',
-      security_compliance: 'own_tenant_only'
+      security_compliance: 'own_tenant_only',
+      catalog_reference: 'full'
     }
   },
   tenant_user: {
@@ -262,7 +277,8 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       limits_quotas: 'none',
       internal_messages: 'read_only',         // 👁️ Vê comunicados recebidos
       audit_logs: 'none',
-      security_compliance: 'none'
+      security_compliance: 'none',
+      catalog_reference: 'full'
     }
   },
   tenant_readonly: {
@@ -286,7 +302,8 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       limits_quotas: 'read_only',
       internal_messages: 'read_only',
       audit_logs: 'read_only',
-      security_compliance: 'none'
+      security_compliance: 'none',
+      catalog_reference: 'read_only'
     }
   }
 };

@@ -14,7 +14,10 @@ import { hasAllTenantPermissions } from './tenantPermissions';
 /** Item do menu -> recurso RBAC que o habilita. */
 export const MENU_RESOURCE: Record<string, string> = {
   dashboard: 'company_data',
-  'consulta-pecas': 'customers_employees',
+  // Consulta de Peças e Aplicação usam a base de veículos/aplicação, que é dado
+  // de REFERÊNCIA — não o cadastro do contratante. Por isso não depende de
+  // `customers_employees` (e o dono do SaaS mantém a consulta).
+  'consulta-pecas': 'catalog_reference',
   estoque: 'company_data',
   cotacao: 'customers_employees',
   orcamentos: 'customers_employees',

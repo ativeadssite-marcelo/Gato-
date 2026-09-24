@@ -561,12 +561,12 @@ app.post("/api/storage/logo/upload", requireAuth, requireAnyPermission(["company
   }
 });
 
-app.get("/api/storage/logo/:tenantId", requireAuth, requirePermission("company_data"), async (req, res) => {
+app.get("/api/storage/logo/:tenantId", requireAuth, requirePermission("catalog_reference"), async (req, res) => {
   try {
     if (!isDatabaseConfigured()) {
       return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
     }
-    const scope = resolveDataScope(req, "company_data");
+    const scope = resolveDataScope(req, "catalog_reference");
     if (!scope.ok) return sendScopeDenied(res, scope);
 
     const pool = getDbPool();
@@ -1122,7 +1122,7 @@ let fleetVehicles: FleetVehicle[] = [
 ];
 
 // GET /api/vehicles/makes - Endpoint para Combobox com busca assíncrona (Montadoras)
-app.get("/api/vehicles/makes", requireAuth, requirePermission("customers_employees"), (req, res) => {
+app.get("/api/vehicles/makes", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const q = (req.query.q as string || "").trim().toLowerCase();
     const allMakes = Array.from(
@@ -1140,7 +1140,7 @@ app.get("/api/vehicles/makes", requireAuth, requirePermission("customers_employe
 });
 
 // GET /api/vehicles/models - Endpoint para Combobox com busca assíncrona (Modelos)
-app.get("/api/vehicles/models", requireAuth, requirePermission("customers_employees"), (req, res) => {
+app.get("/api/vehicles/models", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const brand = (req.query.brand as string || "").trim().toLowerCase();
     const q = (req.query.q as string || "").trim().toLowerCase();
@@ -1178,7 +1178,7 @@ app.get("/api/vehicles/models", requireAuth, requirePermission("customers_employ
 });
 
 // GET /api/vehicles - Grade com paginação, ordenação (padrão 'modelo') e filtros
-app.get("/api/vehicles", requireAuth, requirePermission("customers_employees"), (req, res) => {
+app.get("/api/vehicles", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const {
       search = "",
@@ -1262,7 +1262,7 @@ app.get("/api/vehicles", requireAuth, requirePermission("customers_employees"), 
 });
 
 // GET /api/vehicles/:identifier - Detalhes do veículo por ID ou Placa/Chassi
-app.get("/api/vehicles/:identifier", requireAuth, requirePermission("customers_employees"), (req, res) => {
+app.get("/api/vehicles/:identifier", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const rawParam = safeDecodeParam(req.params.identifier).toUpperCase();
     const vehicle = fleetVehicles.find(v => v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam);
@@ -1278,7 +1278,7 @@ app.get("/api/vehicles/:identifier", requireAuth, requirePermission("customers_e
 });
 
 // POST /api/vehicles - Cadastro de novo veículo com validações
-app.post("/api/vehicles", requireAuth, requirePermission("customers_employees", { write: true }), (req, res) => {
+app.post("/api/vehicles", requireAuth, requirePermission("catalog_reference", { write: true }), (req, res) => {
   try {
     const { montadora, modelo, veiculo, ano, motor } = req.body;
 
@@ -1355,7 +1355,7 @@ app.post("/api/vehicles", requireAuth, requirePermission("customers_employees", 
 });
 
 // PUT /api/vehicles/:identifier - Edição de veículo (por ID ou Placa/Chassi)
-app.put("/api/vehicles/:identifier", requireAuth, requirePermission("customers_employees", { write: true }), (req, res) => {
+app.put("/api/vehicles/:identifier", requireAuth, requirePermission("catalog_reference", { write: true }), (req, res) => {
   try {
     const rawParam = safeDecodeParam(req.params.identifier).toUpperCase();
     const index = fleetVehicles.findIndex(v => v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam);
@@ -1439,7 +1439,7 @@ app.put("/api/vehicles/:identifier", requireAuth, requirePermission("customers_e
 });
 
 // DELETE /api/vehicles/:identifier - Exclusão de veículo (por ID ou Placa/Chassi)
-app.delete("/api/vehicles/:identifier", requireAuth, requirePermission("customers_employees", { write: true }), (req, res) => {
+app.delete("/api/vehicles/:identifier", requireAuth, requirePermission("catalog_reference", { write: true }), (req, res) => {
   try {
     const rawParam = safeDecodeParam(req.params.identifier).toUpperCase();
     const index = fleetVehicles.findIndex(v => v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam);
@@ -1465,7 +1465,7 @@ app.delete("/api/vehicles/:identifier", requireAuth, requirePermission("customer
 // ==========================================
 
 // GET /api/fleet-database - Listagem e busca de modelos da frota (1995-2027)
-app.get("/api/fleet-database", requireAuth, requirePermission("company_data"), (req, res) => {
+app.get("/api/fleet-database", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const { montadora, segmento, ano, search, page = "1", limit = "50" } = req.query;
     let list = [...BRAZILIAN_FLEET_DATABASE];
@@ -1523,7 +1523,7 @@ app.get("/api/fleet-database", requireAuth, requirePermission("company_data"), (
 });
 
 // GET /api/fleet-database/makes - Marcas da frota
-app.get("/api/fleet-database/makes", requireAuth, requirePermission("company_data"), (req, res) => {
+app.get("/api/fleet-database/makes", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const makes = getDistinctFleetMakes();
     res.json({ success: true, count: makes.length, makes });
@@ -1533,7 +1533,7 @@ app.get("/api/fleet-database/makes", requireAuth, requirePermission("company_dat
 });
 
 // GET /api/fleet-database/models - Modelos por montadora
-app.get("/api/fleet-database/models", requireAuth, requirePermission("company_data"), (req, res) => {
+app.get("/api/fleet-database/models", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const montadora = req.query.montadora as string;
     const models = getModelsByFleetMake(montadora || "");
@@ -1544,7 +1544,7 @@ app.get("/api/fleet-database/models", requireAuth, requirePermission("company_da
 });
 
 // GET /api/fleet-database/years - Anos válidos para seleção
-app.get("/api/fleet-database/years", requireAuth, requirePermission("company_data"), (req, res) => {
+app.get("/api/fleet-database/years", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const { montadora, modelId } = req.query;
     const years = getAvailableYearsForSelection(
@@ -1558,7 +1558,7 @@ app.get("/api/fleet-database/years", requireAuth, requirePermission("company_dat
 });
 
 // GET /api/fleet-database/engines - Motores para modelo
-app.get("/api/fleet-database/engines", requireAuth, requirePermission("company_data"), (req, res) => {
+app.get("/api/fleet-database/engines", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const { modelId, ano } = req.query;
     if (!modelId || typeof modelId !== "string") {
@@ -1572,7 +1572,7 @@ app.get("/api/fleet-database/engines", requireAuth, requirePermission("company_d
 });
 
 // GET /api/parts-application/filter - Consulta e filtro de aplicação de peças
-app.get("/api/parts-application/filter", requireAuth, requirePermission("company_data"), (req, res) => {
+app.get("/api/parts-application/filter", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const { montadora, modeloId, modeloTexto, ano, motor, sistema, termoBusca } = req.query;
     
@@ -1598,7 +1598,7 @@ app.get("/api/parts-application/filter", requireAuth, requirePermission("company
 });
 
 // GET /api/parts-application/reverse/:code - Consulta reversa (Peça -> Veículos da Frota)
-app.get("/api/parts-application/reverse/:code", requireAuth, requirePermission("company_data"), (req, res) => {
+app.get("/api/parts-application/reverse/:code", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const code = safeDecodeParam(req.params.code);
     const lookup = reverseLookupVehiclesForPart(INITIAL_PRODUCTS, code);
@@ -1620,7 +1620,7 @@ app.get("/api/parts-application/reverse/:code", requireAuth, requirePermission("
 });
 
 // GET /api/parts-application/export - Exportação/Download completo da frota e aplicações (JSON/CSV)
-app.get("/api/parts-application/export", requireAuth, requirePermission("company_data"), (req, res) => {
+app.get("/api/parts-application/export", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const format = (req.query.format as string || "json").toLowerCase();
 
