@@ -15,6 +15,7 @@ import {
   TENANTS_DATA,
   TENANT_PERMISSION_CATALOG,
   TENANT_PERMISSION_GROUPS,
+  INTERNAL_MESSAGES_DATA,
 } from "./rbacEngine";
 import { requireAuth, requirePermission, recordAudit } from "./auth";
 import {
@@ -146,6 +147,25 @@ async function handleIssue(
     }
   }
 
+  // Suporte da plataforma agindo em nome de um cliente NÃO recebe o segredo.
+  // A chave de API lê dado operacional do contratante, então entregá-la ao dono
+  // anularia a separação entre plataforma e tenant — era o caminho pelo qual o
+  // suporte rotacionava e passava a ler produtos/clientes daquele cliente.
+  // A licença de máquina fica de fora: ela só ativa/consulta posto, não dá acesso
+  // a dado, então o suporte pode continuar rotacionando para destravar um cliente.
+  const actingForAnotherTenant =
+    ROLE_DEFINITIONS[caller.roleCode]?.scope === "saas" && target.tenantId !== caller.tenantId;
+
+  if (kind === "api_key" && actingForAnotherTenant) {
+    res.status(403).json({
+      success: false,
+      error:
+        "O suporte não gera chave de API em nome do cliente: a chave dá acesso aos dados dele. Use o reset para invalidar a atual — o admin do cliente gera a nova no painel.",
+      code: "API_KEY_ROTATION_NOT_ALLOWED_FOR_SUPPORT",
+    });
+    return;
+  }
+
   const existing = await getCredential(target.tenantId, kind);
   const { credential, secret } = await createOrRotateCredential({
     tenantId: target.tenantId,
@@ -185,6 +205,76 @@ credentialsRouter.post("/api-key", requirePermission("tenant_credentials", { wri
 
 credentialsRouter.post("/license-key", requirePermission("tenant_credentials", { write: true }), (req, res) =>
   handleIssue(req, res, "machine_license"),
+);
+
+// -------------------------------------------------------------------------
+// Reset da chave de API pelo suporte (kill switch, sem obter o segredo)
+// -------------------------------------------------------------------------
+/**
+ * Invalida a chave do cliente sem devolver segredo nenhum. Existe para o caso de
+ * suporte "o cliente precisa que a chave pare de funcionar agora": o suporte
+ * corta o acesso, avisa o cliente, e o ADMIN DO CLIENTE gera a nova no painel.
+ * Assim o segredo nunca passa pela plataforma.
+ *
+ * Restrita ao escopo SaaS de propósito: para o próprio tenant, "resetar" seria só
+ * perder a chave sem receber outra — a rotação é a operação dele.
+ */
+credentialsRouter.post(
+  "/api-key/reset",
+  requirePermission("tenant_credentials", { write: true }),
+  async (req, res) => {
+    const caller = req.auth!.user;
+
+    if (ROLE_DEFINITIONS[caller.roleCode]?.scope !== "saas") {
+      return res.status(403).json({
+        success: false,
+        error: "Para trocar a própria chave, use a rotação — ela devolve a nova. O reset é uma ação de suporte.",
+        code: "USE_ROTATION",
+      });
+    }
+
+    const target = resolveTargetTenant(req, caller);
+    if ("error" in target) {
+      return res.status(target.status).json({ success: false, error: target.error });
+    }
+
+    const revoked = await revokeCredential(target.tenantId, "api_key");
+    if (!revoked) {
+      return res.status(404).json({ success: false, error: "Este tenant não tem chave de API para invalidar." });
+    }
+
+    // O cliente precisa saber que a integração dele parou e por quê.
+    INTERNAL_MESSAGES_DATA.unshift({
+      id: `msg_cred_${Date.now()}`,
+      tenantId: target.tenantId,
+      senderId: caller.id,
+      senderName: caller.name,
+      senderRole: caller.roleName,
+      title: "Sua chave de API foi invalidada pelo suporte",
+      content:
+        "A chave de API desta empresa foi invalidada pelo suporte da plataforma e deixou de funcionar imediatamente. " +
+        "Se as integrações pararam, entre em Chaves & Integrações e gere uma nova chave. " +
+        "Por segurança, o suporte não gera nem visualiza a chave da sua empresa.",
+      channels: ["in_app", "email"],
+      priority: "high",
+      createdAt: new Date().toISOString(),
+      readBy: [],
+      optOutUsers: [],
+    });
+
+    recordAudit(req, caller, "RESET_API_KEY_BY_SUPPORT", "tenant_credentials", revoked.id, "warning", {
+      targetTenantId: target.tenantId,
+      details:
+        "Suporte invalidou a chave de API do cliente. O segredo NÃO foi gerado nem entregue à plataforma; o cliente deve gerar a nova no painel.",
+      anomalous: true,
+    });
+
+    return res.json({
+      success: true,
+      message:
+        "Chave de API invalidada. O cliente foi avisado e precisa gerar uma nova no painel — o suporte não recebe o segredo.",
+    });
+  },
 );
 
 // -------------------------------------------------------------------------

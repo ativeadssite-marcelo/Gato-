@@ -1013,6 +1013,16 @@ interface PermissionOptions {
 }
 
 /** Middleware: exige autenticação + permissão para um recurso. */
+/**
+ * Recursos que carregam dado OPERACIONAL do contratante: cadastro de itens,
+ * clientes, fornecedores, filiais, orçamentos. Isolados por tenant e invisíveis
+ * para a plataforma — inclusive para o dono do SaaS.
+ */
+const TENANT_OPERATIONAL_RESOURCES: PermissionResource[] = [
+  "company_data",
+  "customers_employees",
+];
+
 export function requirePermission(
   resource: PermissionResource,
   options: PermissionOptions = {},
@@ -1020,6 +1030,34 @@ export function requirePermission(
   return (req: Request, res: Response, next: NextFunction) => {
     const auth = req.auth;
     if (!auth) return unauthorized(res);
+
+    // Dado operacional do contratante é negado por COMPLETO sob simulação de
+    // persona — leitura inclusive. A persona serve para ver estrutura, menus e
+    // permissões; sem isto, assumir a identidade do admin do cliente dava acesso
+    // de leitura a produto/cliente/orçamento dele, e o bloqueio de escrita logo
+    // abaixo não bastava para sustentar a separação entre plataforma e contratante.
+    if (auth.impersonating && TENANT_OPERATIONAL_RESOURCES.includes(resource)) {
+      recordAudit(
+        req,
+        auth.user,
+        `BLOCKED_IMPERSONATED_${resource.toUpperCase()}`,
+        resource,
+        readTargetTenantId(req) || auth.tenantId,
+        "blocked",
+        {
+          anomalous: true,
+          details:
+            "Simulação de persona tentou acessar dado operacional de contratante. A persona é restrita a estrutura e permissões.",
+        },
+      );
+      return res.status(403).json({
+        success: false,
+        error:
+          "Simulação de persona não acessa dados operacionais de contratantes. Volte ao seu perfil, se for um atendimento autorizado.",
+        code: "RBAC_IMPERSONATION_TENANT_DATA_DENIED",
+        resource,
+      });
+    }
 
     if (
       auth.impersonating &&
@@ -1392,6 +1430,19 @@ export function resolveDataScope(
       code: "GATO_UNAUTHENTICATED",
       error: "Sessão inválida.",
     };
+
+  // Defesa em profundidade: o guard de `requirePermission` já barra isto, mas o
+  // escopo é o último ponto antes da query — se uma rota futura esquecer o
+  // middleware, o dado operacional do contratante ainda não sai sob persona.
+  if (auth.impersonating && TENANT_OPERATIONAL_RESOURCES.includes(resource)) {
+    return {
+      ok: false,
+      status: 403,
+      code: "RBAC_IMPERSONATION_TENANT_DATA_DENIED",
+      error:
+        "Simulação de persona não acessa dados operacionais de contratantes.",
+    };
+  }
 
   if (!auth.isSaasScope) {
     return { ok: true, status: 200, tenantId: auth.user.tenantId };

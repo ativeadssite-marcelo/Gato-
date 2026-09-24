@@ -7,7 +7,7 @@ import { credentialsRouter } from "./credentialsRoutes";
 import { licenseRouter } from "./licenseRoutes";
 import { v1Router } from "./v1Routes";
 import { issueSessionToken } from "./auth";
-import { RBAC_USERS_DATA } from "./rbacEngine";
+import { INTERNAL_MESSAGES_DATA, RBAC_USERS_DATA } from "./rbacEngine";
 import { consumeApiRequest, getApiRequestsToday } from "./store";
 import { createOrRotateCredential, revokeCredential } from "./credentials";
 
@@ -22,6 +22,7 @@ import { createOrRotateCredential, revokeCredential } from "./credentials";
 // =========================================================================
 
 const MGN_TENANT = "cmtt58e6o0000ju346a0g6s32";
+const PANTANAL_TENANT = "cmtvk1ieq0000ju8c3kg5n85l";
 
 const tenantAdmin = RBAC_USERS_DATA.find((u) => u.id === "usr_tenant_mgn_adm")!;
 const saasSupport = RBAC_USERS_DATA.find((u) => u.roleCode === "saas_suporte")!;
@@ -275,19 +276,69 @@ test("admin do tenant não alcança as credenciais de outra empresa", async () =
   assert.equal(read.status, 403, "leitura de outro tenant também é barrada");
 });
 
-test("suporte do SaaS rotaciona em nome do cliente, mirando o tenant", async () => {
+test("suporte do SaaS NÃO gera chave de API em nome do cliente", async () => {
+  // A chave lê dado operacional do contratante: entregá-la ao dono anularia a
+  // separação entre plataforma e tenant. O suporte corta o acesso, não o obtém.
   const token = tokenOf(saasSupport);
 
   const res = await request("POST", "/api/credentials/api-key", {
     token,
     body: { capabilities: ["sales"], tenantId: MGN_TENANT },
   });
-  assert.equal(res.status, 200, JSON.stringify(res.body));
-  assert.equal(res.body.credential.tenantId, MGN_TENANT);
+  assert.equal(res.status, 403, JSON.stringify(res.body));
+  assert.equal(res.body.code, "API_KEY_ROTATION_NOT_ALLOWED_FOR_SUPPORT");
+  assert.equal(res.body.secret, undefined, "nem por acidente devolve segredo");
 
   // Mas precisa dizer QUAL cliente.
   const semAlvo = await request("GET", "/api/credentials", { token });
   assert.equal(semAlvo.status, 400, "escopo SaaS sem tenant alvo não sabe de quem falar");
+});
+
+test("suporte do SaaS ainda rotaciona a LICENÇA (não dá acesso a dado)", async () => {
+  const token = tokenOf(saasSupport);
+
+  const res = await request("POST", "/api/credentials/license-key", {
+    token,
+    body: { tenantId: MGN_TENANT },
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.ok(res.body.secret?.startsWith("gato_lic_"), "a licença continua destravável pelo suporte");
+});
+
+test("reset do suporte invalida a chave sem receber o segredo, e avisa o cliente", async () => {
+  // O reset valida o alvo contra a base de tenants (é ação de suporte sobre um
+  // cliente existente), então usa um tenant real da carteira.
+  const tenantId = PANTANAL_TENANT;
+  const token = tokenOf(saasSupport);
+  const antiga = await apiKeyFor(tenantId, ["item_register"]);
+
+  const mensagensAntes = INTERNAL_MESSAGES_DATA.length;
+
+  const res = await request("POST", "/api/credentials/api-key/reset", {
+    token,
+    body: { tenantId },
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.secret, undefined, "o suporte nunca recebe o segredo");
+  assert.ok(!JSON.stringify(res.body).includes("gato_live_"), "nem em campo indireto");
+
+  // O efeito prático: a chave antiga morre na hora.
+  const uso = await request("GET", "/api/v1/products", { apiKey: antiga });
+  assert.equal(uso.status, 401);
+
+  // E o cliente é notificado, para saber por que a integração parou.
+  assert.equal(INTERNAL_MESSAGES_DATA.length, mensagensAntes + 1);
+  assert.equal(INTERNAL_MESSAGES_DATA[0].tenantId, tenantId);
+  assert.match(INTERNAL_MESSAGES_DATA[0].title, /chave de API foi invalidada/i);
+});
+
+test("o próprio tenant não usa o reset (perderia a chave sem receber outra)", async () => {
+  const res = await request("POST", "/api/credentials/api-key/reset", {
+    token: tokenOf(tenantAdmin),
+    body: {},
+  });
+  assert.equal(res.status, 403);
+  assert.equal(res.body.code, "USE_ROTATION");
 });
 
 test("dono enxerga as credenciais de um cliente", async () => {
