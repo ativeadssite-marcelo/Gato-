@@ -10,6 +10,7 @@
 
 import crypto from "node:crypto";
 import { getDbPool, isDatabaseConfigured } from "./db";
+import { mirror } from "./dbMirror";
 import {
   EmailLogRecord,
   EmailStatus,
@@ -58,16 +59,6 @@ function rowToInvoice(r: Row): Invoice {
     createdAt: String(r.createdAt ?? now()),
     updatedAt: String(r.updatedAt ?? now()),
   };
-}
-
-/** Executa uma query de espelho (write-through) sem lançar em caso de falha. */
-function mirror(sql: string, params: unknown[] = []): void {
-  if (!isDatabaseConfigured()) return;
-  getDbPool()
-    .query(sql, params)
-    .catch((err) =>
-      console.warn("[GATO Store] Espelho Postgres indisponível:", err?.message || err),
-    );
 }
 
 /** Hidrata os Maps a partir do Postgres (best-effort, uma única vez). */
@@ -422,6 +413,7 @@ export async function getApiRequestsToday(tenantId: string): Promise<number> {
 // SEED (dados de demonstração, análogo ao rbacEngine)
 // -------------------------------------------------------------------------
 export function seedBillingStore(): void {
+  if (isDatabaseConfigured()) return; // Só em dev/demo sem banco
   const starterTenant = "cmtvk1ieq0000ju8c3kg5n85l"; // Pantanal Diesel (Starter)
   if (!subscriptions.has(`sub_seed_${starterTenant}`)) {
     subscriptions.set(`sub_seed_${starterTenant}`, {

@@ -35,8 +35,22 @@ import {
 } from 'lucide-react';
 import { Product, Order, Customer, InvoiceRecord, CompanyProfile, BranchUnit } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
-import { formatImageSize, optimizeImageDataUrl } from '../utils/imageOptimizer';
 import { ClienteLogoCustomizer } from './ClienteLogoCustomizer';
+
+// Shim para imageOptimizer removido
+function formatImageSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+async function optimizeImageDataUrl(dataUrl: string, _options: { maxWidth?: number; maxHeight?: number; quality?: number; format?: 'webp' | 'jpeg'; originalFileName?: string; originalSizeBytes?: number } = {}): Promise<{ dataUrl: string; sizeBytes: number; fileName: string; originalSizeBytes: number }> {
+  return { 
+    dataUrl, 
+    sizeBytes: Math.round(dataUrl.length * 0.75),
+    fileName: _options.originalFileName || 'image.webp',
+    originalSizeBytes: _options.originalSizeBytes || Math.round(dataUrl.length * 0.75)
+  };
+}
 
 interface ConfiguracoesSaaSProps {
   products: Product[];

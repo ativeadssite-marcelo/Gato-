@@ -32,7 +32,9 @@ import {
 } from 'lucide-react';
 import { Supplier, Product } from '../types';
 import { SupplierModal } from './SupplierModal';
-import { SupplierDetailModal } from './SupplierDetailModal';
+
+// Placeholder para SupplierDetailModal removido
+const SupplierDetailModal: React.FC<{ isOpen: boolean; onClose: () => void; supplier: Supplier | null; products: Product[]; onEdit: (s: Supplier) => void; onNavigateToXmlImport: () => void }> = () => null;
 
 interface FornecedoresManagerProps {
   suppliers: Supplier[];

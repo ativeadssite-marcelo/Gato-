@@ -25,7 +25,11 @@ import {
   sendWhatsappMessage,
   CompanyReceiptInfo
 } from '../utils/quoteMarketingSync';
-import { downloadLogoFormat } from '../utils/logoDownloadKit';
+
+// Shim para logoDownloadKit removido
+async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
+  // Placeholder
+}
 
 interface CupomFiscalModalProps {
   isOpen: boolean;

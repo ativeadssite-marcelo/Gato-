@@ -24,9 +24,17 @@ import {
 } from 'lucide-react';
 import { InvoiceRecord, Product, Customer, CompanyProfile, BranchUnit, MdfeRecord } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
-import { NfceManager } from './NfceManager';
-import { MdfeManager } from './MdfeManager';
-import { SpedFiscalManager } from './SpedFiscalManager';
+
+// Placeholders para features fiscais removidas (NFCe, MDFe, SPED)
+const NfceManager: React.FC<{ products: Product[]; activeBranch: BranchUnit; companyProfile?: CompanyProfile; onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void }> = () => (
+  <div className="p-8 text-center text-slate-500">NFC-e - feature em desenvolvimento</div>
+);
+const MdfeManager: React.FC<{ invoices: InvoiceRecord[]; activeBranch: BranchUnit; companyProfile?: CompanyProfile; mdfeRecords?: MdfeRecord[]; onUpdateMdfeRecords?: (r: MdfeRecord[]) => void; onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void }> = () => (
+  <div className="p-8 text-center text-slate-500">MDF-e - feature em desenvolvimento</div>
+);
+const SpedFiscalManager: React.FC<{ invoices: InvoiceRecord[]; products: Product[]; activeBranch: BranchUnit; companyProfile?: CompanyProfile; onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void }> = () => (
+  <div className="p-8 text-center text-slate-500">SPED Fiscal - feature em desenvolvimento</div>
+);
 
 interface EmissaoNfeProps {
   invoices: InvoiceRecord[];

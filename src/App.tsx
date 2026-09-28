@@ -7,14 +7,11 @@ import { BalcaoCotacao } from './components/BalcaoCotacao';
 import { EstoqueManager } from './components/EstoqueManager';
 import { EmissaoNfe } from './components/EmissaoNfe';
 import { MarketplaceManager } from './components/MarketplaceManager';
-import { PedidosLogistica } from './components/PedidosLogistica';
-import { RelatoriosFinanceiros } from './components/RelatoriosFinanceiros';
 import { SuporteChatIA } from './components/SuporteChatIA';
 import { ConfiguracoesSaaS } from './components/ConfiguracoesSaaS';
 import { ClientesOrcamentos } from './components/ClientesOrcamentos';
 import { GestaoFrotaVeiculos } from './components/GestaoFrotaVeiculos';
 import { ConsultaAplicacaoPecas } from './components/ConsultaAplicacaoPecas';
-import { OrdemServicoManager } from './components/OrdemServicoManager';
 import { EmpresaFiliaisManager } from './components/EmpresaFiliaisManager';
 import { LoginArea } from './components/LoginArea';
 import { LoginPage } from './components/LoginPage';
@@ -993,23 +990,7 @@ export default function App() {
               onShowNotification={showNotification}
               onNavigateToFleet={() => setCurrentView('frota')}
             />
-          )}
-
-          {currentView === 'ordem-servico' && (
-            <OrdemServicoManager
-              serviceOrders={serviceOrders}
-              products={products}
-              customers={customers}
-              companyProfile={companyProfile}
-              userSession={userSession}
-              onUpdateServiceOrders={handleUpdateServiceOrders}
-              onUpdateProductStock={(productId, quantitySold) => {
-                handleUpdateProductStock(productId, -quantitySold);
-              }}
-              onShowNotification={showNotification}
-            />
-          )}
-
+)}
           {currentView === 'xml-import' && (
             <XmlNfeImport
               products={products}
@@ -1151,26 +1132,6 @@ export default function App() {
                   showNotification(notif.title, notif.message || '', notif.type === 'error' ? 'warning' : notif.type);
                 }
               }}
-            />
-          )}
-
-          {currentView === 'pedidos' && (
-            <PedidosLogistica
-              orders={orders}
-              onUpdateOrderStatus={handleUpdateOrderStatus}
-              onShowNotification={showNotification}
-            />
-          )}
-
-          {currentView === 'relatorios' && (
-            <RelatoriosFinanceiros
-              orders={orders}
-              products={products}
-              customers={customers}
-              invoices={invoices}
-              payables={payables}
-              receivables={receivables}
-              companyProfile={companyProfile}
             />
           )}
 

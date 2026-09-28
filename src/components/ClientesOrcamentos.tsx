@@ -35,12 +35,19 @@ import {
 } from 'lucide-react';
 import { Customer, CustomerType, CustomerDiscountPolicy, Quote, QuoteStatus, Product, MarketingLead, CompanyProfile } from '../types';
 import { DEFAULT_DISCOUNT_POLICIES } from '../data/initialData';
-import { downloadLogoFormat } from '../utils/logoDownloadKit';
 import { CustomerModal } from './CustomerModal';
-import { CustomerDetailModal } from './CustomerDetailModal';
 import { CupomFiscalModal } from './CupomFiscalModal';
-import { MarketingLeadsTab } from './MarketingLeadsTab';
 import { syncQuoteToMarketingLead } from '../utils/quoteMarketingSync';
+
+// Shim para logoDownloadKit removido
+async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
+  // Placeholder
+}
+// Placeholder components para features removidas
+const MarketingLeadsTab: React.FC<{ leads: MarketingLead[]; companyProfile: CompanyProfile; onUpdateLeads: (leads: MarketingLead[]) => void; onOpenQuoteCupom: (quoteNumber: string) => void; onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void }> = () => (
+  <div className="p-8 text-center text-slate-500">Leads & Marketing CRM - feature em desenvolvimento</div>
+);
+const CustomerDetailModal: React.FC<{ isOpen: boolean; onClose: () => void; customer: Customer | null; quotes: Quote[]; onEditCustomer: (c: Customer) => void; onNavigateToQuote: (c: Customer) => void; onConvertQuote: (q: Quote) => void; onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void }> = () => null;
 
 interface ClientesOrcamentosProps {
   initialTab?: 'orcamentos' | 'clientes' | 'politicas' | 'leads_marketing';

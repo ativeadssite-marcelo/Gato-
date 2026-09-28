@@ -29,7 +29,13 @@ import {
 } from 'lucide-react';
 import { Product, VehicleCategory, UserSession, PhysicalInventoryItem } from '../types';
 import { CadastroPecaModal } from './CadastroPecaModal';
-import { formatImageSize } from '../utils/imageOptimizer';
+
+// Shim para imageOptimizer removido
+function formatImageSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 
 interface EstoqueManagerProps {
   products: Product[];

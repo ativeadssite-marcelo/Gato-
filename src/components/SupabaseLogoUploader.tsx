@@ -27,8 +27,21 @@ import {
   setCustomSupabaseCredentials, 
   SupabaseStorageHealth 
 } from '../services/supabaseStorage';
-import { optimizeImageFile, formatImageSize } from '../utils/imageOptimizer';
 import { CompanyProfile } from '../types';
+
+// Shim para imageOptimizer removido
+function formatImageSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+async function optimizeImageFile(file: File, _options: { maxWidth?: number; maxHeight?: number; quality?: number; format?: 'webp' | 'jpeg'; targetFormat?: string } = {}): Promise<{ dataUrl: string; sizeBytes: number }> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ dataUrl: reader.result as string, sizeBytes: file.size });
+    reader.readAsDataURL(file);
+  });
+}
 
 interface SupabaseLogoUploaderProps {
   companyProfile: CompanyProfile;

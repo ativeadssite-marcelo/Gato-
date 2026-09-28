@@ -18,13 +18,39 @@ import {
   FolderArchive
 } from 'lucide-react';
 import { CompanyProfile } from '../types';
-import {
-  generateLogoCanvas,
-  downloadLogoFormat,
-  downloadFullBrandingKit,
-  getCompanyInitials,
-  generateSvgLogo
-} from '../utils/logoDownloadKit';
+
+// Shim para logoDownloadKit removido - implementação mínima inline
+function getCompanyInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 3)
+    .join('')
+    .toUpperCase();
+}
+function generateSvgLogo(_profile: CompanyProfile, _options: { primaryColor: string; accentColor: string; variant: string; backgroundColor?: string }): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="55" font-size="40" text-anchor="middle">${getCompanyInitials(_profile.tradeName || _profile.corporateName)}</text></svg>`;
+}
+async function generateLogoCanvas(_profile: CompanyProfile, _options: { width: number; height: number; type: string; primaryColor: string; accentColor: string; backgroundColor?: string }): Promise<string> {
+  // Retorna data URL do canvas gerado
+  const canvas = document.createElement('canvas');
+  canvas.width = _options.width;
+  canvas.height = _options.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = _options.backgroundColor || _options.primaryColor;
+  ctx.fillRect(0, 0, _options.width, _options.height);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 48px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(getCompanyInitials(_profile.tradeName || _profile.corporateName), _options.width / 2, _options.height / 2 + 16);
+  return canvas.toDataURL('image/png');
+}
+async function downloadLogoFormat(_profile: CompanyProfile, _format: string, _options: { primaryColor: string; accentColor: string; backgroundColor?: string }): Promise<void> {
+  // Placeholder - download real seria implementado aqui
+}
+async function downloadFullBrandingKit(_profile: CompanyProfile, _options: { primaryColor: string; accentColor: string }): Promise<void> {
+  // Placeholder
+}
 
 interface ClienteLogoCustomizerProps {
   companyProfile: CompanyProfile;

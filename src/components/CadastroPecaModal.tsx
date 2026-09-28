@@ -27,7 +27,34 @@ import {
 } from 'lucide-react';
 import { Product, VehicleCategory, VehicleApplication, StateTaxConfig, ProductAttachment } from '../types';
 import { STATE_TAX_TABLE, SAMPLE_NFE_XML } from '../data/initialData';
-import { optimizeImageFile, optimizeImageDataUrl, formatImageSize } from '../utils/imageOptimizer';
+
+// Shim para imageOptimizer removido - implementação mínima inline
+function formatImageSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+async function optimizeImageFile(file: File, _options: { maxWidth?: number; maxHeight?: number; quality?: number; format?: 'webp' | 'jpeg'; originalFileName?: string } = {}): Promise<{ dataUrl: string; sizeBytes: number; fileName: string; originalSizeBytes: number; originalFileName: string }> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ 
+      dataUrl: reader.result as string, 
+      sizeBytes: file.size,
+      fileName: file.name,
+      originalSizeBytes: file.size,
+      originalFileName: file.name
+    });
+    reader.readAsDataURL(file);
+  });
+}
+async function optimizeImageDataUrl(dataUrl: string, _options: { maxWidth?: number; maxHeight?: number; quality?: number; format?: 'webp' | 'jpeg'; originalFileName?: string; originalSizeBytes?: number } = {}): Promise<{ dataUrl: string; sizeBytes: number; fileName: string; originalSizeBytes: number }> {
+  return { 
+    dataUrl, 
+    sizeBytes: Math.round(dataUrl.length * 0.75),
+    fileName: _options.originalFileName || 'image.webp',
+    originalSizeBytes: _options.originalSizeBytes || Math.round(dataUrl.length * 0.75)
+  };
+}
 
 export interface FormAttachment {
   id: string;
