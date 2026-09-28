@@ -28,7 +28,9 @@ import {
   onlyDigits,
   getDefaultTenantId,
 } from "./auth";
-import { AUDIT_LOGS_DATA, RBAC_USERS_DATA, ROLE_DEFINITIONS, TENANTS_DATA, SAAS_PLANS, maskCnpj } from "./rbacEngine";
+import { RBAC_USERS_DATA, ROLE_DEFINITIONS, TENANTS_DATA, SAAS_PLANS, maskCnpj } from "./rbacEngine";
+import { appendAuditLog } from "./auditStore";
+import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
 import { RbacRoleCode, RbacUser, TenantAccount } from "../src/types/rbac";
 
 export const authRouter = Router();
@@ -55,9 +57,7 @@ function logAuthEvent(
   details?: string,
   tenantId = "system"
 ) {
-  // Limita o crescimento da trilha em memória (evita exaustão de memória)
-  if (AUDIT_LOGS_DATA.length > 5000) AUDIT_LOGS_DATA.length = 4000;
-  AUDIT_LOGS_DATA.unshift({
+  appendAuditLog({
     id: `aud_auth_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
     tenantId,
     userId: "anonymous",
@@ -244,6 +244,11 @@ authRouter.post("/register-company", (req: Request, res: Response) => {
 
   // A senha nunca é gravada em texto plano: apenas salt + hash SCrypt.
   registerCredential(userId, email, password);
+
+  // Espelho: empresa e administrador. A credencial já foi espelhada dentro do
+  // `registerCredential`.
+  mirrorTenantUpsert(tenant);
+  mirrorRbacUserUpsert(newUser);
 
   const company = {
     id: tenantId,

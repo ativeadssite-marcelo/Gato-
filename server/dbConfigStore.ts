@@ -22,6 +22,12 @@ export interface DbCredentials {
   sslDisable?: boolean;
   /** SUPABASE_DB_SSL_REJECT_UNAUTHORIZED=false → true aceita cert autoassinado. */
   sslRejectUnauthorized?: boolean;
+  /**
+   * SUPABASE_DB_SSL_CA → caminho do PEM da CA do servidor. Preferível a
+   * `sslRejectUnauthorized: false`: confia na CA certa em vez de parar de
+   * verificar o certificado.
+   */
+  sslCaPath?: string;
 }
 
 /** Lê as credenciais salvas (se existirem). Nunca lança. */

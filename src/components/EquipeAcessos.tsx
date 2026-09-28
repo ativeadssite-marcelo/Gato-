@@ -15,6 +15,7 @@ import {
 import type { RbacRoleCode, RbacUser, TenantPermissionDefinition, TenantPermissionKey } from '../types/rbac';
 import type { UserSession } from '../types';
 import { apiJson } from '../services/apiClient';
+import { generateStrongPassword } from '../utils/passwordGenerator';
 import { TenantPermissionMatrix } from './TenantPermissionMatrix';
 import { MENU_ITEM_LABELS, MENU_TENANT_PERMISSION, isMenuVisible } from '../utils/menuAccess';
 
@@ -71,6 +72,16 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
   const [formEmail, setFormEmail] = useState('');
   const [formRole, setFormRole] = useState<RbacRoleCode>('tenant_user');
   const [formDepartment, setFormDepartment] = useState('Operacional');
+  const [formPassword, setFormPassword] = useState('');
+  const [formPasswordConfirm, setFormPasswordConfirm] = useState('');
+
+  const mismatch = formPassword.length > 0 && formPassword !== formPasswordConfirm;
+
+  const fillGeneratedPassword = () => {
+    const generated = generateStrongPassword();
+    setFormPassword(generated);
+    setFormPasswordConfirm(generated);
+  };
 
   const notify = (
     title: string,
@@ -113,6 +124,8 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
     setFormEmail('');
     setFormRole('tenant_user');
     setFormDepartment('Operacional');
+    setFormPassword('');
+    setFormPasswordConfirm('');
     setDraft([]);
     setModal({ mode: 'create' });
   };
@@ -135,6 +148,17 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
     try {
       if (modal.mode === 'create') {
         if (!formName.trim() || !formEmail.trim()) return;
+        // A força da senha é regra do SERVIDOR (`isStrongPassword`) e a mensagem
+        // dele é repassada no catch. Aqui só se confere o que o servidor não tem
+        // como saber: que a confirmação bate com o que foi digitado.
+        if (!formPassword) {
+          notify('Senha obrigatória', 'Defina a senha de acesso ou use "Gerar senha forte".', 'warning');
+          return;
+        }
+        if (formPassword !== formPasswordConfirm) {
+          notify('Senhas diferentes', 'A confirmação não confere com a senha digitada.', 'warning');
+          return;
+        }
         await apiJson('/api/rbac/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -146,6 +170,7 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
             roleCode: formRole,
             department: formDepartment.trim() || 'Operacional',
             tenantPermissions: draft,
+            password: formPassword,
           }),
         });
         notify('Usuário cadastrado', `${formName.trim()} agora tem ${draft.length} capacidade(s) liberada(s).`);
@@ -383,6 +408,46 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-slate-300 font-semibold">Senha de acesso</label>
+                      <button
+                        type="button"
+                        onClick={fillGeneratedPassword}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-300 hover:text-indigo-200"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Gerar senha forte
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        required
+                        autoComplete="new-password"
+                        placeholder="mínimo 8 caracteres, com letras e números"
+                        value={formPassword}
+                        onChange={(e) => setFormPassword(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                      <input
+                        type="text"
+                        required
+                        autoComplete="new-password"
+                        placeholder="repita a senha"
+                        value={formPasswordConfirm}
+                        onChange={(e) => setFormPasswordConfirm(e.target.value)}
+                        className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none font-mono ${
+                          mismatch ? 'border-rose-500 focus:border-rose-500' : 'border-slate-700 focus:border-indigo-500'
+                        }`}
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Os campos mostram a senha de propósito: é você quem vai entregá-la à pessoa.
+                      Anote antes de salvar — depois disso o sistema guarda só o hash e ninguém mais consegue lê-la.
+                    </p>
                   </div>
                 </>
               ) : (

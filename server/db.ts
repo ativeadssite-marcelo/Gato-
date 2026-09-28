@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import pg from "pg";
 import { loadSavedDbConfig } from "./dbConfigStore";
 
@@ -13,7 +14,31 @@ export interface DbConfig {
   database: string;
   sslDisable?: boolean;
   sslRejectUnauthorized?: boolean;
+  /**
+   * Caminho do PEM da CA que assina o certificado do servidor. O pooler do
+   * Supabase usa uma CA PRÓPRIA (raiz auto-assinada "Supabase Root 2021 CA"),
+   * que não está no repositório de CAs do Node — sem ela, a validação estrita
+   * falha com SELF_SIGNED_CERT_IN_CHAIN. O arquivo (`prod-ca-2021.crt`) é
+   * publicado pelo próprio Supabase no painel, em Database → SSL Configuration.
+   */
+  sslCaPath?: string;
   source?: "env" | "file";
+}
+
+/**
+ * Lê o PEM da CA. Devolve undefined (com aviso) se o caminho não existir, para
+ * o erro seguinte ser o de validação do TLS — que explica o problema — em vez
+ * de um ENOENT confuso.
+ */
+function readCaPem(caPath?: string): string | undefined {
+  if (!caPath) return undefined;
+  try {
+    const pem = fs.readFileSync(caPath, "utf8");
+    return pem.includes("BEGIN CERTIFICATE") ? pem : undefined;
+  } catch (err: any) {
+    console.warn(`[Supabase PG] CA não encontrada em "${caPath}":`, err?.message || err);
+    return undefined;
+  }
 }
 
 /**
@@ -22,6 +47,12 @@ export interface DbConfig {
  */
 export function getDbConfig(): DbConfig | null {
   const saved = loadSavedDbConfig();
+  // A CA vem do ambiente mesmo quando as demais credenciais vieram da tela: a
+  // config salva tem precedência, mas nasceu antes de existir campo de CA. Sem
+  // esta linha, quem cadastrou o banco pela tela ficaria sem o CA e o TLS
+  // continuaria falhando sem explicação.
+  const envCaPath = process.env.SUPABASE_DB_SSL_CA;
+
   if (saved?.host && saved?.password) {
     return {
       host: saved.host,
@@ -31,6 +62,7 @@ export function getDbConfig(): DbConfig | null {
       database: saved.database || "postgres",
       sslDisable: saved.sslDisable,
       sslRejectUnauthorized: saved.sslRejectUnauthorized,
+      sslCaPath: saved.sslCaPath || envCaPath,
       source: "file",
     };
   }
@@ -46,6 +78,7 @@ export function getDbConfig(): DbConfig | null {
     database: process.env.SUPABASE_DB_NAME || "postgres",
     sslDisable: process.env.SUPABASE_DB_SSL === "disable",
     sslRejectUnauthorized: process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED !== "false",
+    sslCaPath: envCaPath,
     source: "env",
   };
 }
@@ -59,6 +92,8 @@ export const DB_NOT_CONFIGURED_MESSAGE =
   "ou defina SUPABASE_DB_HOST e SUPABASE_DB_PASSWORD como variáveis de ambiente.";
 
 function buildPool(config: DbConfig): pg.Pool {
+  const ca = readCaPem(config.sslCaPath);
+  if (ca) console.log(`[Supabase PG] CA do servidor carregada de "${config.sslCaPath}".`);
   const newPool = new Pool({
     host: config.host,
     port: config.port,
@@ -66,9 +101,12 @@ function buildPool(config: DbConfig): pg.Pool {
     password: config.password,
     database: config.database,
     // TLS habilitado com validação de certificado por padrão (evita MITM).
+    // Quando há CA configurada, ela é apresentada como âncora de confiança e a
+    // validação SEGUE LIGADA — a leitura correta é "confiar nesta CA", nunca
+    // "parar de verificar o certificado".
     ssl: config.sslDisable
       ? undefined
-      : { rejectUnauthorized: config.sslRejectUnauthorized !== false },
+      : { rejectUnauthorized: config.sslRejectUnauthorized !== false, ...(ca ? { ca } : {}) },
     connectionTimeoutMillis: 8000,
     max: 10,
   });

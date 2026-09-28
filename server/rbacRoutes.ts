@@ -42,7 +42,13 @@ import {
   getClientIp,
   recordAudit,
   TENANT_OPERATIONAL_RESOURCES,
+  setCredential,
+  isStrongPassword,
+  isValidEmail,
+  isEmailRegistered,
 } from "./auth";
+import { appendAuditLog } from "./auditStore";
+import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
 
 export const rbacRouter = Router();
 
@@ -133,7 +139,7 @@ export function requireRbacPermission(resource: PermissionResource) {
         status: "blocked",
         anomalous: true
       };
-      AUDIT_LOGS_DATA.unshift(blockedLog);
+      appendAuditLog(blockedLog);
 
       return res.status(403).json({
         success: false,
@@ -161,7 +167,7 @@ export function requireRbacPermission(resource: PermissionResource) {
         justification,
         status: "success"
       };
-      AUDIT_LOGS_DATA.unshift(auditLog);
+      appendAuditLog(auditLog);
     }
 
     next();
@@ -354,7 +360,7 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
   const caller = resolveAuthUser(req);
   const callerRole = ROLE_DEFINITIONS[caller.roleCode];
 
-  const { name, email, roleCode, tenantId, department, tenantPermissions } = req.body;
+  const { name, email, roleCode, tenantId, department, tenantPermissions, password } = req.body;
 
   if (!name || !email || !roleCode) {
     return res.status(400).json({ success: false, error: "Nome, e-mail e papel são obrigatórios." });
@@ -369,6 +375,35 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
       return res.status(403).json({ success: false, error: "Administradores de tenant não podem criar usuários administrativos da equipe SaaS." });
     }
   }
+
+  // --- Credencial de login -------------------------------------------------
+  // Sem senha o usuário nasceria sem forma de entrar: era exatamente o que
+  // acontecia antes, e por isso a conta criada aqui nunca conseguia logar.
+  // Tudo é validado ANTES de tocar no array, para não sobrar usuário meio-criado.
+  const normalizedEmail = String(email).trim().toLowerCase();
+  if (!isValidEmail(normalizedEmail)) {
+    return res.status(400).json({ success: false, error: "E-mail inválido." });
+  }
+  const emailTaken =
+    isEmailRegistered(normalizedEmail) ||
+    RBAC_USERS_DATA.some((u) => u.email.trim().toLowerCase() === normalizedEmail);
+  if (emailTaken) {
+    return res.status(409).json({
+      success: false,
+      error: "Este e-mail já possui acesso cadastrado.",
+      code: "RBAC_EMAIL_ALREADY_REGISTERED",
+    });
+  }
+
+  const strength = isStrongPassword(password);
+  if (!strength.ok) {
+    return res.status(400).json({
+      success: false,
+      error: strength.error,
+      code: "RBAC_WEAK_PASSWORD",
+    });
+  }
+  const plainPassword = String(password);
 
   const roleDef = ROLE_DEFINITIONS[roleCode as RbacRoleCode];
   const tenantObj = TENANTS_DATA.find((t) => t.id === targetTenantId) || TENANTS_DATA[0];
@@ -394,8 +429,15 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
 
   RBAC_USERS_DATA.push(newUser);
 
-  // Trilha de auditoria
-  AUDIT_LOGS_DATA.unshift({
+  // Credencial + espelho. A ordem importa: o usuário precisa existir em memória
+  // (para o espelho gravar "RbacUser") antes de a credencial ser espelhada, que
+  // tem foreign key para ele — o espelho é serializado numa fila por isso.
+  setCredential(newUser.id, normalizedEmail, plainPassword);
+  mirrorRbacUserUpsert(newUser);
+
+  // Trilha de auditoria. `sanitizePayloadForAudit` já remove chaves de senha,
+  // mas o caminho novo passa um objeto explícito: a senha nunca entra aqui.
+  appendAuditLog({
     id: `aud_usr_${Date.now()}`,
     tenantId: targetTenantId,
     userId: caller.id,
@@ -406,6 +448,7 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
     resource: "contractor_users",
     entityId: newUser.id,
     timestamp: new Date().toISOString(),
+    justification: "Conta criada com senha definida pelo administrador.",
     afterState: sanitizePayloadForAudit(newUser),
     status: "success"
   });
@@ -498,7 +541,9 @@ rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write:
     targetUser.tenantPermissions = sanitizeTenantPermissions(tenantPermissions);
   }
 
-  AUDIT_LOGS_DATA.unshift({
+  mirrorRbacUserUpsert(targetUser);
+
+  appendAuditLog({
     id: `aud_role_${Date.now()}`,
     tenantId: targetUser.tenantId,
     userId: caller.id,
@@ -550,10 +595,26 @@ rbacRouter.post("/users/:id/reset-password", requirePermission("contractor_users
     }
   }
 
-  // Regra: Suporte pode resetar, mas sem ver a senha em texto plano (envio de link seguro)
-  const token = Math.random().toString(36).substring(2, 15);
+  // A senha nova é definida aqui e vale na hora: antes, esta rota gerava um
+  // token que não era guardado, não era devolvido e não mudava nada — um reset
+  // decorativo que dava à operação a impressão de ter resolvido o chamado.
+  const { newPassword } = req.body || {};
+  const strength = isStrongPassword(newPassword);
+  if (!strength.ok) {
+    return res.status(400).json({
+      success: false,
+      error: strength.error,
+      code: "RBAC_WEAK_PASSWORD",
+    });
+  }
+  const plainPassword = String(newPassword);
 
-  AUDIT_LOGS_DATA.unshift({
+  setCredential(targetUser.id, targetUser.email, plainPassword);
+
+  // Auditoria SEM a senha e SEM o hash: o registro guarda quem redefiniu e por
+  // qual método. A trilha é lida pelo dono do SaaS, então um segredo aqui
+  // circularia fora do tenant.
+  appendAuditLog({
     id: `aud_rst_${Date.now()}`,
     tenantId: targetUser.tenantId,
     userId: caller.id,
@@ -566,15 +627,14 @@ rbacRouter.post("/users/:id/reset-password", requirePermission("contractor_users
     timestamp: new Date().toISOString(),
     justification: "Reset de senha solicitado por chamado de suporte ou administrador.",
     beforeState: { email: maskEmail(targetUser.email) },
-    afterState: { tokenIssued: true, tokenExpiryMinutes: 60 },
+    afterState: { resetBy: caller.email, method: "typed" },
     status: "success"
   });
 
   res.json({
     success: true,
-    message: `Link de redefinição de senha gerado e enviado com segurança para ${maskEmail(targetUser.email)}.`,
-    maskedEmail: maskEmail(targetUser.email),
-    expiresIn: "60 minutos"
+    message: `Senha de ${maskEmail(targetUser.email)} redefinida com sucesso.`,
+    maskedEmail: maskEmail(targetUser.email)
   });
 });
 
@@ -681,8 +741,13 @@ rbacRouter.post("/plans/change", requireSaasScope, requirePermission("limits_quo
   tenant.planId = newPlan.id;
   tenant.planName = newPlan.name;
 
+  // O espelho da troca de plano toca os dois lados: o tenant mudou de plano e o
+  // usuário carrega `sessionTimeoutMinutes` do tenant.
+  mirrorTenantUpsert(tenant);
+  mirrorRbacUserUpsert(caller);
+
   // Registrar auditoria
-  AUDIT_LOGS_DATA.unshift({
+  appendAuditLog({
     id: `aud_plan_${Date.now()}`,
     tenantId: tenant.id,
     userId: caller.id,
@@ -773,7 +838,7 @@ rbacRouter.post("/messages/send", requirePermission("internal_messages", { write
   INTERNAL_MESSAGES_DATA.unshift(newMessage);
 
   // Trilha de auditoria
-  AUDIT_LOGS_DATA.unshift({
+  appendAuditLog({
     id: `aud_msg_${Date.now()}`,
     tenantId: tenantId || "all",
     userId: caller.id,

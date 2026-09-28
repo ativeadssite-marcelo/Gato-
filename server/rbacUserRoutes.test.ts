@@ -288,10 +288,22 @@ test("admin do tenant não dispara reset de senha de usuário de outra empresa",
 test("admin do tenant ainda reseta senha da própria equipe", async () => {
   const token = issueSessionToken(mgnAdmin).token;
 
-  const res = await request("POST", `/api/rbac/users/${mgnUser.id}/reset-password`, token);
+  try {
+    // O reset agora define a senha de verdade (antes só emitia um token inócuo),
+    // então a senha NOVA passa a valer e a antiga morre.
+    const res = await request("POST", `/api/rbac/users/${mgnUser.id}/reset-password`, token, {
+      newPassword: "SenhaEquipe123",
+    });
 
-  assert.equal(res.status, 200, JSON.stringify(res.body));
-  assert.equal(res.body.success, true);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.success, true);
+  } finally {
+    // `mgnUser` é semeado e compartilhado com os outros testes: devolve a senha
+    // de demonstração para não deixar o estado alterado.
+    await request("POST", `/api/rbac/users/${mgnUser.id}/reset-password`, token, {
+      newPassword: "senha123456",
+    });
+  }
 });
 
 test("admin do tenant continua podendo trocar papéis dentro do próprio escopo", async () => {
@@ -324,6 +336,7 @@ test("criar usuário sem informar tenant grava na empresa de quem chamou", async
       email,
       roleCode: "tenant_user",
       tenantPermissions: [],
+      password: "SenhaBalcao123",
     });
 
     assert.equal(res.status, 200, JSON.stringify(res.body));
@@ -373,6 +386,7 @@ test("criar usuário com capacidades do catálogo as persiste", async () => {
       email,
       roleCode: "tenant_user",
       tenantPermissions: ["sales", "invoice_issuance", "id_invalido"],
+      password: "SenhaBalcao123",
     });
 
     assert.equal(res.status, 200, JSON.stringify(res.body));

@@ -37,6 +37,8 @@ import { billingRouter } from "./server/billing/routes";
 import { adminDatabaseRouter } from "./server/adminDatabaseRoutes";
 import { checkQuota, incrementUsage } from "./server/quotas";
 import { runMigrations } from "./server/migrate";
+import { hydrateIdentityStore } from "./server/identityStore";
+import { hydrateAuditStore } from "./server/auditStore";
 import { seedBillingStore } from "./server/store";
 import { startBillingCron } from "./server/notifications/cron";
 
@@ -2125,6 +2127,17 @@ async function startServer() {
   await runMigrations().catch((err) =>
     console.error("[GATO Migrate] Falha geral ao aplicar migrações:", err?.message || err),
   );
+
+  // Hidratação do domínio de identidade e da trilha, a partir do banco.
+  //
+  // A POSIÇÃO AQUI É OBRIGATÓRIA — não mover para o carregamento do módulo:
+  // imports são hoisted, então rodaria antes do `dotenv.config()` acima e antes
+  // do seed de demonstração (que vem do auth.ts, no import). O seed roda
+  // sobre os usuários que existirem naquele instante; hidratar primeiro faria
+  // ele sobrescrever com `senha123456` toda credencial trazida do banco.
+  await hydrateIdentityStore();
+  await hydrateAuditStore();
+
   startBillingCron();
 
   // Vite middleware for development

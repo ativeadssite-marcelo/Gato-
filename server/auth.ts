@@ -18,11 +18,13 @@ import { Request, Response, NextFunction } from "express";
 import {
   ROLE_DEFINITIONS,
   RBAC_USERS_DATA,
-  AUDIT_LOGS_DATA,
   ROLE_OVERRIDES,
   hasTenantPermission,
 } from "./rbacEngine";
 import { TENANTS_DATA, SAAS_PLANS } from "./rbacEngine";
+import { mirror } from "./dbMirror";
+import { appendAuditLog } from "./auditStore";
+import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
 import {
   RbacUser,
   RbacRoleCode,
@@ -359,7 +361,64 @@ export function registerCredential(
   if (!normalized || !password) return false;
   if (credentials.has(normalized)) return false;
   addCredential(userId, normalized, password);
+  mirrorCredential(normalized);
   return true;
+}
+
+/**
+ * Define ou SUBSTITUI a credencial do e-mail. É a sobrescrita intencional que o
+ * reset de senha precisa — `registerCredential` recusa e-mail existente, o que
+ * serve para cadastro mas não para redefinição.
+ */
+export function setCredential(userId: string, email: string, password: string): boolean {
+  const normalized = (email || "").trim().toLowerCase();
+  if (!normalized || !password) return false;
+  addCredential(userId, normalized, password);
+  mirrorCredential(normalized);
+  return true;
+}
+
+/**
+ * Espelha a credencial para o banco. Chamado pelos caminhos de NEGÓCIO
+ * (cadastro, criação de usuário, reset) — nunca de dentro do `addCredential`,
+ * que também é usado pelas semeaduras de demonstração e de ambiente. Senha de
+ * demonstração não pode virar linha no banco.
+ */
+function mirrorCredential(normalizedEmail: string): void {
+  const record = credentials.get(normalizedEmail);
+  if (!record) return;
+  mirror(
+    `INSERT INTO "UserCredential" (email, "userId", salt, hash)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (email) DO UPDATE SET "userId" = EXCLUDED."userId",
+       salt = EXCLUDED.salt, hash = EXCLUDED.hash, "updatedAt" = NOW();`,
+    [record.email, record.userId, record.salt, record.hash],
+  );
+}
+
+/** Cópia somente leitura, para a hidratação conferir o que já veio do banco. */
+export function listCredentialRecords(): { userId: string; email: string; salt: string; hash: string }[] {
+  return [...credentials.values()].map((c) => ({ ...c }));
+}
+
+/**
+ * Insere a credencial HIDRATADA preservando salt e hash originais. Recalcular o
+ * hash aqui não funcionaria: a senha em claro não existe mais, só o resultado.
+ */
+export function loadCredentialRecord(record: {
+  userId: string;
+  email: string;
+  salt: string;
+  hash: string;
+}): void {
+  const normalized = (record.email || "").trim().toLowerCase();
+  if (!normalized || !record.salt || !record.hash) return;
+  credentials.set(normalized, {
+    userId: record.userId,
+    email: normalized,
+    salt: record.salt,
+    hash: record.hash,
+  });
 }
 
 /**
@@ -521,10 +580,14 @@ function seedDemoUsers() {
 export function initCredentials() {
   seedEnvUsers();
   seedDemoUsers();
-  // Remove qualquer credencial órfã (usuário inexistente/inativo)
+  // Remove qualquer credencial órfã (usuário inexistente/inativo). O espelho da
+  // remoção é obrigatório: sem ele o banco ressuscitaria a credencial no
+  // próximo boot, devolvendo acesso a uma conta que a aplicação já descartou.
   for (const [email, record] of credentials.entries()) {
-    if (!RBAC_USERS_DATA.some((u) => u.id === record.userId && u.active))
+    if (!RBAC_USERS_DATA.some((u) => u.id === record.userId && u.active)) {
       credentials.delete(email);
+      mirror(`DELETE FROM "UserCredential" WHERE email = $1;`, [email]);
+    }
   }
 }
 
@@ -626,7 +689,7 @@ export function registerTenantWithAdmin(input: {
     SAAS_PLANS.find((p) => p.code === "starter") || SAAS_PLANS[0];
   const nowIso = new Date().toISOString();
 
-  TENANTS_DATA.push({
+  const newTenant = {
     id: tenantId,
     name: corporateName,
     tradeName,
@@ -645,7 +708,8 @@ export function registerTenantWithAdmin(input: {
     sessionTimeoutMinutes: 480,
     ipAllowlist: [],
     softBlockEnabled: true,
-  } as any);
+  } as any;
+  TENANTS_DATA.push(newTenant);
 
   const userId = `usr_tnt_admin_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
   const user = upsertPrincipal({
@@ -667,6 +731,13 @@ export function registerTenantWithAdmin(input: {
       error: "Não foi possível criar a credencial: e-mail já cadastrado.",
     };
   }
+
+  // Espelho só nos caminhos de NEGÓCIO. O espelho de credencial já saiu dentro
+  // do `registerCredential`; aqui vão tenant e usuário. Deliberadamente fora do
+  // `upsertPrincipal`: ele também é chamado pelas semeaduras de demonstração e
+  // de ambiente, e aquelas contas não podem virar linha no banco.
+  mirrorTenantUpsert(newTenant);
+  mirrorRbacUserUpsert(user);
 
   return { ok: true, status: 201, tenantId, userId };
 }
@@ -741,10 +812,9 @@ export function recordAudit(
     anomalous?: boolean;
   },
 ) {
-  // Limita o crescimento da trilha em memória (evita exaustão de memória)
-  if (AUDIT_LOGS_DATA.length > 5000) AUDIT_LOGS_DATA.length = 4000;
-
-  AUDIT_LOGS_DATA.unshift({
+  // `appendAuditLog` aplica o teto de memória, mantém a ordem e espelha no
+  // banco — o corte que vivia aqui foi para dentro dele.
+  appendAuditLog({
     id: `aud_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
     tenantId: extra?.targetTenantId || actor.tenantId || "system",
     userId: actor.id,
