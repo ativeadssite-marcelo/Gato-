@@ -34,6 +34,7 @@ import { credentialsRouter } from "./server/credentialsRoutes";
 import { licenseRouter } from "./server/licenseRoutes";
 import { v1Router } from "./server/v1Routes";
 import { authRouter } from "./server/authRoutes";
+import { caixaRouter } from "./server/caixaRoutes";
 import { billingRouter } from "./server/billing/routes";
 import { adminDatabaseRouter } from "./server/adminDatabaseRoutes";
 import { checkQuota, incrementUsage } from "./server/quotas";
@@ -164,6 +165,9 @@ app.use("/api/rbac", rbacRouter);
 
 // Billing & Assinaturas (webhooks do gateway + autosserviço do tenant)
 app.use("/api/billing", billingRouter);
+
+// Caixa (PDV): abertura/fechamento, recebimentos, emissão de boleto, NF, dados fiscais
+app.use("/api/caixa", caixaRouter);
 
 // Configuração do banco (cadastro de credenciais em runtime — Super Admin)
 app.use("/api/admin/database", adminDatabaseRouter);

@@ -1,0 +1,418 @@
+// =========================================================================
+// ROTAS DE CAIXA — GATO SaaS (PDV)
+// =========================================================================
+// - Abertura/fechamento de caixa
+// - Registro de recebimentos (vendas, devoluções)
+// - Emissão de boleto
+// - Emissão de recibo/nota fiscal
+// - Dados fiscais de boletos em aberto
+// =========================================================================
+
+import { Router, Request, Response } from "express";
+import {
+  requireAuth,
+  requirePermission,
+  resolveDataScope,
+  sendScopeDenied,
+} from "./auth";
+import {
+  openCashRegister,
+  closeCashRegister,
+  recordMovement,
+  getCashRegister,
+  listCashRegisters,
+  listCashMovements,
+  issueReceipt,
+  cancelReceipt,
+  listReceipts,
+  issueBoleto,
+  getOpenBoletos,
+  getBoletoById,
+  markBoletoPaid,
+  getCaixaSummary,
+} from "./caixa";
+
+export const caixaRouter = Router();
+
+// -------------------------------------------------------------------------
+// RESUMO DO CAIXA (visão rápida da abertura atual)
+// -------------------------------------------------------------------------
+caixaRouter.get(
+  "/summary",
+  requireAuth,
+  requirePermission("sales"),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    const summary = await getCaixaSummary(scope.tenantId!);
+    res.json({ success: true, ...summary });
+  },
+);
+
+// -------------------------------------------------------------------------
+// ABRIR CAIXA
+// -------------------------------------------------------------------------
+interface OpenCaixaBody {
+  openingAmount: number;
+  notes?: string;
+}
+
+caixaRouter.post(
+  "/open",
+  requireAuth,
+  requirePermission("sales", { write: true }),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
+
+    const { openingAmount, notes } = req.body as OpenCaixaBody;
+
+    if (typeof openingAmount !== "number" || openingAmount < 0) {
+      return res.status(400).json({
+        success: false,
+        error: "openingAmount deve ser um número positivo.",
+      });
+    }
+
+    try {
+      const register = await openCashRegister(
+        scope.tenantId,
+        { openingAmount, notes },
+        req.auth!.user.id,
+        req.auth!.user.name,
+      );
+      res.status(201).json({ success: true, register });
+    } catch (err: any) {
+      res.status(409).json({
+        success: false,
+        error: err.message || "Já existe caixa aberto para este tenant.",
+      });
+    }
+  },
+);
+
+// -------------------------------------------------------------------------
+// FECHAR CAIXA
+// -------------------------------------------------------------------------
+interface CloseCaixaBody {
+  actualAmount: number;
+  notes?: string;
+}
+
+caixaRouter.post(
+  "/close",
+  requireAuth,
+  requirePermission("sales", { write: true }),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
+
+    const { actualAmount, notes } = req.body as CloseCaixaBody;
+
+    if (typeof actualAmount !== "number") {
+      return res.status(400).json({
+        success: false,
+        error: "actualAmount é obrigatório.",
+      });
+    }
+
+    try {
+      const register = await closeCashRegister(
+        scope.tenantId,
+        { actualAmount, notes },
+        req.auth!.user.id,
+        req.auth!.user.name,
+      );
+      res.json({ success: true, register });
+    } catch (err: any) {
+      res.status(400).json({ success: false, error: err.message || "Falha ao fechar caixa." });
+    }
+  },
+);
+
+// -------------------------------------------------------------------------
+// LISTAR CAIXAS
+// -------------------------------------------------------------------------
+caixaRouter.get(
+  "/",
+  requireAuth,
+  requirePermission("sales"),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    const registers = await listCashRegisters(scope.tenantId!);
+    res.json({ success: true, count: registers.length, registers });
+  },
+);
+
+// -------------------------------------------------------------------------
+// MOVIMENTAÇÕES DO CAIXA
+// -------------------------------------------------------------------------
+caixaRouter.get(
+  "/:registerId/movements",
+  requireAuth,
+  requirePermission("sales"),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
+    const registerId = req.params.registerId;
+    const movements = await listCashMovements(registerId, scope.tenantId!);
+    res.json({ success: true, count: movements.length, movements });
+  },
+);
+
+// -------------------------------------------------------------------------
+// REGISTRAR MOVIMENTAÇÃO
+// -------------------------------------------------------------------------
+interface MovementBody {
+  type: "sale_cash" | "sale_card" | "sale_pix" | "sale_boleto" | "refund_cash" | "refund_card" | "withdrawal" | "deposit" | "adjustment";
+  paymentMethod: "dinheiro" | "cartao_credito" | "cartao_debito" | "pix" | "boleto" | "cheque" | "outros";
+  amount: number;
+  description: string;
+  referenceId?: string;
+  referenceType?: "sale" | "budget" | "boleto" | "refund" | "withdrawal" | "deposit" | "adjustment";
+  customerId?: string;
+  customerName?: string;
+}
+
+caixaRouter.post(
+  "/movements",
+  requireAuth,
+  requirePermission("sales", { write: true }),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
+
+    const body = req.body as MovementBody;
+    if (!body.type || !body.paymentMethod || typeof body.amount !== "number") {
+      return res.status(400).json({
+        success: false,
+        error: "Campos obrigatórios: type, paymentMethod, amount.",
+      });
+    }
+
+    // Procura caixa aberto do tenant
+    const openRegister = await getCashRegister("current", scope.tenantId);
+    const caixaAberto = openRegister || [...(await listCashRegisters(scope.tenantId))].find(r => r.status === "open");
+
+    if (!caixaAberto) {
+      return res.status(400).json({ success: false, error: "Nenhum caixa aberto encontrado." });
+    }
+
+    const movement = await recordMovement(
+      scope.tenantId,
+      caixaAberto.id,
+      {
+        type: body.type as any,
+        paymentMethod: body.paymentMethod as any,
+        amount: body.amount,
+        description: body.description,
+        referenceId: body.referenceId ?? null,
+        referenceType: body.referenceType ?? null,
+        customerId: body.customerId ?? null,
+        customerName: body.customerName ?? null,
+      },
+      req.auth!.user.id,
+      req.auth!.user.name,
+    );
+
+    res.status(201).json({ success: true, movement });
+  },
+);
+
+// -------------------------------------------------------------------------
+// RECIBOS / NOTA FISCAL
+// -------------------------------------------------------------------------
+interface ReceiptBody {
+  cashRegisterId?: string;
+  type: "receipt" | "invoice" | "credit_note";
+  customerId?: string;
+  customerName?: string;
+  customerDocument?: string;
+  items: Array<{
+    productId?: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    discount?: number;
+    ncm?: string;
+    cest?: string;
+    cfop?: string;
+    taxIcms?: number;
+    taxIpi?: number;
+    taxPis?: number;
+    taxCofins?: number;
+  }>;
+  subtotal: number;
+  discount: number;
+  total: number;
+  paymentMethod: "dinheiro" | "cartao_credito" | "cartao_debito" | "pix" | "boleto" | "cheque" | "outros";
+  paymentDetails?: any;
+  fiscalData?: {
+    model?: "55" | "65";
+    series?: string;
+    number?: string;
+    accessKey?: string;
+    protocol?: string;
+    xmlPath?: string;
+    pdfPath?: string;
+    qrCodeUrl?: string;
+    issuedAt?: string;
+    authorizedAt?: string;
+    environment?: "production" | "homologation";
+  };
+}
+
+caixaRouter.post(
+  "/receipts",
+  requireAuth,
+  requirePermission("sales", { write: true }),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
+
+    const body = req.body as ReceiptBody;
+    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Itens do recibo são obrigatórios.",
+      });
+    }
+
+    const receipt = await issueReceipt(
+      scope.tenantId,
+      body,
+      req.auth!.user.id,
+      req.auth!.user.name,
+    );
+
+    res.status(201).json({ success: true, receipt });
+  },
+);
+
+caixaRouter.get(
+  "/receipts",
+  requireAuth,
+  requirePermission("sales"),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    const receipts = await listReceipts(scope.tenantId!);
+    res.json({ success: true, count: receipts.length, receipts });
+  },
+);
+
+// -------------------------------------------------------------------------
+// BOLETOS
+// -------------------------------------------------------------------------
+interface BoletoBody {
+  cashRegisterId?: string;
+  customerId: string;
+  customerName: string;
+  customerDocument: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  amount: number;
+  dueDate: string;
+  description: string;
+  gateway?: "asaas" | "manual";
+}
+
+caixaRouter.post(
+  "/boletos",
+  requireAuth,
+  requirePermission("sales", { write: true }),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
+
+    const body = req.body as BoletoBody;
+    if (!body.customerId || !body.amount || !body.dueDate) {
+      return res.status(400).json({
+        success: false,
+        error: "Campos obrigatórios: customerId, amount, dueDate.",
+      });
+    }
+
+    const boleto = await issueBoleto(scope.tenantId, body);
+    res.status(201).json({ success: true, boleto });
+  },
+);
+
+caixaRouter.get(
+  "/boletos/open",
+  requireAuth,
+  requirePermission("sales"),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    const openBoletos = await getOpenBoletos(scope.tenantId!);
+    res.json({ success: true, count: openBoletos.length, boletos: openBoletos });
+  },
+);
+
+caixaRouter.get(
+  "/boletos/:id",
+  requireAuth,
+  requirePermission("sales"),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
+    const boleto = await getBoletoById(req.params.id, scope.tenantId!);
+    if (!boleto) {
+      return res.status(404).json({ success: false, error: "Boleto não encontrado." });
+    }
+    res.json({ success: true, boleto });
+  },
+);
+
+caixaRouter.put(
+  "/boletos/:id/paid",
+  requireAuth,
+  requirePermission("sales", { write: true }),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
+    const { paymentMethod, paidAmount } = req.body as {
+      paymentMethod: "dinheiro" | "cartao_credito" | "cartao_debito" | "pix" | "boleto" | "cheque" | "outros";
+      paidAmount: number;
+    };
+
+    const boleto = await markBoletoPaid(req.params.id, scope.tenantId!, paymentMethod, paidAmount);
+    if (!boleto) {
+      return res.status(404).json({ success: false, error: "Boleto não encontrado." });
+    }
+    res.json({ success: true, boleto });
+  },
+);
+
+// -------------------------------------------------------------------------
+// CAIXA ATUAL
+// -------------------------------------------------------------------------
+caixaRouter.get(
+  "/open",
+  requireAuth,
+  requirePermission("sales"),
+  async (req: Request, res: Response) => {
+    const scope = resolveDataScope(req, "sales");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+
+    const allRegisters = await listCashRegisters(scope.tenantId!);
+    const openCaixa = allRegisters.find(r => r.status === "open");
+
+    if (!openCaixa) {
+      return res.json({ success: true, cashRegister: null, message: "Nenhum caixa aberto." });
+    }
+
+    const movements = await listCashMovements(openCaixa.id, scope.tenantId!);
+    res.json({ success: true, cashRegister: openCaixa, movements });
+  },
+);
