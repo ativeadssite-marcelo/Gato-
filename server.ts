@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { validateEnv } from "./server/env";
 import { checkDatabaseConnection, getDbPool, isDatabaseConfigured, DB_NOT_CONFIGURED_MESSAGE } from "./server/db";
 import {
   requireAuth,
@@ -43,6 +44,9 @@ import { seedBillingStore } from "./server/store";
 import { startBillingCron } from "./server/notifications/cron";
 
 dotenv.config();
+
+// Fail-fast: validar ambiente antes de iniciar qualquer componente
+validateEnv();
 
 const app = express();
 const PORT = 3000;
