@@ -14,6 +14,7 @@ export type CashMovementType =
   | 'sale_card'         // venda cartão débito/crédito
   | 'sale_pix'          // venda PIX
   | 'sale_boleto'       // venda boleto (à vista)
+  | 'sale_vale'         // venda paga com vale/voucher (alimentação, refeição, presente)
   | 'refund_cash'       // devolução dinheiro
   | 'refund_card'       // devolução cartão
   | 'withdrawal'        // sangria/retirada
@@ -28,6 +29,9 @@ export type PaymentMethodCaixa =
   | 'pix' 
   | 'boleto' 
   | 'cheque' 
+  | 'vale_alimentacao'
+  | 'vale_refeicao'
+  | 'voucher'
   | 'outros';
 
 export interface CashRegister {
@@ -188,6 +192,7 @@ export interface CaixaSummary {
     salesCard: number;
     salesPix: number;
     salesBoleto: number;
+    salesVale: number;
     refunds: number;
     withdrawals: number;
     deposits: number;
@@ -221,7 +226,9 @@ export interface RecordMovementInput {
 }
 
 export interface IssueReceiptInput {
-  cashRegisterId: string;
+  // Opcional: emissor de recibo fora de um turno de caixa é permitido
+  // (issueReceipt valida/ignora quando ausente — ver server/caixa.ts).
+  cashRegisterId?: string | null;
   type: 'receipt' | 'invoice' | 'credit_note';
   customerId?: string | null;
   customerName?: string | null;

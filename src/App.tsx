@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { DashboardOverview } from './components/DashboardOverview';
 import { XmlNfeImport } from './components/XmlNfeImport';
 import { BalcaoCotacao } from './components/BalcaoCotacao';
+import { CaixaView } from './components/CaixaView';
 import { EstoqueManager } from './components/EstoqueManager';
 import { EmissaoNfe } from './components/EmissaoNfe';
 import { MarketplaceManager } from './components/MarketplaceManager';
@@ -948,6 +949,10 @@ export default function App() {
               onNavigateToNfe={() => setCurrentView('nfe-venda')}
               onShowNotification={showNotification}
             />
+          )}
+
+          {currentView === 'caixa' && (
+            <CaixaView companyProfile={companyProfile} onShowNotification={showNotification} />
           )}
 
           {currentView === 'frota' && (

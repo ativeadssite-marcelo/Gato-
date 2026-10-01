@@ -12,6 +12,7 @@ import { Router, Request, Response } from "express";
 import {
   requireAuth,
   requirePermission,
+  requireTenantPermission,
   resolveDataScope,
   sendScopeDenied,
 } from "./auth";
@@ -40,9 +41,9 @@ export const caixaRouter = Router();
 caixaRouter.get(
   "/summary",
   requireAuth,
-  requirePermission("sales"),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
     const summary = await getCaixaSummary(scope.tenantId!);
     res.json({ success: true, ...summary });
@@ -60,9 +61,9 @@ interface OpenCaixaBody {
 caixaRouter.post(
   "/open",
   requireAuth,
-  requirePermission("sales", { write: true }),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
     if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
 
@@ -103,9 +104,9 @@ interface CloseCaixaBody {
 caixaRouter.post(
   "/close",
   requireAuth,
-  requirePermission("sales", { write: true }),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
     if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
 
@@ -138,9 +139,9 @@ caixaRouter.post(
 caixaRouter.get(
   "/",
   requireAuth,
-  requirePermission("sales"),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
     const registers = await listCashRegisters(scope.tenantId!);
     res.json({ success: true, count: registers.length, registers });
@@ -153,9 +154,9 @@ caixaRouter.get(
 caixaRouter.get(
   "/:registerId/movements",
   requireAuth,
-  requirePermission("sales"),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
 
     const registerId = req.params.registerId;
@@ -168,8 +169,8 @@ caixaRouter.get(
 // REGISTRAR MOVIMENTAÇÃO
 // -------------------------------------------------------------------------
 interface MovementBody {
-  type: "sale_cash" | "sale_card" | "sale_pix" | "sale_boleto" | "refund_cash" | "refund_card" | "withdrawal" | "deposit" | "adjustment";
-  paymentMethod: "dinheiro" | "cartao_credito" | "cartao_debito" | "pix" | "boleto" | "cheque" | "outros";
+  type: "sale_cash" | "sale_card" | "sale_pix" | "sale_boleto" | "sale_vale" | "refund_cash" | "refund_card" | "withdrawal" | "deposit" | "adjustment";
+  paymentMethod: "dinheiro" | "cartao_credito" | "cartao_debito" | "pix" | "boleto" | "cheque" | "vale_alimentacao" | "vale_refeicao" | "voucher" | "outros";
   amount: number;
   description: string;
   referenceId?: string;
@@ -181,9 +182,9 @@ interface MovementBody {
 caixaRouter.post(
   "/movements",
   requireAuth,
-  requirePermission("sales", { write: true }),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
     if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
 
@@ -235,10 +236,12 @@ interface ReceiptBody {
   customerDocument?: string;
   items: Array<{
     productId?: string;
+    sku?: string | null;
     name: string;
     quantity: number;
     unitPrice: number;
     discount?: number;
+    total?: number;
     ncm?: string;
     cest?: string;
     cfop?: string;
@@ -250,7 +253,7 @@ interface ReceiptBody {
   subtotal: number;
   discount: number;
   total: number;
-  paymentMethod: "dinheiro" | "cartao_credito" | "cartao_debito" | "pix" | "boleto" | "cheque" | "outros";
+  paymentMethod: "dinheiro" | "cartao_credito" | "cartao_debito" | "pix" | "boleto" | "cheque" | "vale_alimentacao" | "vale_refeicao" | "voucher" | "outros";
   paymentDetails?: any;
   fiscalData?: {
     model?: "55" | "65";
@@ -270,9 +273,9 @@ interface ReceiptBody {
 caixaRouter.post(
   "/receipts",
   requireAuth,
-  requirePermission("sales", { write: true }),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
     if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
 
@@ -284,9 +287,28 @@ caixaRouter.post(
       });
     }
 
+    // Normaliza os itens para o modelo completo de ReceiptItem (o cliente pode
+    // enviar só os campos essenciais): `total` calculado quando ausente — evita
+    // NaN no resumo — e nulos/percentuais com defaults seguros.
     const receipt = await issueReceipt(
       scope.tenantId,
-      body,
+      {
+        ...body,
+        items: body.items.map((it) => ({
+          ...it,
+          productId: it.productId ?? null,
+          sku: it.sku ?? null,
+          discount: it.discount ?? 0,
+          total: it.total ?? Number((it.quantity * it.unitPrice - (it.discount ?? 0)).toFixed(2)),
+          ncm: it.ncm ?? null,
+          cest: it.cest ?? null,
+          cfop: it.cfop ?? null,
+          taxIcms: it.taxIcms ?? 0,
+          taxIpi: it.taxIpi ?? 0,
+          taxPis: it.taxPis ?? 0,
+          taxCofins: it.taxCofins ?? 0,
+        })),
+      },
       req.auth!.user.id,
       req.auth!.user.name,
     );
@@ -298,9 +320,9 @@ caixaRouter.post(
 caixaRouter.get(
   "/receipts",
   requireAuth,
-  requirePermission("sales"),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
     const receipts = await listReceipts(scope.tenantId!);
     res.json({ success: true, count: receipts.length, receipts });
@@ -326,9 +348,9 @@ interface BoletoBody {
 caixaRouter.post(
   "/boletos",
   requireAuth,
-  requirePermission("sales", { write: true }),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
     if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
 
@@ -348,9 +370,9 @@ caixaRouter.post(
 caixaRouter.get(
   "/boletos/open",
   requireAuth,
-  requirePermission("sales"),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
     const openBoletos = await getOpenBoletos(scope.tenantId!);
     res.json({ success: true, count: openBoletos.length, boletos: openBoletos });
@@ -360,9 +382,9 @@ caixaRouter.get(
 caixaRouter.get(
   "/boletos/:id",
   requireAuth,
-  requirePermission("sales"),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
 
     const boleto = await getBoletoById(req.params.id, scope.tenantId!);
@@ -376,9 +398,9 @@ caixaRouter.get(
 caixaRouter.put(
   "/boletos/:id/paid",
   requireAuth,
-  requirePermission("sales", { write: true }),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
 
     const { paymentMethod, paidAmount } = req.body as {
@@ -400,9 +422,9 @@ caixaRouter.put(
 caixaRouter.get(
   "/open",
   requireAuth,
-  requirePermission("sales"),
+  requireTenantPermission("sales"),
   async (req: Request, res: Response) => {
-    const scope = resolveDataScope(req, "sales");
+    const scope = resolveDataScope(req, "company_data");
     if (!scope.ok) return sendScopeDenied(res, scope);
 
     const allRegisters = await listCashRegisters(scope.tenantId!);

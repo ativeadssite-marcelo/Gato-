@@ -134,7 +134,8 @@ export async function closeCashRegister(
 
   // Calcula expected a partir dos movimentos
   const totals = await computeMovementTotals(register.id);
-  register.expectedAmount = money(register.openingAmount + totals.sales - totals.refunds - totals.withdrawals + totals.deposits);
+  const totalSales = totals.salesCash + totals.salesCard + totals.salesPix + totals.salesBoleto;
+  register.expectedAmount = money(register.openingAmount + totalSales - totals.refunds - totals.withdrawals + totals.deposits);
   register.actualAmount = money(input.actualAmount);
   register.difference = money(register.actualAmount - register.expectedAmount);
   register.status = "closed";
@@ -488,12 +489,14 @@ export async function getCaixaSummary(tenantId: string): Promise<CaixaSummary> {
   const rawTotals = openRegister
     ? await computeMovementTotals(openRegister.id)
     : {
-        opening: 0, salesCash: 0, salesCard: 0, salesPix: 0, salesBoleto: 0,
+        opening: 0, salesCash: 0, salesCard: 0, salesPix: 0, salesBoleto: 0, salesVale: 0,
         refunds: 0, withdrawals: 0, deposits: 0,
       };
 
   const totals = {
     ...rawTotals,
+    // Vales/vouchers ficam FORA do esperado em dinheiro: são documentos na
+    // gaveta, não circulação — entram em `salesVale` para o bater-caixa.
     expected: money(rawTotals.opening + rawTotals.salesCash + rawTotals.salesCard + rawTotals.salesPix + rawTotals.salesBoleto - rawTotals.refunds - rawTotals.withdrawals + rawTotals.deposits),
     actual: openRegister && openRegister.status === "closed" ? openRegister.actualAmount ?? 0 : 0,
     difference: 0,
@@ -516,6 +519,7 @@ export async function getCaixaSummary(tenantId: string): Promise<CaixaSummary> {
 
 async function computeMovementTotals(registerId: string): Promise<{
   opening: number; salesCash: number; salesCard: number; salesPix: number; salesBoleto: number;
+  salesVale: number;
   refunds: number; withdrawals: number; deposits: number;
 }> {
   const regs = [...movements.values()].filter((m) => m.cashRegisterId === registerId);
@@ -525,6 +529,7 @@ async function computeMovementTotals(registerId: string): Promise<{
     salesCard: regs.filter((m) => m.type === "sale_card").reduce((s, m) => s + m.amount, 0),
     salesPix: regs.filter((m) => m.type === "sale_pix").reduce((s, m) => s + m.amount, 0),
     salesBoleto: regs.filter((m) => m.type === "sale_boleto").reduce((s, m) => s + m.amount, 0),
+    salesVale: regs.filter((m) => m.type === "sale_vale").reduce((s, m) => s + m.amount, 0),
     refunds: regs.filter((m) => ["refund_cash", "refund_card"].includes(m.type)).reduce((s, m) => s + m.amount, 0),
     withdrawals: regs.filter((m) => m.type === "withdrawal").reduce((s, m) => s + m.amount, 0),
     deposits: regs.filter((m) => m.type === "deposit").reduce((s, m) => s + m.amount, 0),

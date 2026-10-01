@@ -20,6 +20,8 @@ export const MENU_RESOURCE: Record<string, string> = {
   'consulta-pecas': 'catalog_reference',
   estoque: 'company_data',
   cotacao: 'customers_employees',
+  // Caixa (PDV): as rotas exigem escopo `company_data` + permissão `sales`.
+  caixa: 'company_data',
   orcamentos: 'customers_employees',
   clientes: 'customers_employees',
   'leads-marketing': 'customers_employees',
@@ -48,6 +50,7 @@ export const MENU_RESOURCE: Record<string, string> = {
 export const MENU_TENANT_PERMISSION: Record<string, TenantPermissionKey[]> = {
   estoque: ['stock_inbound', 'stock_picking', 'stock_location', 'item_register'],
   cotacao: ['sales'],
+  caixa: ['sales'],
   orcamentos: ['sales', 'customer_register'],
   clientes: ['customer_register'],
   'leads-marketing': ['customer_register'],
@@ -69,6 +72,7 @@ export const MENU_ITEM_LABELS: Record<string, string> = {
   'consulta-pecas': 'Consulta de Peças',
   estoque: 'Estoque',
   cotacao: 'Vendas',
+  caixa: 'Caixa',
   orcamentos: 'Orçamentos',
   clientes: 'Clientes',
   'leads-marketing': 'Marketing & WhatsApp',

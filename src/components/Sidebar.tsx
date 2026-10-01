@@ -27,7 +27,8 @@ import {
   DollarSign,
   Database,
   Layers,
-  KeyRound
+  KeyRound,
+  Wallet
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { UserSession, BranchUnit, CompanyProfile } from '../types';
@@ -92,6 +93,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Vendas',
       icon: ClipboardList,
       aliases: ['cotacao', 'nfe-venda'],
+    },
+    {
+      id: 'caixa',
+      label: 'Caixa',
+      icon: Wallet,
+      aliases: ['caixa', 'pdv', 'caixa-pdv'],
     },
     {
       id: 'orcamentos',
