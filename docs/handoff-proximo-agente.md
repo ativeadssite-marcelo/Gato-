@@ -6,7 +6,11 @@
 > funcionalidades completas e pontos de atenção**. Atualize-o quando o estado do
 > projeto mudar (é fonte de verdade viva, não um relatório morto).
 >
-> Estado desta handoff: **01/10/2026** — branch `feat/billing-saas`.
+> Estado desta handoff: **06/10/2026** (trabalho de 02/10 reverificado em 05/10 + orçamento
+> imprimível em 06/10) — branch `feat/billing-saas`.
+> ⚠️ **O trabalho de 02/10 continua SEM COMMIT** (PDV persistente, RBAC do super_admin,
+> migrations 0005/0006, script de super admin, doc de auditoria) — nada foi commitado nos
+> três dias seguintes. Leia §4 antes de começar qualquer coisa.
 
 ---
 
@@ -45,12 +49,86 @@ CFOP/NCM/CEST, SPED, MDF-e**, PIX, boleto Asaas, CNPJ, filiais por UF.
 - Capacidades finas do tenant (grupo `caixa`): `invoice_issuance`, `payment_machines`; grupo `vendas`: `sales`, `customer_register`, `invoicing`.
 - **Visibilidade do menu = RBAC** (`src/utils/menuAccess.ts`: `MENU_RESOURCE`, `MENU_TENANT_PERMISSION`) — recurso com nível `none` **some do menu**; capacidades só valem se o admin já configurou o usuário.
 
-### Onde o produto está (01/10/2026)
+### Onde o produto está (trabalho de 02/10/2026, reverificado em 05/10)
+
+**DoD — reverificado em 05/10/2026 sobre a mesma árvore (nada mudou nos três dias):**
+`npm run lint` ✅ · `npm test` **63/63** ✅ · `npm run build` ✅ (front ~2 MB +
+`dist/server.cjs` 457 KB) · banco conectado, migrations 0000–0006 aplicadas.
+Confirmados em 02/10: `npm run validate-db` → **0 falhas, 42 OK** e
+`scripts/criar-super-admin.mjs` com o hash conferindo com o `auth.ts`.
+
+> ⚠️ **O dev server NÃO está no ar** (caiu com o fim da sessão anterior). Para retomar:
+> `npm run dev` — e lembre que ele não observa `server/**`, então mudança no back exige
+> reiniciar (§3.15).
+
+**O dia em ordem de importância** (o que ainda está aberto vai em §4):
 
 - Fase **A do PDV** entregue: tela **Caixa** no menu (abertura com checklist, movimentações
   incl. **vales/voucher**, **troco**, fechamento com bater-caixa, **relatório imprimível**) —
   ver `docs/roadmap-pdv.md`. `npm run lint` **verde** (erros pré-existentes de tipo em
   `caixaRoutes.ts` corrigidos no caminho).
+- **Fase A do PDV commitada** (`d632b2a`) + docs (`9be5864`), sincronizado com `origin`
+  **naquele momento**. A partir daí a árvore ficou suja — ver §3.18. (O bundle do front
+  passa de 500 kB e o Rollup avisa; é esperado, não é erro.)
+- **Persistência do PDV ligada (02/10/2026, tarde)**: o Supabase está conectado
+  (pooler `aws-0-sa-east-1` + `SUPABASE_DB_SSL_CA` apontando para o `prod-ca-2021.crt`;
+  a conexão **direta** é IPv6-only e não serve nesta rede). Nova migration
+  **`0005_pdv_operacional.sql`** cria as **12 tabelas** que o código já usava e nenhuma
+  migração criava — `CashRegister`, `CashMovement`, `Receipt`, `BoletoIssuance`,
+  `Product`, `Category`, `Customer`, `Supplier`, `Warehouse`, `StockLevel`, `Budget`,
+  `BudgetItem`. Antes disso o `mirror()` do caixa gravava em tabela inexistente e falhava
+  em silêncio. `server/caixa.ts` ganhou **hidratação** (o turno sumia no restart) e
+  **trilha de auditoria** em toda operação sensível. Testes: **60/60** (`server/caixa.test.ts`).
+  Verificado no banco real: abrir → movimentar → reiniciar → o turno permanece.
+- **Bugs de persistência que só apareceram na verificação contra o banco real** (em
+  memória passavam): os movimentos de **abertura** e **fechamento** nunca eram espelhados
+  (só o turno era) — o extrato do turno e o `getCaixaSummary` perdiam o fundo de caixa
+  depois de um restart (o fechamento não, pois usa `register.openingAmount`); os **itens
+  do recibo** (detalhe fiscal: NCM/CFOP/alíquotas) não eram gravados; e
+  `receipt.movementId` ficava sempre `null`. Recibo emitido **fora de um turno** deixou de
+  gerar movimento órfão (que violaria o `NOT NULL` de `"CashMovement"."cashRegisterId"`).
+- **P0-1 resolvido (02/10/2026)**: o seed de demonstração não passa mais por cima do
+  ambiente. Antes, `flag === "true" || (flag !== "false" && !IS_PRODUCTION)` fazia o
+  primeiro termo vencer — e como o deploy leva o mesmo `.env` (docker-compose usa
+  `env_file: .env`), subir com `GATO_ALLOW_DEMO_LOGIN=true` semeava **todas** as contas,
+  inclusive o `super_admin`, com `senha123456`. Agora produção **recusa e derruba o boot**
+  (`demoSeedDecision` em `server/auth.ts`); em dev o comportamento é o de sempre.
+  Verificado: login de super_admin com a senha padrão → `GATO_INVALID_CREDENTIALS` em
+  produção e ainda funcional em dev. Testes: **63/63**.
+- **RBAC do super_admin + logo (02/10/2026, fim do dia)**: `super_admin` perdeu o
+  `catalog_reference` (era `read_only`) — "Consulta de Peças" saiu do menu dele e
+  `/api/vehicles` + `/api/fleet-database` deixaram de responder (403 verificado).
+  No caminho apareceu um acoplamento: `GET /api/storage/logo/:tenantId` era a **única**
+  das três rotas de logo a exigir `catalog_reference` (upload e delete já usavam
+  `company_data`/`layout_ui`) — a logo da empresa estava amarrada ao catálogo de veículos.
+  Alinhada às irmãs. E a coluna `Tenant.logoUrl` **não existia em migration nenhuma**:
+  era criada por `ALTER TABLE` dentro do handler de upload, então o GET estourava 500
+  (`column "logoUrl" does not exist`) até o primeiro upload — corrigido na migration
+  **`0006_tenant_logo.sql`**.
+- **Credencial do banco vence o seed demo**: a hidratação de `UserCredential` pulava
+  e-mail que já estava em memória, e como o seed demo roda antes (no import do `auth.ts`),
+  a senha `senha123456` vencia a senha real gravada no banco — o dono da plataforma não
+  conseguia entrar com a própria senha em dev (em produção funcionava, porque lá não há
+  seed). Agora a credencial do banco prevalece; contas demo sem credencial no banco seguem
+  com `senha123456`. **Atenção**: isso vale para a CREDENCIAL — o *nome* e os campos do
+  usuário ainda vêm do array do `rbacEngine` (a mesclagem de usuários mantém a definição
+  do código por id), então um nome gravado no banco para uma conta semeada é ignorado.
+- **Imprimir / copiar orçamento (06/10/2026)**: o módulo **Vendas** só tinha "Cupom Fiscal" e
+  "Faturar & Emitir NF-e". Ao atacar o pedido do dono, apareceram três defeitos de base:
+  (a) **não existia impressão de documento no projeto** — nenhum `@media print`, então os 4
+  `window.print()` imprimiam o **app inteiro com o overlay do modal por cima**; (b) o
+  `CupomFiscalModal` **violava a ordem de hooks do React** (`return null` antes dos `useState`,
+  hoje corrigido em `CupomFiscalModal.tsx:70`), o que estourava em runtime e o `tsc` não pega; (c) o texto do
+  cupom tinha linhas de **56 colunas** e a térmica 80mm imprime **48** — a última coluna saía
+  cortada. Entregue: `src/utils/printDocument.ts` (padrão de janela própria do `CaixaView`),
+  `src/utils/clipboard.ts` (com fallback `execCommand`, porque `navigator.clipboard` não existe
+  em HTTP de rede interna), layout de 48 colunas com item em duas linhas (a descrição não é mais
+  truncada em 22 caracteres) e valores no padrão brasileiro, resumo curto para copiar, e os
+  pontos de entrada nos 4 lugares (barra do DAV, drawer do carrinho, modal DOCUMENTO — que
+  mostrava `DAV-2026-00489` fixo — e o histórico de Orçamentos). **Fora do escopo, por decisão
+  do dono**: data de validade com 1 dia a menos, CNPJ fictício no documento (`DEFAULT_COMPANY_RECEIPT_INFO`)
+  e o desconto que não fecha a conta (`discountAmount` nunca é subtraído de `totalAmount`).
+  Testes: **75/75** (`server/orcamento/orcamento.test.ts`, 12 novos).
 - Próximas: **Fase B** (venda PDV com código de barras/carrinho) e **Fase C** (NFC-e real — hoje é stub).
 
 ---
@@ -88,7 +166,7 @@ CFOP/NCM/CEST, SPED, MDF-e**, PIX, boleto Asaas, CNPJ, filiais por UF.
 | `/api/auth` | `authRoutes.ts` + `auth.ts` | Login (token HMAC-SHA256, header/cookie), sessão, personas, senha master **verificada no servidor**, seed de 14 contas demo (`GATO_ALLOW_DEMO_LOGIN`) |
 | `/api/rbac` | `rbacRoutes.ts` + `rbacEngine.ts` | Papéis, overrides, tenant-permissions, impersonação, testes de isolamento, planos, mensagens, LGPD |
 | `/api/billing` | `billing/routes.ts` + `billing/asaas.ts` | Assinaturas, faturas, webhooks Asaas (idempotentes), subscribe trial→pago |
-| `/api/caixa` | `caixaRoutes.ts` + `caixa.ts` | PDV: summary/open/close/movements/receipts/boletos — **auditado, multi-tenant** |
+| `/api/caixa` | `caixaRoutes.ts` + `caixa.ts` | PDV: summary/open/close/movements/receipts/boletos — **auditado, multi-tenant, persistente** (hidrata do Postgres desde 02/10/2026; 12 testes em `server/caixa.test.ts`) |
 | `/api/admin/database` | `adminDatabaseRoutes.ts` | Credenciais de DB em runtime (Super Admin) |
 | `/api/credentials`, `/api/license`, `/api/v1` | `credentialsRoutes.ts`, `licenseRoutes.ts`, `v1Routes.ts` | API keys, licença de máquina, API versionada |
 | Rotas inline em `server.ts` | — | `/api/db/*`, `/api/connectors/*`, `/api/gemini/assist`, `/api/vehicles`, `/api/marketplaces/*`, quotas |
@@ -96,9 +174,10 @@ CFOP/NCM/CEST, SPED, MDF-e**, PIX, boleto Asaas, CNPJ, filiais por UF.
 
 ### Infra & documentos de referência
 
-- `db/migrations/*.sql` + `npm run migrate` · `npm run validate-db` · Docker · CI (`.github/workflows/ci.yml`).
-- Docs: `arquitetura-saas.mmd`, `camadas-acesso.md`, `checklist-saas.md` (87 itens — workflow do AGENTS.md), `relatorio-gaps.md` (P0/P1/P2), `roadmap-pdv.md` (fases A/B/C do PDV), este `handoff-proximo-agente.md`.
-- Auditoria de segurança: `PROJETO_SEGURANCA_AUDIT.md` + `SECURITY_AUDIT_STATUS.md` (raiz).
+- `db/migrations/*.sql` (**0000–0006**, todas aplicadas) + `npm run migrate` · `npm run validate-db` · Docker · CI (`.github/workflows/ci.yml`) · `scripts/criar-super-admin.mjs` (gera o SQL do primeiro super_admin de produção).
+- Docs: `arquitetura-saas.mmd`, `camadas-acesso.md`, `checklist-saas.md` (87 itens — workflow do AGENTS.md), `relatorio-gaps.md` (P0/P1/P2), `roadmap-pdv.md` (fases A/B/C do PDV), **`auditoria-2026-10-02.md`** (achados de segurança + estado de cada um), este `handoff-proximo-agente.md`.
+- Auditoria de segurança anterior: `PROJETO_SEGURANCA_AUDIT.md` + `SECURITY_AUDIT_STATUS.md` (raiz).
+- `.env.production` (raiz, **fora do git**): modelo comentado do ambiente de produção — é o que falta preencher para o deploy.
 
 ### Comandos & ambiente
 
@@ -106,7 +185,8 @@ CFOP/NCM/CEST, SPED, MDF-e**, PIX, boleto Asaas, CNPJ, filiais por UF.
 npm run dev        # srv Express+Vite em http://localhost:3000 (LOGS em ./dev.log)
 npm run lint       # tsc --noEmit — DEVE ficar verde antes de qualquer entrega
 npm test           # tsx --test server/**/*.test.ts
-npm run build      # vite build + bundle do server
+npm run build      # vite build + bundle do server (→ dist/)
+npm run preview    # serve dist/ em http://localhost:4173 (prévia de produção: SÓ estáticos, sem API)
 npm run migrate    # migrations   |  npm run validate-db
 ```
 
@@ -115,6 +195,24 @@ npm run migrate    # migrations   |  npm run validate-db
   (dados somem no restart). Chaves opcionais: `GEMINI_API_KEY`, `ASAAS_API_KEY`, `SENDGRID_API_KEY`.
 - Login demo: `GATO_ALLOW_DEMO_LOGIN=true` + senha em `GATO_DEMO_PASSWORD` (fallback `senha123456`);
   ex.: `admin@mgnautopecas.com.br` (tenant_admin) · `vendedor@mgnautopecas.com.br` (tenant_user).
+  **Vale só em desenvolvimento**: em `NODE_ENV=production` o seed não roda e, com a flag
+  em `true`, o servidor **se recusa a subir** (por desenho). No deploy use
+  `GATO_ALLOW_DEMO_LOGIN=false` + contas reais em `GATO_USERS_JSON`.
+- **Primeiro super_admin em produção** (não há seed demo — ovo e galinha): duas vias.
+  (a) `GATO_USERS_JSON` com a senha em texto puro no ambiente; (b) **recomendada** —
+  `node scripts/criar-super-admin.mjs <email> "<nome>"`, que **pede a senha às escuras**
+  (nunca por argumento: fica no histórico do shell e no `ps`) e imprime o SQL para colar
+  no SQL Editor do Supabase (grava `RbacUser` com `tenantId='system'` + `UserCredential`
+  com o hash scrypt, idempotente para trocar a senha depois). Para o e-mail já semeado
+  (`contato.ativeads@gmail.com` → `usr_super_admin`) basta a linha da credencial: o
+  usuário já vem do array do `rbacEngine` em qualquer ambiente.
+  **Por que (b):** com `GATO_USERS_JSON`, `seedEnvUsers()` roda a cada boot e
+  `addCredential()` sempre sobrescreve a credencial em memória, enquanto
+  `hydrateIdentityStore()` pula e-mail já conhecido — a senha do env vence em todo
+  restart e **reverte silenciosamente** a troca de senha feita pela tela.
+- **Deploy**: `.env.production` na raiz é o modelo comentado (fora do git). Atenção ao
+  `SUPABASE_DB_SSL_CA`: o caminho é da máquina local e **não existe no container** —
+  copie o `.crt` para a imagem ou monte como volume.
 - Front autentica via `apiJson`/`apiFetch` de `src/services/apiClient.ts` (injeta Bearer; 401 → evento de logout).
 
 ---
@@ -127,11 +225,11 @@ npm run migrate    # migrations   |  npm run validate-db
 2. Token de sessão é HMAC-SHA256 — não troque por JWT ingênuo sem revisão; `GATO_SESSION_SECRET` ≥48 chars.
 3. Toda rota de negócio passa por `requireAuth` → `requirePermission`/`requireTenantPermission` → `resolveDataScope`. **Não crie rota sem esses 3** e sempre com `tenantId` no filtro (testes de isolamento: `GET /api/rbac/test-isolation`).
 4. Webhook Asaas: valide assinatura/token **e** idempotência (`recordWebhookEvent`); `ASAAS_WEBHOOK_TOKEN` vazio = endpoint fechado.
-5. Auditoria é obrigatória em ação sensível (`recordAudit`, PII mascarada). Achados em `PROJETO_SEGURANCA_AUDIT.md` — ex.: faltava audit em operações de `server/caixa.ts` (parcialmente coberto pelo trabalho da Fase A, **verificar**).
+5. Auditoria é obrigatória em ação sensível (`recordAudit`, PII mascarada). Achados em `PROJETO_SEGURANCA_AUDIT.md`. **O gap do `server/caixa.ts` foi fechado em 02/10/2026**: o `appendAuditLog` era importado e nunca chamado — hoje toda operação do PDV audita, com destaque (`warning`/anômalo) para diferença de fechamento, ajuste manual e baixa de boleto divergente. Seguem abertos os P0-4/P0-5/P0-6 — ver §4.
 6. Rate limit só por IP (250/min) — **não há por tenant** (gap P0 conhecido).
 
 ### 🏗️ Multi-tenancy & dados
-7. Modelo em memória (`Map` + `mirror()` para Postgres): sem `SUPABASE_DB_PASSWORD`, **tudo é volátil** — não teste persistência sem DB.
+7. Modelo em memória (`Map` + `mirror()` para Postgres). **Desde 02/10/2026 o `.env` tem banco configurado**, então o espelho grava de verdade — mas a memória continua sendo a fonte de verdade imediata. Duas armadilhas: (a) `npm test` **não** carrega o `.env` (só `server.ts`, `migrate-cli` e `validateDb` chamam `dotenv.config()`), então a suíte roda sem banco e é hermética — "passou no teste" não significa "persistiu"; (b) `hydrate()` roda **uma vez por processo** (`if (hydrated) return`), então dado criado no banco por fora (SQL Editor) só aparece **depois de reiniciar** o servidor.
 8. Seeds/demo (`identityStore`, `store`, `rbacEngine`) são hidratados no boot; nunca substitua os arrays, **mescle** (comentário no topo de `identityStore.ts` explica).
 9. Capacidades finas (`tenantPermissions`) só restringem o menu quando **configuradas** — `undefined` mantém o gate por recurso RBAC (não "quebre" isso, quebra papéis legados).
 10. Escopo de dados: SaaS-wide usa `own_tenant_only`/`full` + `audit_required` para dados de tenant (`company_data`, `customers_employees`).
@@ -144,7 +242,13 @@ npm run migrate    # migrations   |  npm run validate-db
 15. O dev server **não observa** `server.ts` (tsx sem `--watch`): mudança em `server/**` exige **reiniciar** o processo (matar PID da porta 3000 e `npm run dev`). Front tem HMR automático.
 16. `npm run lint` era bloqueado por erros pré-existentes de tipo em `caixaRoutes.ts` — **corrigidos em 01/10/2026**; se voltar a falhar, é regressão sua ou de novo código.
 17. Checklist/estado do agente: workflow do `AGENTS.md` pede marcar `checklist-saas.md` e gerar `relatorio-gaps.md` — faça **antes** de propor código e **nunca altere código sem confirmar o plano**.
-18. Worktree suja esperada: `server/caixa.ts`, `server/caixaRoutes.ts`, `src/App.tsx`, `src/components/Sidebar.tsx`, `src/utils/menuAccess.ts`, `src/types/caixa.ts` modificadas + `CaixaView.tsx` e `docs/roadmap-pdv.md` novos (Fase A) — commitar junto quando o time aprovar.
+18. **Worktree SUJA** (desde 02/10/2026; **confirmada ainda suja em 05/10/2026**): a árvore está **sem commit** há três dias. Modificados:
+    `server/caixa.ts`, `server/caixaRoutes.ts`, `server/auth.ts`, `server/auth.test.ts`,
+    `server/identityStore.ts`, `server/rbacEngine.ts`, `server.ts`, `.gitignore`, este handoff.
+    Novos: `db/migrations/0005_pdv_operacional.sql`, `db/migrations/0006_tenant_logo.sql`,
+    `server/caixa.test.ts`, `scripts/criar-super-admin.mjs`. `package.json`/`package-lock.json`
+    têm o CLI `supabase` que o dono instalou. `.olli/` é ferramenta externa — **não commitar**.
+    **Primeira tarefa do próximo dia: commitar isso** (ou abrir PR), antes de emendar trabalho novo.
 
 ### ✅ Definição de pronto (DoD) mínimo
 - `npm run lint` verde · `npm test` verde · feature com teste quando houver lógica de servidor ·
@@ -155,12 +259,31 @@ npm run migrate    # migrations   |  npm run validate-db
 
 ## 4. Estado atual e próximos passos (ordem sugerida)
 
-1. **Fase B — PDV venda**: carrinho no `BalcaoCotacao` com leitor de código de barras (HID),
+> **Os achados da auditoria de 02/10/2026 estão em [`docs/auditoria-2026-10-02.md`](auditoria-2026-10-02.md)**
+> — com o que já foi resolvido, os P0/P1/P2 abertos e os dois falsos positivos que a
+> verificação derrubou. É o documento de trabalho para segurança.
+
+0. **Commitar o trabalho de 02/10** (§3.18) — segue sem commit desde então (confirmado em
+   05/10). Fazer isso antes de emendar qualquer trabalho novo.
+1. **Fechar os 3 P0 que restam** (todos com caminho de exploração definido em
+   `auditoria-2026-10-02.md`; os P0-1/P0-2/P0-3 já foram):
+   - **P0-4 — cartão/PIX contado como dinheiro** no caixa (`issueReceipt` grava sempre
+     `sale_cash`). É o mais visível: o fechamento acusa falta que não existe.
+     ⚠️ Antes de codar, alinhar com o dono **o que** deve compor o "esperado em dinheiro"
+     — a fórmula aparece em três lugares (servidor, `CaixaView`, relatório).
+   - **P0-5 — replay de webhook** reativa assinatura inadimplente (`billing/webhook.ts`).
+   - **P0-6 — autoativação de plano pago** sem gateway (`billing/subscriptions.ts`).
+2. **Preparar o deploy de teste**: `.env.production` (raiz, fora do git) está comentado e
+   esperando `GATO_SESSION_SECRET` (48+ aleatórios), `GATO_MASTER_PASSWORD`,
+   `SUPABASE_DB_PASSWORD` e `ASAAS_*`. **Não esqueça o `SUPABASE_DB_SSL_CA`**: o caminho é
+   da máquina local e **não existe no container** — copie o `prod-ca-2021.crt` para a imagem
+   ou monte como volume. Decidir também `ASAAS_ENV` (sandbox no teste) e `GATO_TRUST_PROXY`
+   (depende de haver proxy na frente).
+3. **Fase B — PDV venda**: carrinho no `BalcaoCotacao` com leitor de código de barras (HID),
    totalização, troco no fechamento e **vínculo automático venda → `POST /api/caixa/movements`**.
-2. Testes de servidor para `server/caixa.ts` (abrir → movimentar → fechar → diferença) — exige DB ou mock do store.
-3. **Fase C — NFC-e**: emissão/cancelamento/reimpressão (homologação SEFAZ).
-4. Corrigir itens de menu órfãos (#11) — quick win de UX.
-5. Avançar `docs/relatorio-gaps.md` (P0s de observabilidade: logs JSON, métricas, alertas).
+4. **Fase C — NFC-e**: emissão/cancelamento/reimpressão (homologação SEFAZ).
+5. Corrigir itens de menu órfãos (§3.11) — quick win de UX.
+6. Avançar `docs/relatorio-gaps.md` (P0s de observabilidade: logs JSON, métricas, alertas).
 
 > **Regra de ouro deste projeto:** primeiro o plano, depois o código; tenant, auditoria
 > e teste em toda mudança de servidor; cobrança sempre pelo gateway; português em tudo.
