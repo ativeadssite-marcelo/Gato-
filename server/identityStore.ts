@@ -22,7 +22,7 @@
 
 import { getDbPool, isDatabaseConfigured } from "./db";
 import { RBAC_USERS_DATA, TENANTS_DATA } from "./rbacEngine";
-import { listCredentialRecords, loadCredentialRecord } from "./auth";
+import { loadCredentialRecord } from "./auth";
 import type { RbacUser, TenantAccount } from "../src/types/rbac";
 
 let hydrated = false;
@@ -116,11 +116,24 @@ export async function hydrateIdentityStore(): Promise<void> {
     }
 
     // Credenciais por último entre as identidades: dependem dos usuários acima.
-    const knownEmails = new Set(listCredentialRecords().map((c) => c.email));
+    //
+    // A CREDENCIAL DO BANCO VENCE a que já está em memória (inclusive a semeada
+    // pelo seed de demonstração). Antes esta hidratação pulava e-mail que já
+    // existia em memória, e como `seedDemoUsers()` roda no import do auth.ts —
+    // antes daqui —, toda conta coberta pelo seed tinha a senha demo
+    // `senha123456` e a senha real gravada no banco NUNCA era lida. Era o caso
+    // do próprio super_admin: o dono da plataforma não conseguia entrar com a
+    // senha dele no ambiente de desenvolvimento (em produção o seed não roda,
+    // então só lá o caminho funcionava).
+    //
+    // Dar precedência ao banco é seguro porque `mirrorCredential` só é chamado
+    // pelos caminhos de NEGÓCIO (cadastro, criação de usuário, reset) — nunca
+    // pelas semeaduras. Ou seja: linha em "UserCredential" significa que alguém
+    // definiu aquela senha de propósito, pela aplicação.
     const creds = await db.query('SELECT * FROM "UserCredential";');
     for (const r of creds.rows) {
       const email = String(r.email ?? "").trim().toLowerCase();
-      if (!email || knownEmails.has(email)) continue;
+      if (!email) continue;
       // Só hidrata credencial de usuário vivo: a varredura de órfãos já removeu
       // o resto em memória, e trazê-la de volta daria acesso a conta descartada.
       if (!RBAC_USERS_DATA.some((u) => u.id === String(r.userId) && u.active)) continue;

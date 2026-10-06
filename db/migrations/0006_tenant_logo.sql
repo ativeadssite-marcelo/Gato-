@@ -1,0 +1,21 @@
+-- =========================================================================
+-- 0006 — Coluna "logoUrl" em "Tenant"
+-- =========================================================================
+-- A coluna existia, mas era criada em TEMPO DE EXECUÇÃO, dentro do handler de
+-- upload (server.ts, `ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "logoUrl"`).
+--
+-- Consequência: antes do primeiro upload bem-sucedido a coluna simplesmente não
+-- existia — e a rota de LEITURA da logo faz
+--     SELECT id, name, "logoUrl", "updatedAt" FROM "Tenant" WHERE id = $1;
+-- O resultado era `column "logoUrl" does not exist` → HTTP 500, em vez de
+-- responder "este tenant não tem logo".
+--
+-- Reproduzido em 02/10/2026: banco recém-migrado (0000–0005), nenhum upload
+-- feito, GET /api/storage/logo/<tenant> → 500 no log
+-- "[GATO Storage] Falha ao consultar logo: column "logoUrl" does not exist".
+--
+-- Schema é responsabilidade de migration, não de handler HTTP. Com a coluna
+-- aqui, o ALTER em runtime vira no-op (IF NOT EXISTS) e pode sair depois.
+-- =========================================================================
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;

@@ -543,12 +543,16 @@ app.post("/api/storage/logo/upload", requireAuth, requireAnyPermission(["company
   }
 });
 
-app.get("/api/storage/logo/:tenantId", requireAuth, requirePermission("catalog_reference"), async (req, res) => {
+// Leitura da logo: mesmo recurso do upload (440) e do delete (579). Usava
+// `catalog_reference` — a única das três rotas de logo a fazê-lo —, o que
+// amarrava a imagem da empresa ao catálogo de veículos: bastava o papel perder
+// o catálogo para a logo sumir da interface.
+app.get("/api/storage/logo/:tenantId", requireAuth, requireAnyPermission(["company_data", "layout_ui"]), async (req, res) => {
   try {
     if (!isDatabaseConfigured()) {
       return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
     }
-    const scope = resolveDataScope(req, "catalog_reference");
+    const scope = resolveDataScope(req, "layout_ui");
     if (!scope.ok) return sendScopeDenied(res, scope);
 
     const pool = getDbPool();

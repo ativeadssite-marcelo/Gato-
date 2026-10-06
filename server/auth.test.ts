@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { requireAnyPermission, requirePermission, requireTenantPermission } from "./auth";
+import {
+  demoSeedDecision,
+  requireAnyPermission,
+  requirePermission,
+  requireTenantPermission,
+} from "./auth";
 import { RBAC_USERS_DATA } from "./rbacEngine";
 import type { RbacUser } from "../src/types/rbac";
 
@@ -165,5 +170,37 @@ test("fora da persona, o admin do tenant lê o próprio dado normalmente", () =>
     });
 
     assert.equal(nextCalled, true, `${resource} deveria ser liberado fora da persona`);
+  }
+});
+
+// =========================================================================
+// SEED DE DEMONSTRAÇÃO — fronteira de produção
+//
+// Regressão do achado mais grave da auditoria: a condição antiga
+// (`flag === "true" || (flag !== "false" && !IS_PRODUCTION)`) deixava o
+// primeiro termo passar por cima da checagem de ambiente. Como o deploy leva o
+// mesmo .env do desenvolvimento, subir com GATO_ALLOW_DEMO_LOGIN=true semeava
+// todas as contas — inclusive o super_admin — com "senha123456".
+// =========================================================================
+
+test("produção recusa GATO_ALLOW_DEMO_LOGIN=true", () => {
+  assert.equal(demoSeedDecision("true", true), "refuse");
+});
+
+test("produção não semeia demo em nenhum outro caso", () => {
+  for (const flag of [undefined, "", "false", "1", "yes", "TRUE", "True"]) {
+    assert.equal(
+      demoSeedDecision(flag, true),
+      "skip",
+      `produção não pode semear com a flag ${JSON.stringify(flag)}`,
+    );
+  }
+});
+
+test("fora de produção só 'false' desliga o seed", () => {
+  assert.equal(demoSeedDecision("false", false), "skip");
+  // Conveniência de desenvolvimento preservada: ausente ou qualquer outro valor liga.
+  for (const flag of [undefined, "", "true", "1"]) {
+    assert.equal(demoSeedDecision(flag, false), "seed");
   }
 });

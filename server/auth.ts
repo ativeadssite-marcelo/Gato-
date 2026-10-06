@@ -396,7 +396,7 @@ function mirrorCredential(normalizedEmail: string): void {
   );
 }
 
-/** Cópia somente leitura, para a hidratação conferir o que já veio do banco. */
+/** Cópia somente leitura das credenciais em memória (diagnóstico/testes). */
 export function listCredentialRecords(): { userId: string; email: string; salt: string; hash: string }[] {
   return [...credentials.values()].map((c) => ({ ...c }));
 }
@@ -542,11 +542,54 @@ function seedEnvUsers() {
   }
 }
 
+/**
+ * Decisão do seed de demonstração. Pura de propósito: é a fronteira de
+ * segurança do login demo e precisa ser testável sem subir o módulo (o seed
+ * roda no import, em `initCredentials()`).
+ *
+ * - produção  + flag "true"  -> "refuse" (recusa, não obedece: ver seedDemoUsers)
+ * - produção  + qualquer outra -> "skip"
+ * - fora de produção: "false" desliga; qualquer outro valor liga (conveniência)
+ */
+export function demoSeedDecision(
+  flag: string | undefined,
+  isProduction: boolean,
+): "seed" | "skip" | "refuse" {
+  if (isProduction) return flag === "true" ? "refuse" : "skip";
+  return flag === "false" ? "skip" : "seed";
+}
+
 function seedDemoUsers() {
-  // Em produção as contas de demonstração só existem se explicitamente habilitadas.
   const flag = process.env.GATO_ALLOW_DEMO_LOGIN;
-  const demoEnabled = flag === "true" || (flag !== "false" && !IS_PRODUCTION);
-  if (!demoEnabled) return;
+  const decision = demoSeedDecision(flag, IS_PRODUCTION);
+
+  // O QUE MUDOU E POR QUÊ: antes a condição era
+  // `flag === "true" || (flag !== "false" && !IS_PRODUCTION)`, e o primeiro
+  // termo passava por cima da checagem de ambiente. Como o deploy leva o mesmo
+  // `.env` do desenvolvimento (docker-compose usa `env_file: .env`), subir para
+  // produção com GATO_ALLOW_DEMO_LOGIN=true semeava TODAS as contas — inclusive
+  // o super_admin da plataforma — com a senha conhecida "senha123456". Qualquer
+  // pessoa que alcançasse o login virava dono do SaaS, sem exploit.
+  //
+  // Agora produção não tem exceção: a flag ligada derruba o boot em vez de
+  // abrir a porta. Falhar ruidosamente é melhor do que subir inseguro.
+  if (decision === "refuse") {
+    throw new Error(
+      "[GATO Security] GATO_ALLOW_DEMO_LOGIN=true é proibido em produção.\n" +
+        "  O seed de demonstração cria contas com senha conhecida — inclusive o\n" +
+        "  super_admin da plataforma (tenantId=system). Remova a variável (ou\n" +
+        "  defina GATO_ALLOW_DEMO_LOGIN=false) e cadastre contas reais via\n" +
+        "  GATO_USERS_JSON.",
+    );
+  }
+  if (decision === "skip") return;
+
+  if (!process.env.GATO_DEMO_PASSWORD) {
+    console.warn(
+      "[GATO Security] GATO_DEMO_PASSWORD não definido — usando a senha padrão de " +
+        "desenvolvimento. OK em dev; NUNCA suba este ambiente para a internet aberta.",
+    );
+  }
 
   const demoPassword = process.env.GATO_DEMO_PASSWORD || "senha123456";
 
@@ -571,9 +614,13 @@ function seedDemoUsers() {
     addCredential(rbacUser.id, rbacUser.email, demoPassword);
   }
 
+  const platformAccounts = RBAC_USERS_DATA.filter(
+    (u) => u.active && u.tenantId === "system",
+  ).length;
   console.warn(
-    `[GATO Security] Login de demonstração habilitado (${credentials.size} contas). ` +
-      "Defina GATO_ALLOW_DEMO_LOGIN=false e use GATO_USERS_JSON em produção.",
+    `[GATO Security] Login de demonstração habilitado (${credentials.size} contas, ` +
+      `${platformAccounts} de plataforma). Senha conhecida — ambiente de desenvolvimento ` +
+      "apenas; não exponha esta porta e não use em produção (lá o boot recusa a flag).",
   );
 }
 

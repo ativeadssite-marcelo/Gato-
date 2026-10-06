@@ -8,3 +8,9 @@ coverage/
 !.env.example
 .gato-db-config.json
 .claude/settings.local.json
+
+# Supabase CLI: estado local do `supabase link` (project-ref, pooler-url, versões
+# de serviço). São arquivos de trabalho da máquina, não configuração do projeto —
+# não devem ir para o repositório nem divergir entre ambientes.
+supabase/.temp/
+supabase/.branches/

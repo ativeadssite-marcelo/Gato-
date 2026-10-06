@@ -18,6 +18,7 @@ import { LoginArea } from './components/LoginArea';
 import { LoginPage } from './components/LoginPage';
 import { TrocaFilialCdModal } from './components/TrocaFilialCdModal';
 import { FinanceiroCompleto } from './components/FinanceiroCompleto';
+import { OrdemServicoManager } from './components/OrdemServicoManager';
 import { CatalogoDigitalWeb } from './components/CatalogoDigitalWeb';
 import { ConsultaPecasView } from './components/ConsultaPecasView';
 import { FornecedoresManager } from './components/FornecedoresManager';
@@ -1052,7 +1053,15 @@ export default function App() {
             />
           )}
 
-          {currentView === 'financeiro' && (
+          {currentView === 'ordem-servico' && (
+            <OrdemServicoManager
+              serviceOrders={serviceOrders}
+              onUpdateServiceOrders={handleUpdateServiceOrders}
+              onShowNotification={showNotification}
+            />
+          )}
+
+          {(currentView === 'financeiro' || currentView === 'relatorios') && (
             <FinanceiroCompleto
               payables={payables}
               receivables={receivables}
@@ -1269,3 +1278,8 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
+

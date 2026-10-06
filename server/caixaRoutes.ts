@@ -10,13 +10,14 @@
 
 import { Router, Request, Response } from "express";
 import {
+  getClientIp,
   requireAuth,
-  requirePermission,
   requireTenantPermission,
   resolveDataScope,
   sendScopeDenied,
 } from "./auth";
 import {
+  CaixaActor,
   openCashRegister,
   closeCashRegister,
   recordMovement,
@@ -24,7 +25,6 @@ import {
   listCashRegisters,
   listCashMovements,
   issueReceipt,
-  cancelReceipt,
   listReceipts,
   issueBoleto,
   getOpenBoletos,
@@ -34,6 +34,21 @@ import {
 } from "./caixa";
 
 export const caixaRouter = Router();
+
+/**
+ * Contexto de auditoria a partir da requisição. Papel, IP e user-agent só
+ * existem aqui (a camada de caixa não conhece Express de propósito), então a
+ * borda HTTP monta o ator e o serviço só registra.
+ */
+function actorFrom(req: Request): CaixaActor {
+  return {
+    userId: req.auth!.user.id,
+    userName: req.auth!.user.name,
+    roleCode: req.auth!.user.roleCode,
+    ipAddress: getClientIp(req),
+    userAgent: String(req.headers["user-agent"] || "").slice(0, 200),
+  };
+}
 
 // -------------------------------------------------------------------------
 // RESUMO DO CAIXA (visão rápida da abertura atual)
@@ -80,8 +95,7 @@ caixaRouter.post(
       const register = await openCashRegister(
         scope.tenantId,
         { openingAmount, notes },
-        req.auth!.user.id,
-        req.auth!.user.name,
+        actorFrom(req),
       );
       res.status(201).json({ success: true, register });
     } catch (err: any) {
@@ -123,8 +137,7 @@ caixaRouter.post(
       const register = await closeCashRegister(
         scope.tenantId,
         { actualAmount, notes },
-        req.auth!.user.id,
-        req.auth!.user.name,
+        actorFrom(req),
       );
       res.json({ success: true, register });
     } catch (err: any) {
@@ -217,8 +230,7 @@ caixaRouter.post(
         customerId: body.customerId ?? null,
         customerName: body.customerName ?? null,
       },
-      req.auth!.user.id,
-      req.auth!.user.name,
+      actorFrom(req),
     );
 
     res.status(201).json({ success: true, movement });
@@ -309,8 +321,7 @@ caixaRouter.post(
           taxCofins: it.taxCofins ?? 0,
         })),
       },
-      req.auth!.user.id,
-      req.auth!.user.name,
+      actorFrom(req),
     );
 
     res.status(201).json({ success: true, receipt });
@@ -362,7 +373,7 @@ caixaRouter.post(
       });
     }
 
-    const boleto = await issueBoleto(scope.tenantId, body);
+    const boleto = await issueBoleto(scope.tenantId, body, actorFrom(req));
     res.status(201).json({ success: true, boleto });
   },
 );
@@ -408,7 +419,7 @@ caixaRouter.put(
       paidAmount: number;
     };
 
-    const boleto = await markBoletoPaid(req.params.id, scope.tenantId!, paymentMethod, paidAmount);
+    const boleto = await markBoletoPaid(req.params.id, scope.tenantId!, paymentMethod, paidAmount, actorFrom(req));
     if (!boleto) {
       return res.status(404).json({ success: false, error: "Boleto não encontrado." });
     }

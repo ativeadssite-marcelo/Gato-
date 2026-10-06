@@ -104,9 +104,13 @@ export const ROLE_DEFINITIONS: Record<RbacRoleCode, RoleDefinition> = {
       internal_messages: 'full',
       audit_logs: 'full',
       security_compliance: 'full',
-      // Mantém as consultas de catálogo (base de veículos, aplicação de peças),
-      // que são dado de referência e não do contratante.
-      catalog_reference: 'read_only'
+      // Sem o catálogo de referência (base de veículos, aplicação de peças).
+      // O racional anterior era "é dado de referência, o dono do SaaS mantém a
+      // consulta" — mas na prática o dono da plataforma não opera balcão nem
+      // consulta de peças, e o item só poluía o menu dele. Com `none`, some do
+      // menu (`consulta-pecas` → `catalog_reference`) e as rotas de
+      // /api/vehicles e /api/fleet-database deixam de responder para este papel.
+      catalog_reference: 'none'
     }
   },
   saas_financeiro: {
