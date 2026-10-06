@@ -31,13 +31,21 @@ import {
   CreditCard,
   UserCheck,
   Ban,
-  Download
+  Download,
+  Copy
 } from 'lucide-react';
 import { Customer, CustomerType, CustomerDiscountPolicy, Quote, QuoteStatus, Product, MarketingLead, CompanyProfile } from '../types';
 import { DEFAULT_DISCOUNT_POLICIES } from '../data/initialData';
 import { CustomerModal } from './CustomerModal';
 import { CupomFiscalModal } from './CupomFiscalModal';
-import { syncQuoteToMarketingLead } from '../utils/quoteMarketingSync';
+import {
+  syncQuoteToMarketingLead,
+  buildOrcamentoResumo,
+  buildOrcamentoThermalHtml,
+  DEFAULT_COMPANY_RECEIPT_INFO,
+} from '../utils/quoteMarketingSync';
+import { printHtmlDocument } from '../utils/printDocument';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 // Shim para logoDownloadKit removido
 async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
@@ -117,9 +125,44 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
   const [cupomQuote, setCupomQuote] = useState<Quote | null>(null);
   const [isCupomModalOpen, setIsCupomModalOpen] = useState(false);
 
+  // Feedback do "Copiar Resumo" — guarda o id do orçamento copiado por 2,5s
+  const [copiedQuoteId, setCopiedQuoteId] = useState<string | null>(null);
+
   const handleOpenCupomForQuote = (q: Quote) => {
     setCupomQuote(q);
     setIsCupomModalOpen(true);
+  };
+
+  /** Imprime o orçamento numa janela própria (térmica 80mm) — só o documento, sem o app atrás. */
+  const handlePrintOrcamento = (q: Quote) => {
+    const resultado = printHtmlDocument(buildOrcamentoThermalHtml(q, DEFAULT_COMPANY_RECEIPT_INFO), {
+      title: `Orçamento ${q.quoteNumber}`,
+    });
+
+    if (!resultado.ok) {
+      onShowNotification?.(
+        'Pop-up bloqueado',
+        'Autorize pop-ups neste site para imprimir o orçamento.',
+        'warning'
+      );
+    }
+  };
+
+  /** Copia o resumo curto do orçamento (número, cliente, itens, total e validade). */
+  const handleCopyOrcamento = (q: Quote) => {
+    void copyTextToClipboard(buildOrcamentoResumo(q)).then((ok) => {
+      if (!ok) {
+        onShowNotification?.('Não foi possível copiar', 'Abra o orçamento e use a impressão para obter o resumo.', 'warning');
+        return;
+      }
+      setCopiedQuoteId(q.id);
+      setTimeout(() => setCopiedQuoteId(null), 2500);
+      onShowNotification?.(
+        'Resumo Copiado!',
+        `${q.quoteNumber}: número, cliente, itens, total e validade na área de transferência.`,
+        'success'
+      );
+    });
   };
 
   // Discount policies state (configurable)
@@ -523,10 +566,10 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                               type="button"
                               onClick={() => handleOpenCupomForQuote(quote)}
                               className="flex items-center gap-1 bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 px-2 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
-                              title="Emitir Orçamento Estilo Cupom Fiscal (80mm)"
+                              title="Abrir o orçamento: imprimir, copiar resumo ou enviar por WhatsApp"
                             >
                               <Printer className="w-3.5 h-3.5 text-orange-600" />
-                              <span className="hidden lg:inline">Cupom</span>
+                              <span className="hidden lg:inline">Orçamento</span>
                             </button>
 
                             <button
@@ -537,6 +580,28 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                             >
                               <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
                               <span className="hidden lg:inline">WhatsApp</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handlePrintOrcamento(quote)}
+                              className="flex items-center gap-1 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 px-2 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                              title="Imprimir o orçamento agora, na térmica 80mm"
+                            >
+                              <Printer className="w-3.5 h-3.5 text-sky-600" />
+                              <span className="hidden lg:inline">Imprimir</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopyOrcamento(quote)}
+                              className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                              title="Copiar resumo do orçamento (número, cliente, itens, total e validade)"
+                            >
+                              {copiedQuoteId === quote.id
+                                ? <Check className="w-3.5 h-3.5 text-amber-600" />
+                                : <Copy className="w-3.5 h-3.5 text-amber-600" />}
+                              <span className="hidden lg:inline">{copiedQuoteId === quote.id ? 'Copiado' : 'Resumo'}</span>
                             </button>
 
                             <button
@@ -1358,10 +1423,32 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                     handleOpenCupomForQuote(q);
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
-                  title="Emitir Cupom Fiscal Térmico 80mm"
+                  title="Abrir o orçamento: imprimir, copiar resumo ou enviar por WhatsApp"
                 >
                   <Printer className="w-4 h-4 text-orange-200" />
-                  <span>Cupom Fiscal (80mm)</span>
+                  <span>Orçamento (80mm)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handlePrintOrcamento(viewingQuote)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#0C4A6E] hover:bg-[#0C4A6E]/90 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                  title="Imprimir o orçamento agora, na térmica 80mm"
+                >
+                  <Printer className="w-4 h-4 text-sky-200" />
+                  <span>Imprimir Orçamento</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCopyOrcamento(viewingQuote)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                  title="Copiar resumo: número, cliente, itens, total e validade"
+                >
+                  {copiedQuoteId === viewingQuote.id
+                    ? <Check className="w-4 h-4" />
+                    : <Copy className="w-4 h-4" />}
+                  <span>{copiedQuoteId === viewingQuote.id ? 'Resumo Copiado!' : 'Copiar Resumo'}</span>
                 </button>
 
                 <button
@@ -1421,8 +1508,9 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
         </div>
       )}
 
-      {/* MODAL: CUPOM FISCAL TÉRMICO E DISPARO WHATSAPP */}
+      {/* MODAL: ORÇAMENTO TÉRMICO (80mm) E DISPARO WHATSAPP */}
       <CupomFiscalModal
+        key={cupomQuote?.id ?? 'vazio'}
         isOpen={isCupomModalOpen}
         onClose={() => setIsCupomModalOpen(false)}
         quote={cupomQuote}

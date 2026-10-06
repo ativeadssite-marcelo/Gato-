@@ -22,9 +22,13 @@ import {
   DEFAULT_COMPANY_RECEIPT_INFO,
   generateCupomFiscalText,
   buildQuoteWhatsappMessage,
+  buildOrcamentoResumo,
+  buildOrcamentoThermalHtml,
   sendWhatsappMessage,
   CompanyReceiptInfo
 } from '../utils/quoteMarketingSync';
+import { printHtmlDocument } from '../utils/printDocument';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 // Shim para logoDownloadKit removido
 async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
@@ -48,40 +52,84 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
   onQuoteSentWhatsapp,
   onShowNotification
 }) => {
-  if (!isOpen || !quote) return null;
-
   const [activeViewMode, setActiveViewMode] = useState<'cupom' | 'whatsapp' | 'txt'>('cupom');
   const [targetWhatsapp, setTargetWhatsapp] = useState<string>(
-    quote.customerWhatsapp || quote.customerPhone || ''
+    quote?.customerWhatsapp || quote?.customerPhone || ''
   );
   const [customMessage, setCustomMessage] = useState<string>(() =>
-    buildQuoteWhatsappMessage(quote, companyInfo)
+    quote ? buildQuoteWhatsappMessage(quote, companyInfo) : ''
   );
   const [copiedText, setCopiedText] = useState(false);
+  const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedMsg, setCopiedMsg] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  // ⚠️ Este retorno precisa vir DEPOIS de todos os hooks. O modal é renderizado
+  // incondicionalmente pelos pais, então retornar antes dos useState fazia o React encontrar
+  // mais hooks do que no render anterior e lançar erro na primeira vez que o modal abria.
+  if (!isOpen || !quote) return null;
 
   const formatBRL = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
+  /**
+   * Imprime o orçamento numa janela própria (térmica 80mm). `window.print()` na página
+   * imprimiria o app inteiro com o modal por cima — não há CSS de impressão no projeto.
+   */
   const handlePrint = () => {
-    window.print();
+    const resultado = printHtmlDocument(buildOrcamentoThermalHtml(quote, companyInfo), {
+      title: `Orçamento ${quote.quoteNumber}`,
+    });
+
+    if (!resultado.ok) {
+      onShowNotification?.(
+        'Pop-up bloqueado',
+        'Autorize pop-ups neste site para imprimir o orçamento.',
+        'warning'
+      );
+    }
   };
 
   const handleCopyReceiptText = () => {
-    const text = generateCupomFiscalText(quote, companyInfo);
-    navigator.clipboard.writeText(text);
-    setCopiedText(true);
-    setTimeout(() => setCopiedText(false), 2500);
-    onShowNotification?.('Copiado!', 'Texto do cupom fiscal copiado para a área de transferência.', 'success');
+    void copyTextToClipboard(generateCupomFiscalText(quote, companyInfo)).then((ok) => {
+      if (!ok) {
+        onShowNotification?.('Não foi possível copiar', 'Selecione o texto manualmente na aba Texto Puro.', 'warning');
+        return;
+      }
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2500);
+      onShowNotification?.('Copiado!', 'Texto do orçamento copiado para a área de transferência.', 'success');
+    });
+  };
+
+  /** Copia o resumo curto: número, cliente, itens, total e validade. */
+  const handleCopySummary = () => {
+    void copyTextToClipboard(buildOrcamentoResumo(quote)).then((ok) => {
+      if (!ok) {
+        onShowNotification?.('Não foi possível copiar', 'Selecione o texto manualmente na aba Texto Puro.', 'warning');
+        return;
+      }
+      setCopiedSummary(true);
+      setTimeout(() => setCopiedSummary(false), 2500);
+      onShowNotification?.(
+        'Resumo Copiado!',
+        'Número, cliente, quantidade de itens, total e validade na área de transferência.',
+        'success'
+      );
+    });
   };
 
   const handleCopyWhatsappMsg = () => {
-    navigator.clipboard.writeText(customMessage);
-    setCopiedMsg(true);
-    setTimeout(() => setCopiedMsg(false), 2500);
-    onShowNotification?.('Mensagem Copiada!', 'Texto para WhatsApp copiado.', 'success');
+    void copyTextToClipboard(customMessage).then((ok) => {
+      if (!ok) {
+        onShowNotification?.('Não foi possível copiar', 'Copie a mensagem manualmente.', 'warning');
+        return;
+      }
+      setCopiedMsg(true);
+      setTimeout(() => setCopiedMsg(false), 2500);
+      onShowNotification?.('Mensagem Copiada!', 'Texto para WhatsApp copiado.', 'success');
+    });
   };
 
   const handleDownloadTxt = () => {
@@ -90,11 +138,11 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `cupom_orcamento_${quote.quoteNumber}.txt`;
+    link.download = `orcamento_${quote.quoteNumber}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    onShowNotification?.('Download Concluído', `Arquivo cupom_orcamento_${quote.quoteNumber}.txt baixado.`, 'info');
+    onShowNotification?.('Download Concluído', `Arquivo orcamento_${quote.quoteNumber}.txt baixado.`, 'info');
   };
 
   const handleSendWhatsapp = () => {
@@ -140,7 +188,7 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-sm sm:text-base text-slate-100">
-                  Orçamento Estilo Cupom Fiscal
+                  Orçamento
                 </h3>
                 <span className="text-[10px] font-mono font-bold bg-orange-500 text-slate-950 px-2 py-0.5 rounded-full">
                   {quote.quoteNumber}
@@ -177,7 +225,7 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
               }`}
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Cupom Térmico (80mm)</span>
+              <span>Orçamento (80mm)</span>
             </button>
 
             <button
@@ -414,7 +462,17 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
                   className="flex items-center gap-2 bg-[#0C4A6E] hover:bg-[#0C4A6E]/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition active:scale-95 cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Imprimir Cupom Térmico (80mm)</span>
+                  <span>Imprimir Orçamento (Térmica 80mm)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopySummary}
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl shadow-sm transition active:scale-95 cursor-pointer"
+                  title="Copiar resumo: número, cliente, quantidade de itens, total e validade"
+                >
+                  {copiedSummary ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  <span>{copiedSummary ? 'Resumo Copiado!' : 'Copiar Orçamento (Resumo)'}</span>
                 </button>
 
                 <button
@@ -430,9 +488,10 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
                   type="button"
                   onClick={handleCopyReceiptText}
                   className="flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl shadow-2xs transition cursor-pointer"
+                  title="Copiar o texto completo do orçamento"
                 >
                   {copiedText ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-500" />}
-                  <span>{copiedText ? 'Copiado!' : 'Copiar Texto'}</span>
+                  <span>{copiedText ? 'Copiado!' : 'Copiar Texto Completo'}</span>
                 </button>
               </div>
             </div>
@@ -549,7 +608,7 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
                   onClick={() => setActiveViewMode('cupom')}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition cursor-pointer"
                 >
-                  Voltar ao Cupom
+                  Voltar ao Orçamento
                 </button>
 
                 <button

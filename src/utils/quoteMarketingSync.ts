@@ -25,77 +25,247 @@ export const DEFAULT_COMPANY_RECEIPT_INFO: CompanyReceiptInfo = {
 };
 
 /**
- * Converte uma cotação/orçamento em formato texto idêntico ao de impressora térmica (Cupom 80mm).
+ * Largura útil da bobina térmica de 80mm.
+ *
+ * O papel tem 80mm, mas a área imprimível real das impressoras ESC/POS (Epson, Elgin,
+ * Bematech, Daruma) é de 72mm, o que dá 48 colunas na fonte A. Texto mais largo que isso
+ * tem a última coluna cortada pelo cabeçote — por isso toda linha deste arquivo é
+ * construída dentro deste limite e o teste `server/orcamento/orcamento.test.ts` trava isso.
+ */
+export const CUPOM_WIDTH = 48;
+
+const HR = '-'.repeat(CUPOM_WIDTH);
+const HR_DUPLA = '='.repeat(CUPOM_WIDTH);
+
+/** Centraliza um texto nas 48 colunas do cupom. */
+function centralizar(texto: string): string {
+  const t = texto.slice(0, CUPOM_WIDTH);
+  const margem = Math.max(0, Math.floor((CUPOM_WIDTH - t.length) / 2));
+  return ' '.repeat(margem) + t;
+}
+
+/** Quebra um texto em linhas de no máximo `largura` colunas, sem cortar palavras. */
+function quebrarLinhas(texto: string, largura = CUPOM_WIDTH): string[] {
+  const palavras = String(texto ?? '').trim().split(/\s+/).filter(Boolean);
+  if (palavras.length === 0) return [''];
+
+  const linhas: string[] = [];
+  let atual = '';
+  for (const palavra of palavras) {
+    if (atual === '') {
+      atual = palavra;
+    } else if (atual.length + 1 + palavra.length <= largura) {
+      atual += ` ${palavra}`;
+    } else {
+      linhas.push(atual);
+      atual = palavra;
+    }
+  }
+  linhas.push(atual);
+
+  // Palavra única maior que a largura (ex.: chassi, código longo): corta em pedaços.
+  return linhas.flatMap((l) => (l.length <= largura ? [l] : l.match(new RegExp(`.{1,${largura}}`, 'g')) || [l]));
+}
+
+/**
+ * Empilha um texto aplicando recuo nas linhas de continuação, para que uma lista com
+ * marcador não deixe a segunda linha colada na margem esquerda do cupom.
+ */
+function empilharComRecuo(linhas: string[], texto: string, recuo: string): void {
+  const partes = quebrarLinhas(texto, CUPOM_WIDTH - recuo.length);
+  linhas.push(partes[0]);
+  partes.slice(1).forEach((parte) => linhas.push(`${recuo}${parte}`.slice(0, CUPOM_WIDTH)));
+}
+
+/** Monta uma linha de 48 colunas com o rótulo à esquerda e o valor alinhado à direita. */
+function linhaRotuloValor(rotulo: string, valor: string): string {
+  const v = valor.slice(0, CUPOM_WIDTH);
+  const r = rotulo.slice(0, Math.max(0, CUPOM_WIDTH - v.length - 1));
+  const espacos = Math.max(1, CUPOM_WIDTH - r.length - v.length);
+  return (r + ' '.repeat(espacos) + v).slice(0, CUPOM_WIDTH);
+}
+
+/** Formata um número no padrão brasileiro (1.234,56). */
+function formatBRL(valor: number): string {
+  const n = Number.isFinite(valor) ? valor : 0;
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Formata uma data em dd/mm/aaaa; devolve o fallback quando a data é inválida. */
+function formatarData(valor: string, fallback = '15 dias'): string {
+  if (!valor) return fallback;
+  const data = new Date(valor);
+  return Number.isNaN(data.getTime()) ? fallback : data.toLocaleDateString('pt-BR');
+}
+
+/** Escapa texto que será injetado em HTML — nome de cliente não pode virar marcação. */
+export function escapeHtml(texto: string): string {
+  return String(texto ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Converte uma cotação/orçamento em texto idêntico ao de impressora térmica (cupom 80mm).
+ *
+ * Toda linha respeita as 48 colunas de `CUPOM_WIDTH`. Cada item ocupa duas linhas — descrição
+ * em cima, quantidade e valor embaixo — para não truncar o nome da peça, que é o que mais
+ * importa para quem está no balcão.
  */
 export function generateCupomFiscalText(
   quote: Quote,
   company: CompanyReceiptInfo = DEFAULT_COMPANY_RECEIPT_INFO
 ): string {
-  const line = '------------------------------------------------';
-  const doubleLine = '================================================';
   const dateStr = new Date(quote.createdAt).toLocaleDateString('pt-BR');
   const timeStr = new Date(quote.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-  let text = '';
-  text += `${company.name}\n`;
-  text += `${company.fantasyName}\n`;
-  text += `CNPJ: ${company.cnpj}  IE: ${company.ie}\n`;
-  text += `${company.address} - ${company.city}/${company.uf}\n`;
-  text += `Fone: ${company.phone} | WhatsApp: ${company.whatsapp}\n`;
-  text += `${doubleLine}\n`;
-  text += `   DOCUMENTO AUXILIAR DE ORÇAMENTO / COTAÇÃO   \n`;
-  text += `        NÃO POSSUI VALOR FISCAL (DAV)          \n`;
-  text += `${doubleLine}\n`;
-  text += `ORÇAMENTO Nº: ${quote.quoteNumber}\n`;
-  text += `EMISSÃO: ${dateStr} às ${timeStr}\n`;
-  text += `VALIDADE: Até ${quote.validUntil ? new Date(quote.validUntil).toLocaleDateString('pt-BR') : '15 dias'} (sujeito à variação)\n`;
-  text += `VENDEDOR: ${quote.sellerName || 'Balcão / Televendas'}\n`;
-  text += `${line}\n`;
-  text += `CLIENTE: ${quote.customerName}\n`;
-  text += `DOC: ${quote.customerDocument} | UF: ${quote.customerUf || 'MS'}\n`;
+  const linhas: string[] = [];
+
+  // Cabeçalho da empresa
+  quebrarLinhas(company.name).forEach((l) => linhas.push(centralizar(l)));
+  quebrarLinhas(company.fantasyName).forEach((l) => linhas.push(centralizar(l)));
+  quebrarLinhas(`CNPJ: ${company.cnpj}  IE: ${company.ie}`).forEach((l) => linhas.push(centralizar(l)));
+  quebrarLinhas(`${company.address} - ${company.city}/${company.uf}`).forEach((l) => linhas.push(centralizar(l)));
+  quebrarLinhas(`Fone: ${company.phone} | WhatsApp: ${company.whatsapp}`).forEach((l) => linhas.push(centralizar(l)));
+
+  linhas.push(HR_DUPLA);
+  linhas.push(centralizar('DOCUMENTO AUXILIAR DE ORÇAMENTO / COTAÇÃO'));
+  linhas.push(centralizar('NÃO POSSUI VALOR FISCAL (DAV)'));
+  linhas.push(HR_DUPLA);
+
+  // Identificação do orçamento
+  quebrarLinhas(`ORÇAMENTO Nº: ${quote.quoteNumber}`).forEach((l) => linhas.push(l));
+  linhas.push(`EMISSÃO: ${dateStr} às ${timeStr}`.slice(0, CUPOM_WIDTH));
+  quebrarLinhas(`VALIDADE: Até ${formatarData(quote.validUntil)} (sujeito à variação)`).forEach((l) => linhas.push(l));
+  quebrarLinhas(`VENDEDOR: ${quote.sellerName || 'Balcão / Televendas'}`).forEach((l) => linhas.push(l));
+
+  linhas.push(HR);
+
+  // Cliente
+  quebrarLinhas(`CLIENTE: ${quote.customerName || 'Não informado'}`).forEach((l) => linhas.push(l));
+  quebrarLinhas(`DOC: ${quote.customerDocument || 'Não informado'} | UF: ${quote.customerUf || 'MS'}`).forEach((l) => linhas.push(l));
   if (quote.customerPhone || quote.customerWhatsapp) {
-    text += `CONTATO: ${quote.customerWhatsapp || quote.customerPhone}\n`;
+    quebrarLinhas(`CONTATO: ${quote.customerWhatsapp || quote.customerPhone}`).forEach((l) => linhas.push(l));
   }
   if (quote.vehicleModel || quote.vehiclePlate) {
-    text += `VEÍCULO: ${quote.vehicleModel || 'Universal'} | PLACA: ${quote.vehiclePlate || 'Não Informada'}\n`;
+    quebrarLinhas(`VEÍCULO: ${quote.vehicleModel || 'Universal'} | PLACA: ${quote.vehiclePlate || 'Não Informada'}`)
+      .forEach((l) => linhas.push(l));
   }
-  text += `${line}\n`;
-  text += `ITEM  CÓDIGO    DESCRIÇÃO                QTD  UN   VALOR\n`;
-  text += `${line}\n`;
 
-  quote.items.forEach((item, index) => {
-    const idx = String(index + 1).padStart(2, '0');
-    const code = (item.productCode || 'PEC').padEnd(8, ' ').slice(0, 8);
-    const name = item.productName.padEnd(22, ' ').slice(0, 22);
-    const qty = String(item.quantity).padStart(3, ' ');
-    const total = `R$ ${item.total.toFixed(2)}`.padStart(10, ' ');
-    text += `${idx}   ${code} ${name} ${qty} un ${total}\n`;
+  linhas.push(HR);
+
+  // Cabeçalho da tabela — as larguras casam com as colunas usadas nos itens abaixo.
+  linhas.push((`#`.padEnd(2) + ' ' + 'CÓDIGO'.padEnd(8) + ' ' + 'DESCRIÇÃO').slice(0, CUPOM_WIDTH));
+  linhas.push(HR);
+
+  const larguraDescricao = CUPOM_WIDTH - 2 - 1 - 8 - 1; // 36 colunas
+  const recuoDescricao = ' '.repeat(2 + 1 + 8 + 1);      // 12 colunas
+
+  (quote.items || []).forEach((item, index) => {
+    const idx = String(index + 1).padStart(2, ' ');
+    const code = (item.productCode || 'PEC').slice(0, 8).padEnd(8, ' ');
+
+    const descricao = quebrarLinhas(item.productName || 'Item sem descrição', larguraDescricao);
+    linhas.push(`${idx} ${code} ${descricao[0]}`.slice(0, CUPOM_WIDTH));
+    descricao.slice(1).forEach((extra) => linhas.push(`${recuoDescricao}${extra}`.slice(0, CUPOM_WIDTH)));
+
+    const esquerda = `${item.quantity} UN x R$ ${formatBRL(item.finalUnitPrice)}`;
+    const direita = `R$ ${formatBRL(item.total)}`;
+    const espacos = Math.max(1, CUPOM_WIDTH - 9 - esquerda.length - direita.length);
+    linhas.push((' '.repeat(9) + esquerda + ' '.repeat(espacos) + direita).slice(0, CUPOM_WIDTH));
   });
 
-  text += `${line}\n`;
-  text += `SUBTOTAL ITENS:                 R$ ${quote.subtotalAmount.toFixed(2).padStart(10, ' ')}\n`;
+  linhas.push(HR);
+  linhas.push(linhaRotuloValor('SUBTOTAL ITENS:', `R$ ${formatBRL(quote.subtotalAmount)}`));
   if (quote.discountAmount > 0) {
-    text += `DESCONTO CONCEDIDO:            -R$ ${quote.discountAmount.toFixed(2).padStart(10, ' ')}\n`;
+    linhas.push(linhaRotuloValor('DESCONTO CONCEDIDO:', `-R$ ${formatBRL(quote.discountAmount)}`));
   }
-  text += `${doubleLine}\n`;
-  text += `VALOR TOTAL A PAGAR:            R$ ${quote.totalAmount.toFixed(2).padStart(10, ' ')}\n`;
-  text += `${doubleLine}\n`;
+  linhas.push(HR_DUPLA);
+  linhas.push(linhaRotuloValor('VALOR TOTAL A PAGAR:', `R$ ${formatBRL(quote.totalAmount)}`));
+  linhas.push(HR_DUPLA);
 
-  text += `FORMA DE PAGAMENTO SUGERIDA:\n`;
-  text += `* ${quote.paymentCondition || 'À Vista / Pix (5% desc.) / Cartão até 6x s/ juros'}\n`;
-  text += `* Chave Pix (CNPJ): ${company.cnpj}\n`;
-  text += `${line}\n`;
-  text += `OBSERVAÇÕES & TERMOS DE GARANTIA:\n`;
-  text += `- Garantia legal de 90 dias conforme CDC.\n`;
-  text += `- Preços válidos mediante disponibilidade no estoque.\n`;
-  text += `- Para efetivar o pedido, envie uma foto deste cupom\n`;
-  text += `  ou responda nosso WhatsApp: ${company.whatsapp}\n`;
-  text += `${doubleLine}\n`;
-  text += `         OBRIGADO PELA PREFERÊNCIA!          \n`;
-  text += `       GATO - Gestão e Autopeças Total        \n`;
-  text += `\n\n\n`;
+  // Condições comerciais — sem emoji nem caracteres que a fonte da térmica não imprima.
+  linhas.push('FORMA DE PAGAMENTO SUGERIDA:');
+  empilharComRecuo(linhas, `* ${quote.paymentCondition || 'À Vista / Pix (5% desc.) / Cartão até 6x s/ juros'}`, '  ');
+  linhas.push(`* Chave Pix (CNPJ): ${company.cnpj}`.slice(0, CUPOM_WIDTH));
 
-  return text;
+  linhas.push(HR);
+  linhas.push('OBSERVAÇÕES & TERMOS DE GARANTIA:');
+  empilharComRecuo(linhas, '- Garantia legal de 90 dias conforme CDC.', '  ');
+  empilharComRecuo(linhas, '- Preços válidos mediante disponibilidade no estoque.', '  ');
+  empilharComRecuo(linhas, `- Para efetivar o pedido, envie uma foto deste cupom ou responda nosso WhatsApp: ${company.whatsapp}`, '  ');
+
+  linhas.push(HR_DUPLA);
+  linhas.push(centralizar('OBRIGADO PELA PREFERÊNCIA!'));
+  linhas.push(centralizar('GATO - Gestão e Autopeças Total'));
+  linhas.push(centralizar('Documento sem valor fiscal'));
+  linhas.push('');
+  linhas.push('');
+  linhas.push('');
+
+  return linhas.join('\n');
+}
+
+/**
+ * Resumo curto do orçamento, para colar em WhatsApp, e-mail ou bloco de notas.
+ * Cinco linhas: número, cliente, quantidade de itens, total e validade.
+ */
+export function buildOrcamentoResumo(quote: Quote): string {
+  const quantidadeItens = (quote.items || []).length;
+  return [
+    `ORÇAMENTO Nº: ${quote.quoteNumber}`,
+    `Cliente: ${quote.customerName || 'Não informado'}`,
+    `Itens: ${quantidadeItens}`,
+    `Total: R$ ${formatBRL(quote.totalAmount)}`,
+    `Validade: ${formatarData(quote.validUntil)}`,
+  ].join('\n');
+}
+
+/**
+ * Documento HTML completo do orçamento para a janela de impressão térmica.
+ *
+ * É o que permite imprimir SEM imprimir o app inteiro: a janela é aberta por
+ * `printHtmlDocument` e contém apenas este HTML.
+ *
+ * - `<meta charset="utf-8">` é obrigatório, senão os acentos saem corrompidos.
+ * - `font-size: 9px` em fonte monoespaçada dá ~1,43mm por caractere, então as 48 colunas
+ *   ocupam ~68,6mm — com folga dentro dos 72mm imprimíveis. A 10px daria 76,2mm e cortaria.
+ * - `@page { margin: 0 }` é o que suprime cabeçalho e rodapé do navegador (URL, data, "1/1").
+ */
+export function buildOrcamentoThermalHtml(
+  quote: Quote,
+  company: CompanyReceiptInfo = DEFAULT_COMPANY_RECEIPT_INFO
+): string {
+  const texto = generateCupomFiscalText(quote, company);
+  const titulo = `Orçamento ${quote.quoteNumber}`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(titulo)}</title>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { padding: 2mm 0 8mm; text-align: center; }
+  pre {
+    display: inline-block;
+    margin: 0;
+    text-align: left;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 9px;
+    line-height: 1.35;
+    letter-spacing: 0;
+    white-space: pre;
+    overflow: visible;
+    color: #000;
+  }
+</style>
+</head>
+<body><pre>${escapeHtml(texto)}</pre></body>
+</html>`;
 }
 
 /**

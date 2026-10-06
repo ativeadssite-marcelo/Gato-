@@ -29,7 +29,8 @@ import {
   Layers,
   Sparkles,
   Check,
-  MessageCircle
+  MessageCircle,
+  Copy
 } from 'lucide-react';
 import { Product, Customer, QuoteItem, CustomerType, StateTaxConfig, Quote, BranchUnit, UserSession, VehicleFleetItem } from '../types';
 import { STATE_TAX_TABLE, INITIAL_BRANCHES } from '../data/initialData';
@@ -43,6 +44,13 @@ import {
 } from '../data/fleetDatabase';
 import { CadastroPecaModal } from './CadastroPecaModal';
 import { CupomFiscalModal } from './CupomFiscalModal';
+import {
+  buildOrcamentoResumo,
+  buildOrcamentoThermalHtml,
+  DEFAULT_COMPANY_RECEIPT_INFO,
+} from '../utils/quoteMarketingSync';
+import { printHtmlDocument } from '../utils/printDocument';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 interface VehicleData {
   plate: string;
@@ -223,9 +231,14 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
     { id: 'dav-03', number: 'DAV-4885', client: 'AUTO ELETRICA DO GORDO', items: 4, total: 840.50, time: '09:15' },
   ]);
 
-  // Cupom Fiscal & WhatsApp Modal State
+  // Orçamento / Cupom & WhatsApp Modal State
   const [cupomQuote, setCupomQuote] = useState<Quote | null>(null);
   const [isCupomModalOpen, setIsCupomModalOpen] = useState<boolean>(false);
+
+  // Número do DAV corrente — alimenta o modal DOCUMENTO e a impressão do orçamento.
+  // Fica `null` enquanto nada foi salvo (aí o documento sai como pré-visualização).
+  const [currentDavNumber, setCurrentDavNumber] = useState<string | null>(null);
+  const [copiedDavSummary, setCopiedDavSummary] = useState(false);
 
   // Sync with initialCustomer or activeStore if updated from outside
   useEffect(() => {
@@ -384,6 +397,84 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
     }
   };
 
+  /**
+   * Monta o `Quote` do DAV a partir do estado atual do balcão.
+   * Centraliza a montagem que antes estava duplicada em `handleSaveDav` e `handleEmitCupomFiscal`.
+   */
+  const buildDavQuote = (numero: string, status: Quote['status']): Quote => ({
+    id: `quot-${Date.now()}`,
+    quoteNumber: numero,
+    customerId: currentCustomer.id,
+    customerName: currentCustomer.name,
+    customerDocument: currentCustomer.document,
+    customerType: selectedCustomerType,
+    customerUf: selectedUf,
+    customerPhone: currentCustomer.phone,
+    customerWhatsapp: currentCustomer.whatsapp || currentCustomer.phone,
+    customerEmail: currentCustomer.email,
+    vehicleModel: vehicleData.model || undefined,
+    vehiclePlate: vehicleData.plate || undefined,
+    sellerName,
+    paymentCondition: paymentMethod,
+    items: quoteItems,
+    subtotalAmount: parseFloat(quoteSubtotal.toFixed(2)),
+    discountAmount: parseFloat(((quoteSubtotal * (totalDiscountPercent / 100))).toFixed(2)),
+    totalAmount: parseFloat(quoteTotal.toFixed(2)),
+    taxAmount: parseFloat((quoteTotal * (stateTax.icmsAliquota / 100)).toFixed(2)),
+    status,
+    validUntil: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
+    createdAt: new Date().toISOString(),
+    notes: `Vendedor: ${sellerName} • Veículo: ${vehicleData.plate} (${vehicleData.model}) • Pagamento: ${paymentMethod}`,
+  });
+
+  /**
+   * Imprime o orçamento do DAV corrente numa janela própria (térmica 80mm).
+   * Não salva nada — é seguro chamar só para conferir ou entregar ao cliente.
+   */
+  const handlePrintOrcamento = () => {
+    if (quoteItems.length === 0) {
+      onShowNotification('Orçamento Vazio', 'Adicione pelo menos um item antes de imprimir.', 'warning');
+      return;
+    }
+
+    const quote = buildDavQuote(currentDavNumber ?? 'S/N (pré-visualização)', 'Pendente');
+    const resultado = printHtmlDocument(buildOrcamentoThermalHtml(quote, DEFAULT_COMPANY_RECEIPT_INFO), {
+      title: `Orçamento ${quote.quoteNumber}`,
+    });
+
+    if (!resultado.ok) {
+      onShowNotification(
+        'Pop-up bloqueado',
+        'Autorize pop-ups neste site para imprimir o orçamento.',
+        'warning'
+      );
+    }
+  };
+
+  /** Copia o resumo curto do DAV corrente (número, cliente, itens, total e validade). */
+  const handleCopyOrcamentoResumo = () => {
+    if (quoteItems.length === 0) {
+      onShowNotification('Orçamento Vazio', 'Adicione pelo menos um item antes de copiar.', 'warning');
+      return;
+    }
+
+    void copyTextToClipboard(
+      buildOrcamentoResumo(buildDavQuote(currentDavNumber ?? 'PRÉ-VISUALIZAÇÃO', 'Pendente'))
+    ).then((ok) => {
+      if (!ok) {
+        onShowNotification('Não foi possível copiar', 'Use a impressão do orçamento para obter o resumo.', 'warning');
+        return;
+      }
+      setCopiedDavSummary(true);
+      setTimeout(() => setCopiedDavSummary(false), 2500);
+      onShowNotification(
+        'Resumo Copiado!',
+        'Número, cliente, quantidade de itens, total e validade na área de transferência.',
+        'success'
+      );
+    });
+  };
+
   const handleSaveDav = (status: 'Pendente' | 'Aprovado' = 'Pendente') => {
     if (quoteItems.length === 0) {
       onShowNotification('DAV Vazio', 'Adicione pelo menos um item antes de salvar.', 'warning');
@@ -391,31 +482,8 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
     }
 
     const davNumber = `DAV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newQuote: Quote = {
-      id: `quot-${Date.now()}`,
-      quoteNumber: davNumber,
-      customerId: currentCustomer.id,
-      customerName: currentCustomer.name,
-      customerDocument: currentCustomer.document,
-      customerType: selectedCustomerType,
-      customerUf: selectedUf,
-      customerPhone: currentCustomer.phone,
-      customerWhatsapp: currentCustomer.whatsapp || currentCustomer.phone,
-      customerEmail: currentCustomer.email,
-      vehicleModel: vehicleData.model || undefined,
-      vehiclePlate: vehicleData.plate || undefined,
-      sellerName,
-      paymentCondition: paymentMethod,
-      items: quoteItems,
-      subtotalAmount: parseFloat(quoteSubtotal.toFixed(2)),
-      discountAmount: parseFloat(((quoteSubtotal * (totalDiscountPercent / 100))).toFixed(2)),
-      totalAmount: parseFloat(quoteTotal.toFixed(2)),
-      taxAmount: parseFloat((quoteTotal * (stateTax.icmsAliquota / 100)).toFixed(2)),
-      status,
-      validUntil: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
-      createdAt: new Date().toISOString(),
-      notes: `Vendedor: ${sellerName} • Veículo: ${vehicleData.plate} (${vehicleData.model}) • Pagamento: ${paymentMethod}`,
-    };
+    const newQuote = buildDavQuote(davNumber, status);
+    setCurrentDavNumber(davNumber);
 
     if (onSaveQuote) {
       onSaveQuote(newQuote);
@@ -479,45 +547,23 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
         status: 'Pendente',
         validUntil: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
         createdAt: new Date().toISOString(),
-        notes: `DAV ${existingDav.number} recuperado para emissão de cupom fiscal e envio WhatsApp.`
+        notes: `DAV ${existingDav.number} recuperado para emissão do orçamento e envio WhatsApp.`
       };
 
+      setCurrentDavNumber(existingDav.number);
       setCupomQuote(q);
       setIsCupomModalOpen(true);
       return;
     }
 
     if (quoteItems.length === 0) {
-      onShowNotification('Cotação Vazia', 'Adicione itens à cotação antes de gerar o cupom fiscal.', 'warning');
+      onShowNotification('Cotação Vazia', 'Adicione itens à cotação antes de gerar o orçamento.', 'warning');
       return;
     }
 
     const davNumber = `DAV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newQuote: Quote = {
-      id: `quot-${Date.now()}`,
-      quoteNumber: davNumber,
-      customerId: currentCustomer.id,
-      customerName: currentCustomer.name,
-      customerDocument: currentCustomer.document,
-      customerType: selectedCustomerType,
-      customerUf: selectedUf,
-      customerPhone: currentCustomer.phone,
-      customerWhatsapp: currentCustomer.whatsapp || currentCustomer.phone,
-      customerEmail: currentCustomer.email,
-      vehicleModel: vehicleData.model || undefined,
-      vehiclePlate: vehicleData.plate || undefined,
-      sellerName,
-      paymentCondition: paymentMethod,
-      items: quoteItems,
-      subtotalAmount: parseFloat(quoteSubtotal.toFixed(2)),
-      discountAmount: parseFloat(((quoteSubtotal * (totalDiscountPercent / 100))).toFixed(2)),
-      totalAmount: parseFloat(quoteTotal.toFixed(2)),
-      taxAmount: parseFloat((quoteTotal * (stateTax.icmsAliquota / 100)).toFixed(2)),
-      status: 'Pendente',
-      validUntil: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
-      createdAt: new Date().toISOString(),
-      notes: `Vendedor: ${sellerName} • Veículo: ${vehicleData.plate} (${vehicleData.model}) • Pagamento: ${paymentMethod}`,
-    };
+    const newQuote = buildDavQuote(davNumber, 'Pendente');
+    setCurrentDavNumber(davNumber);
 
     if (onSaveQuote) {
       onSaveQuote(newQuote);
@@ -539,8 +585,8 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
     setIsCupomModalOpen(true);
 
     onShowNotification(
-      'Cupom Fiscal Gerado!',
-      `${davNumber} preparado para impressão térmica 80mm e disparo WhatsApp. Lead indexado para campanhas!`,
+      'Orçamento Gerado!',
+      `${davNumber} pronto para impressão térmica 80mm, cópia do resumo e envio WhatsApp. Lead indexado para campanhas!`,
       'success'
     );
   };
@@ -1231,10 +1277,10 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
               id="btn-drawer-cupom-whatsapp"
               onClick={() => handleEmitCupomFiscal()}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-black rounded-lg transition shadow-xs active:scale-95 cursor-pointer"
-              title="Emitir orçamento no formato cupom fiscal térmico 80mm e enviar para o WhatsApp"
+              title="Imprimir o orçamento (térmica 80mm), copiar o resumo ou enviar por WhatsApp"
             >
               <Printer className="w-4 h-4 text-orange-200" />
-              <span>Cupom Fiscal & WhatsApp</span>
+              <span>Orçamento</span>
             </button>
 
             <button
@@ -1489,16 +1535,26 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Documento Auxiliar de Venda</span>
-                <h2 className="text-base font-black text-slate-900 font-mono">DAV-2026-00489</h2>
+                <h2 className="text-base font-black text-slate-900 font-mono">{currentDavNumber ?? 'PRÉ-VISUALIZAÇÃO'}</h2>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
-                  className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3 py-1.5 rounded-lg transition cursor-pointer"
+                  onClick={handlePrintOrcamento}
+                  className="flex items-center gap-1.5 bg-[#0C4A6E] hover:bg-[#0C4A6E]/90 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition cursor-pointer"
+                  title="Imprimir o orçamento na térmica 80mm"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Imprimir</span>
+                  <span>Imprimir Orçamento</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyOrcamentoResumo}
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition cursor-pointer"
+                  title="Copiar resumo: número, cliente, itens, total e validade"
+                >
+                  {copiedDavSummary ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedDavSummary ? 'Resumo Copiado!' : 'Copiar Resumo'}</span>
                 </button>
                 <button
                   type="button"
@@ -1639,7 +1695,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
               <span className="font-mono text-emerald-600 text-base">R$ {quoteTotal.toFixed(2)}</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="grid grid-cols-3 gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => {
@@ -1649,6 +1705,23 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
                 className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs py-2.5 rounded-xl transition cursor-pointer"
               >
                 Salvar DAV Pendente
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (quoteItems.length === 0) {
+                    onShowNotification('Orçamento Vazio', 'Adicione pelo menos um item antes de gerar o orçamento.', 'warning');
+                    return;
+                  }
+                  setShowCartDrawer(false);
+                  handleEmitCupomFiscal();
+                }}
+                className="w-full flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-500 text-white font-black text-xs py-2.5 rounded-xl transition cursor-pointer"
+                title="Imprimir o orçamento, copiar o resumo ou enviar por WhatsApp"
+              >
+                <Printer className="w-3.5 h-3.5 text-orange-200" />
+                <span>Orçamento</span>
               </button>
 
               <button
@@ -2107,6 +2180,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
 
       {/* MODAL: CUPOM FISCAL TÉRMICO & ENVIO WHATSAPP */}
       <CupomFiscalModal
+        key={cupomQuote?.id ?? 'vazio'}
         isOpen={isCupomModalOpen}
         onClose={() => setIsCupomModalOpen(false)}
         quote={cupomQuote}
