@@ -61,9 +61,10 @@ CFOP/NCM/CEST, SPED, MDF-e**, PIX, boleto Asaas, CNPJ, filiais por UF.
 Confirmados em 02/10: `npm run validate-db` → **0 falhas, 42 OK** e
 `scripts/criar-super-admin.mjs` com o hash conferindo com o `auth.ts`.
 
-> ⚠️ **O dev server NÃO está no ar** (caiu com o fim da sessão anterior). Para retomar:
-> `npm run dev` — e lembre que ele não observa `server/**`, então mudança no back exige
-> reiniciar (§3.15).
+> ⚠️ **Sobre o dev server:** ele morre com a sessão. Para retomar: `npm run dev` — e lembre
+> que ele não observa `server/**`, então mudança no back exige reiniciar (§3.15). Em 08/10 ele
+> foi reiniciado **quatro vezes** por isso; se a rota nova responder 404, é sinal de que o
+> processo em memória é antigo.
 
 **O dia em ordem de importância** (o que ainda está aberto vai em §4):
 
@@ -188,7 +189,7 @@ Confirmados em 02/10: `npm run validate-db` → **0 falhas, 42 OK** e
 | `/api/caixa` | `caixaRoutes.ts` + `caixa.ts` | PDV: summary/open/close/movements/receipts/boletos — **auditado, multi-tenant, persistente** (hidrata do Postgres desde 02/10/2026; 12 testes em `server/caixa.test.ts`) |
 | `/api/admin/database` | `adminDatabaseRoutes.ts` | Credenciais de DB em runtime (Super Admin) |
 | `/api/credentials`, `/api/license`, `/api/v1` | `credentialsRoutes.ts`, `licenseRoutes.ts`, `v1Routes.ts` | API keys, licença de máquina, API versionada |
-| Rotas inline em `server.ts` | — | `/api/db/*` (products, customers, suppliers, branches, **quotes GET/POST**, sync-catalog), `/api/connectors/*`, `/api/gemini/assist`, `/api/vehicles`, `/api/marketplaces/*`, quotas |
+| Rotas inline em `server.ts` | — | `/api/db/*` (products **GET/POST/PUT**, customers GET/POST, suppliers GET/POST, branches, quotes **GET/POST/PUT**, **reset-tenant**, sync-catalog), `/api/connectors/*`, `/api/gemini/assist`, `/api/vehicles`, `/api/marketplaces/*`, quotas |
 | Transversais | `quotas.ts`, `rateLimit.ts`, `auditStore.ts`, `identityStore.ts`, `store.ts`, `migrate.ts`, `notifications/cron.ts` | Uso/quota (402), rate limit (`standardApiLimiter` 250/min por IP), auditoria, seeds em memória + mirror Postgres, migrations, cron de billing/trial |
 
 ### Infra & documentos de referência
@@ -203,11 +204,18 @@ Confirmados em 02/10: `npm run validate-db` → **0 falhas, 42 OK** e
 ```bash
 npm run dev        # srv Express+Vite em http://localhost:3000 (LOGS em ./dev.log)
 npm run lint       # tsc --noEmit — DEVE ficar verde antes de qualquer entrega
-npm test           # tsx --test server/**/*.test.ts
+npm test           # tsx --test "server/**/*.test.ts" — as ASPAS são propositais: sem elas
+                   # o shell expande `**` como `*` (sem globstar) e os testes da RAIZ não
+                   # rodam; foi assim que 50 testes ficaram de fora do CI até 08/10
 npm run build      # vite build + bundle do server (→ dist/)
 npm run preview    # serve dist/ em http://localhost:4173 (prévia de produção: SÓ estáticos, sem API)
 npm run migrate    # migrations   |  npm run validate-db
 ```
+
+- **Os testes vão longe do front**: `server/fleet`, `server/ordemServico`, `server/quotes`,
+  `server/entityApi`, `server/tenantReset` e `server/seedMode` testam módulos de `src/` (funções
+  puras — mapa de campo, cascata de veículo, ciclo de vida da OS, payload de escrita). É o padrão
+  da casa quando a lógica não depende de DOM: a regra sai do componente e ganha teste.
 
 - `.env` obrigatório (validado fail-fast por `server/env.ts` com Zod): `GATO_SESSION_SECRET` (≥48 chars),
   `GATO_MASTER_PASSWORD` (≥8), `SUPABASE_DB_*`. Sem DB configurado o servidor roda **em memória**
