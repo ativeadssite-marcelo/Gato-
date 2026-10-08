@@ -7,10 +7,11 @@
 > projeto mudar (é fonte de verdade viva, não um relatório morto).
 >
 > Estado desta handoff: **08/10/2026** — branch `feat/billing-saas`, tudo commitado e no `origin`.
-> Entregue em 08/10: o modo base limpa (`VITE_USE_SEED=false`), o provisionamento do contratante
-> (`scripts/provisionar-tenant.mjs`) e a **leitura real** — o app carrega produtos, clientes,
-> fornecedores e orçamentos do banco (§3.19; a escrita pela tela ainda é local, é o próximo
-> incremento). Extra: o CI voltou a rodar os 50 testes da raiz (aspas no glob). Leia §4.
+> Entregue em 08/10: modo base limpa (`VITE_USE_SEED=false`), provisionamento do contratante
+> (`scripts/provisionar-tenant.mjs`), **leitura e escrita do banco** (produto, cliente e
+> orçamento gravam; §3.19), **inativar produto** e **cancelar/alterar orçamento** com
+> confirmação digitada, orçamento em **tabela A4** e a correção do glob de teste do CI.
+> Backlog do dono em §4.2 (itens 4 a 7, com as decisões já tomadas). Leia §4.
 
 ---
 
@@ -262,15 +263,17 @@ npm run migrate    # migrations   |  npm run validate-db
 18. ~~**Worktree SUJA**~~ — **resolvido em 06/10/2026**: tudo commitado e enviado ao `origin`
     em três commits (`b2a99e9` trabalho de 02/10, `3fad6f7` orçamento, `4742f62` docs). Só
     `.olli/` segue fora do git, por decisão registrada — **não commitar**.
-19. ⚠️ **A LEITURA do banco foi ligada em 08/10/2026; a ESCRITA ainda não.** O que mudou:
-    `src/services/entityApi.ts` + um efeito no `App.tsx` carregam `products`, `customers`,
-    `suppliers` e `quotes` das rotas `/api/db/*` quando há sessão verificada — o banco **vence**
-    o seed, inclusive quando devolve lista vazia; servidor sem banco (503) mantém o seed de
-    dev/demo; 403/401 são silêncio (papel sem o recurso / sessão caindo). O que **não** mudou:
-    as telas continuam escrevendo só no estado/localStorage — cadastrar produto, cliente ou
-    orçamento pela tela **não** chega ao banco ainda (é o próximo incremento). Entidades sem
-    tabela nenhuma (`Order`, `Invoice`, `FinancialPayable`, `BankTransaction`, `ServiceOrder`,
-    `MdfeRecord`, `MarketingLead`) seguem 100% locais.
+19. ⚠️ **A LEITURA e a ESCRITA do banco estão ligadas desde 08/10/2026 — com ressalvas.**
+    Leitura: `src/services/entityApi.ts` + um efeito no `App.tsx` carregam `products`,
+    `customers`, `suppliers` e `quotes` das rotas `/api/db/*` quando há sessão verificada — o
+    banco **vence** o seed, inclusive quando devolve lista vazia; servidor sem banco (503)
+    mantém o seed de dev/demo; 403/401 são silêncio. Escrita: **produto, cliente e orçamento
+    gravam** (e `reloadEntities()` recarrega as listas). O que **ainda não** grava: a **baixa de
+    estoque** (`handleUpdateProductStock` — não existe rota de movimento de estoque), a
+    **edição de cliente** (só o cadastro novo vai ao banco) e as entidades **sem tabela**
+    (`Order`, `Invoice`, `FinancialPayable`, `BankTransaction`, `ServiceOrder`, `MdfeRecord`,
+    `MarketingLead`) — seguem 100% locais. A **locação do produto** (`location`) e as
+    **aplicações veiculares** (`applications`) também se perdem ao ler do banco: não há coluna.
 20. **O banco deixou de estar vazio em 08/10/2026.** Antes, de 26 tabelas só `AuditLog`,
     `RbacUser` e `UserCredential` tinham linhas. Agora existe o tenant de teste
     `cmtt58e6o0000ju346a0g6s32` (MG Auto Peças) com um depósito (`wh_..._cd01`), e a verificação
@@ -299,18 +302,41 @@ npm run migrate    # migrations   |  npm run validate-db
 > verificação derrubou. É o documento de trabalho para segurança.
 
 0. ~~**Commitar o trabalho de 02/10**~~ — feito em 06/10 (três commits, enviados ao `origin`).
-1. ~~**Ligar o front na API**~~ — **leitura feita em 08/10/2026; falta a escrita.**
-   - ✅ `GET /api/db/quotes` criado (`server/quotes/quotes.ts`, com teste) e o `App.tsx`
-     carregando `products`, `customers`, `suppliers` e `quotes` da API
-     (`src/services/entityApi.ts`), com o seed só como fallback de dev (503);
+1. ~~**Ligar o front na API**~~ — **feito em 08/10/2026 (leitura e escrita).**
+   - ✅ `GET /api/db/quotes` (`server/quotes/quotes.ts`, com teste) e as quatro listas
+     carregadas da API no `App.tsx` (`src/services/entityApi.ts`), seed só como fallback de dev (503);
    - ✅ `scripts/provisionar-tenant.mjs` — provisiona `Tenant` + depósito, sem o que todo
-     cadastro responde "Tenant inválido" (o tenant de teste já está provisionado);
-   - ⏭️ **próximo incremento — a escrita**: telas gravarem via API (produto no Estoque,
-     cliente em Clientes, orçamento no Balcão) em vez de só mexer no estado local; estender o
-     `POST /api/db/products` a `barcode`/`description` (as colunas já existem) e **fechar a
-     auditoria que falta no `POST /api/db/quotes`** (grava Budget sem `recordAudit`);
-   - pendente de decisão: entidades sem tabela nenhuma (`Order`, `Invoice`, `FinancialPayable`,
-     `BankTransaction`, `ServiceOrder`) — ou ganham migration, ou saem do escopo do primeiro teste.
+     cadastro responde "Tenant inválido";
+   - ✅ **escrita**: produto, cliente e orçamento gravam no banco (`createProduct`,
+     `createCustomer`, `createQuote`) e `reloadEntities()` recarrega as listas depois;
+     `POST /api/db/products` aceita `barcode`/`description`;
+   - ✅ **excluir/alterar**: `PUT /api/db/products/:id` (inativar com confirmação digitada —
+     nunca apaga, o histórico fica) e `PUT /api/db/quotes/:id` (cancelar e alterar, itens
+     substituídos em transação); auditoria `INACTIVATE/UPDATE_PRODUCT`, `CREATE/UPDATE/CANCEL_QUOTE`;
+   - ⏭️ pendente: baixa de estoque (`handleUpdateProductStock`) ainda é só local — não existe
+     rota de movimento de estoque; e as entidades **sem tabela** (`Order`, `Invoice`,
+     `FinancialPayable`, `BankTransaction`, `ServiceOrder`, `MdfeRecord`, `MarketingLead`)
+     seguem 100% locais — decidir se ganham migration.
+2. **Backlog do dono (08/10/2026)** — pedido em 7 itens; o 1/2/3 estão feitos (acima). Os demais,
+   com a decisão já tomada pelo dono:
+   - **Item 4 — reset para iniciar operação**: não existe. Escopo: apagar as 4 chaves de
+     movimento do localStorage (`gato_customers`, `gato_suppliers`, `gato_service_orders`,
+     `gato_marketing_leads`) e as tabelas do tenant, **preservando** config (perfil, filiais,
+     impostos, usuários). Exigir: dono/`tenant_admin`, confirmação digitada, auditoria e
+     backup JSON antes.
+   - **Item 5 — cascata**: já existe em Consulta de Aplicação (Segmento → Montadora → Modelo →
+     Ano → Motorização + Sistema). **Bug**: 5 dos 6 chips de segmento não casam com os literais
+     (`'Automóvel / Hatch'` vs `'Passeio'` etc.) — filtro vazio (`ConsultaAplicacaoPecas.tsx:97`).
+     Falta o nível Segmento no balcão, e "versão" não existe na base (o campo é `geracaoFase`).
+   - **Item 6 — estoque**: (a) locação não tem entidade nem coluna (com banco ligado, a locação
+     do produto se perde); (b) `Product.applications` não tem onde ser guardado;
+     (c) **lote = rastreabilidade** (código/validade/NF de origem, saldo por lote) — decidido
+     pelo dono; (d) **SEFAZ**: não existe nada real (certificado, distDFe, assinatura — a UI
+     afirma coisas que não acontecem). Decisão do dono: **por ora, XML de arquivo + persistir
+     no banco**; consulta ao SEFAZ fica para depois, com certificado A1.
+   - **Item 7 — OS**: a tela é esqueleto ("Nova OS" não cria, "Ver Detalhes" sem `onClick`); o
+     modelo de dados está pronto (`ServiceOrder` com `parts[]`/`labor[]`/checklist/garantia) e
+     persiste só em localStorage.
    **Modo base limpa (`VITE_USE_SEED=false`) é a ferramenta para conduzir esse trabalho:**
    ligue a flag e cada tela vazia mostra exatamente o que ainda falta ligar. Roteiro:
    parar o `npm run dev`, pôr a variável no `.env`, subir de novo, percorrer Estoque →
