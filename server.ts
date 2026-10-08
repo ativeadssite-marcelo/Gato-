@@ -330,6 +330,11 @@ app.post("/api/db/products", requireAuth, requireTenantPermission("item_register
     const name = String(req.body?.name || "").trim().slice(0, 255);
     const brand = String(req.body?.brand || "Genérica").trim().slice(0, 100);
     const categoryName = req.body?.categoryName ? String(req.body.categoryName).trim().slice(0, 100) : "";
+    // Colunas que a tabela já tinha e a rota não expunha: `barcode` é o que a
+    // etiqueta do balcão imprime; `description` fica disponível para quem tiver
+    // texto longo da peça (o cadastro do front ainda usa o nome como descrição).
+    const barcode = req.body?.barcode ? String(req.body.barcode).replace(/[^\dA-Za-z-]/g, "").slice(0, 60) : null;
+    const description = req.body?.description ? String(req.body.description).trim().slice(0, 1000) : null;
     const toMoney = (v: any) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
     const costPrice = toMoney(req.body?.costPrice);
     const salePrice = toMoney(req.body?.salePrice);
@@ -361,9 +366,9 @@ app.post("/api/db/products", requireAuth, requireTenantPermission("item_register
 
     await client.query("BEGIN");
     await client.query(
-      `INSERT INTO "Product" (id, sku, name, brand, "costPrice", "salePrice", "minStock", active, "tenantId", "categoryId", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, $9, NOW(), NOW());`,
-      [prodId, sku, name, brand, costPrice, salePrice, minStock, tenantId, catId]
+      `INSERT INTO "Product" (id, sku, name, barcode, description, brand, "costPrice", "salePrice", "minStock", active, "tenantId", "categoryId", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, $11, NOW(), NOW());`,
+      [prodId, sku, name, barcode, description, brand, costPrice, salePrice, minStock, tenantId, catId]
     );
 
     if (initialStock > 0) {

@@ -255,6 +255,117 @@ export async function fetchQuotes(): Promise<Quote[]> {
   return (data.quotes ?? []).map(mapQuoteRow);
 }
 
+// -------------------------------------------------------------------------
+// ESCRITA — cadastro de produto e de cliente
+// -------------------------------------------------------------------------
+// O payload é montado aqui (e não na tela) para o teste travar a tradução dos
+// nomes: `code`→`sku`, `unitCost`→`costPrice`, `sellingPrice`→`salePrice`,
+// `uf`→`state`. Quem chama recebe o id gravado e recarrega a lista.
+
+/** Payload do `POST /api/db/products`. */
+export function buildProductPayload(product: Product): Record<string, unknown> {
+  const estoqueInicial = Math.max(0, Math.floor(product.stockCentral ?? product.stock ?? 0));
+  return {
+    sku: product.code,
+    name: product.name,
+    brand: product.brand || undefined,
+    barcode: product.barcode || undefined,
+    costPrice: product.unitCost,
+    salePrice: product.sellingPrice,
+    minStock: product.minStock,
+    initialStock: estoqueInicial,
+  };
+}
+
+/**
+ * Payload do `POST /api/db/customers`. O `personType` (PF/PJ) não existe no
+ * cadastro do front — é inferido do documento: 14 dígitos é CNPJ, o resto é CPF.
+ */
+export function buildCustomerPayload(customer: Customer): Record<string, unknown> {
+  const digitos = String(customer.document || '').replace(/\D/g, '');
+  return {
+    name: customer.name,
+    document: customer.document,
+    phone: customer.phone || undefined,
+    email: customer.email || undefined,
+    ie: customer.ie || undefined,
+    city: customer.city || undefined,
+    state: customer.uf || undefined,
+    personType: digitos.length > 11 ? 'PJ' : 'PF',
+  };
+}
+
+/** Resposta das rotas de cadastro: o id gravado. */
+interface CreateResponse {
+  success: boolean;
+  id?: string;
+  error?: string;
+}
+
+async function postJson<T>(url: string, payload: unknown): Promise<T> {
+  return apiJson<T>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Cadastra o produto no banco e devolve o id gravado. */
+export async function createProduct(product: Product): Promise<string> {
+  const data = await postJson<CreateResponse>('/api/db/products', buildProductPayload(product));
+  if (!data?.id) {
+    throw new ApiError('O servidor não devolveu o id do produto cadastrado.', 500);
+  }
+  return data.id;
+}
+
+/** Cadastra o cliente no banco e devolve o id gravado. */
+export async function createCustomer(customer: Customer): Promise<string> {
+  const data = await postJson<CreateResponse>('/api/db/customers', buildCustomerPayload(customer));
+  if (!data?.id) {
+    throw new ApiError('O servidor não devolveu o id do cliente cadastrado.', 500);
+  }
+  return data.id;
+}
+
+/**
+ * Payload do `POST /api/db/quotes`.
+ *
+ * O `customerId` só vai quando ele existe na lista que veio do banco: id de
+ * cliente do seed/demonstração não existe lá, e mandá-lo faz a rota responder
+ * 400 na hora (ela não cai para a busca por nome quando o id foi informado).
+ * Sem id confiável, vai o nome — é assim que o servidor acha o cliente do
+ * próprio tenant.
+ */
+export function buildQuotePayload(quote: Quote, customers: Customer[]): Record<string, unknown> {
+  const clienteDoBanco = customers.some((cliente) => cliente.id === quote.customerId);
+  const items = (quote.items || []).map((item) => ({
+    productId: item.productId || null,
+    quantity: item.quantity,
+    unitPrice: item.finalUnitPrice,
+  }));
+  return {
+    number: quote.quoteNumber,
+    customerId: clienteDoBanco ? quote.customerId : undefined,
+    customerName: clienteDoBanco ? undefined : quote.customerName,
+    total: quote.totalAmount,
+    status: quote.status,
+    items,
+  };
+}
+
+/** Grava o orçamento no banco e devolve o id do orçamento criado. */
+export async function createQuote(quote: Quote, customers: Customer[]): Promise<string> {
+  const data = await postJson<{ success: boolean; budgetId?: string; message?: string }>(
+    '/api/db/quotes',
+    buildQuotePayload(quote, customers)
+  );
+  if (!data?.budgetId) {
+    throw new ApiError('O servidor não devolveu o id do orçamento salvo.', 500);
+  }
+  return data.budgetId;
+}
+
 /** Entidade que falhou ao carregar, com o erro original para quem chamou decidir. */
 export interface EntityLoadFailure {
   entity: 'products' | 'customers' | 'suppliers' | 'quotes';

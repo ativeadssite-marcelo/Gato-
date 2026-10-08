@@ -14,6 +14,9 @@ import { test } from "node:test";
 import assert from "node:assert";
 import { ApiError } from "../../src/services/apiClient";
 import {
+  buildCustomerPayload,
+  buildProductPayload,
+  buildQuotePayload,
   isAccessDeniedError,
   isDatabaseNotConfiguredError,
   mapCustomerRow,
@@ -21,6 +24,88 @@ import {
   mapQuoteRow,
   mapSupplierRow,
 } from "../../src/services/entityApi";
+import type { Customer, Product, Quote } from "../../src/types";
+
+/** Produto no formato do FRONT (o que a tela monta), para testar a ida à API. */
+function produtoDoFront(overrides: Partial<Product> = {}): Product {
+  return {
+    id: "p-1",
+    code: "RET-1113",
+    oemCode: "",
+    similarCodes: [],
+    barcode: "",
+    name: "RETENTOR CUBO TRASEIRO 1113",
+    brand: "Sabó",
+    category: "auto",
+    supplier: "",
+    location: { corridor: "", shelf: "", box: "" },
+    stock: 0,
+    minStock: 2,
+    unitCost: 42,
+    transportCost: 0,
+    markupPercent: 0,
+    sellingPrice: 85,
+    ncm: "",
+    cst: "",
+    cfop: "",
+    taxBaseIcms: 0,
+    applications: [],
+    updatedAt: "2026-10-08T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+/** Cliente no formato do FRONT (uf, type, discountRate...). */
+function clienteDoFront(overrides: Partial<Customer> = {}): Customer {
+  return {
+    id: "cust-1",
+    name: "CLIENTE DE TESTE",
+    type: "consumidor",
+    document: "123.456.789-09",
+    phone: "(67) 99999-0000",
+    email: "teste@exemplo.com.br",
+    city: "Campo Grande",
+    uf: "MS",
+    discountRate: 0,
+    ...overrides,
+  };
+}
+
+/** Orçamento no formato do FRONT, com um item de 4 x 85,00. */
+function quoteDoFront(overrides: Partial<Quote> = {}): Quote {
+  return {
+    id: "quot-1",
+    quoteNumber: "DAV-2026-00489",
+    customerId: "cust-1",
+    customerName: "MARQUES TRANSPORTES LTDA",
+    customerDocument: "08.492.119/0001-72",
+    customerType: "frotista",
+    customerUf: "MS",
+    items: [
+      {
+        productId: "p-1",
+        productName: "RETENTOR CUBO TRASEIRO 1113",
+        productCode: "RET-1113",
+        brand: "Sabó",
+        quantity: 4,
+        costPrice: 42,
+        basePrice: 85,
+        discountPercent: 0,
+        finalUnitPrice: 85,
+        total: 340,
+        locationStr: "",
+      },
+    ],
+    subtotalAmount: 340,
+    discountAmount: 0,
+    totalAmount: 340,
+    taxAmount: 0,
+    status: "Pendente",
+    validUntil: "2026-10-23",
+    createdAt: "2026-10-08T12:00:00.000Z",
+    ...overrides,
+  };
+}
 
 // -------------------------------------------------------------------------
 // PRODUTO
@@ -180,4 +265,93 @@ test("403 e 401 são 'acesso negado' (silêncio, sem aviso na tela)", () => {
   assert.strictEqual(isAccessDeniedError(new ApiError("negado", 403)), true);
   assert.strictEqual(isAccessDeniedError(new ApiError("sessão", 401)), true);
   assert.strictEqual(isAccessDeniedError(new ApiError("sem banco", 503)), false);
+});
+
+// -------------------------------------------------------------------------
+// Payloads de escrita (POST) — a tradução inversa, front → API
+// -------------------------------------------------------------------------
+
+test("payload de produto: code vira sku e os preços viram o vocabulário da API", () => {
+  const payload = buildProductPayload({
+    ...produtoDoFront(),
+    code: "RET-1113",
+    barcode: "7891234567890",
+    unitCost: 42,
+    sellingPrice: 85.5,
+    minStock: 5,
+    stock: 12,
+    stockCentral: 12,
+  });
+
+  assert.strictEqual(payload.sku, "RET-1113");
+  assert.strictEqual(payload.costPrice, 42);
+  assert.strictEqual(payload.salePrice, 85.5);
+  assert.strictEqual(payload.minStock, 5);
+  assert.strictEqual(payload.initialStock, 12);
+  assert.strictEqual(payload.barcode, "7891234567890");
+});
+
+test("payload de produto: sem stockCentral, o estoque inicial sai de stock", () => {
+  const payload = buildProductPayload({
+    ...produtoDoFront(),
+    stock: 7,
+    stockCentral: undefined,
+  });
+  assert.strictEqual(payload.initialStock, 7);
+});
+
+test("payload de produto: campo vazio vira undefined, não string vazia", () => {
+  const payload = buildProductPayload({ ...produtoDoFront(), barcode: "", brand: "" });
+  assert.strictEqual(payload.barcode, undefined);
+  assert.strictEqual(payload.brand, undefined);
+});
+
+test("payload de cliente: uf vira state e 14 dígitos viram PJ", () => {
+  const payload = buildCustomerPayload({
+    ...clienteDoFront(),
+    document: "08.492.119/0001-72",
+    uf: "MS",
+  });
+
+  assert.strictEqual(payload.state, "MS");
+  assert.strictEqual(payload.personType, "PJ");
+  assert.strictEqual(payload.document, "08.492.119/0001-72");
+});
+
+test("payload de cliente: CPF de 11 dígitos vira PF e campo vazio vira undefined", () => {
+  const payload = buildCustomerPayload({
+    ...clienteDoFront(),
+    document: "123.456.789-09",
+    phone: "",
+  });
+
+  assert.strictEqual(payload.personType, "PF");
+  assert.strictEqual(payload.phone, undefined);
+});
+
+test("payload de orçamento: cliente que veio do banco vai por id", () => {
+  const payload = buildQuotePayload(
+    quoteDoFront({ customerId: "cust_do_banco" }),
+    [clienteDoFront({ id: "cust_do_banco" })],
+  );
+
+  assert.strictEqual(payload.customerId, "cust_do_banco");
+  assert.strictEqual(payload.customerName, undefined);
+});
+
+test("payload de orçamento: cliente que NÃO veio do banco vai por nome", () => {
+  // Id do seed/demonstração: mandá-lo faria a rota responder 400 sem tentar o nome.
+  const payload = buildQuotePayload(quoteDoFront({ customerId: "cust-1" }), []);
+
+  assert.strictEqual(payload.customerId, undefined);
+  assert.strictEqual(payload.customerName, "MARQUES TRANSPORTES LTDA");
+});
+
+test("payload de orçamento: item leva preço final e quantidade", () => {
+  const payload = buildQuotePayload(quoteDoFront(), []) as { items: Array<Record<string, unknown>> };
+  assert.deepStrictEqual(payload.items[0], {
+    productId: "p-1",
+    quantity: 4,
+    unitPrice: 85,
+  });
 });

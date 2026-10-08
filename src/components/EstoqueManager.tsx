@@ -42,6 +42,8 @@ interface EstoqueManagerProps {
   userSession?: UserSession | null;
   onUpdateProducts: (products: Product[]) => void;
   onAddNewProduct?: (product: Product) => void;
+  /** Recarrega as listas do banco depois de uma escrita (cadastro de produto). */
+  onReloadEntities?: () => Promise<void>;
   onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void;
   onSelectForQuote?: (product: Product) => void;
 }
@@ -51,6 +53,7 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
   userSession,
   onUpdateProducts,
   onAddNewProduct,
+  onReloadEntities,
   onShowNotification,
   onSelectForQuote,
 }) => {

@@ -71,6 +71,8 @@ interface BalcaoCotacaoProps {
   onAddNewProduct: (product: Product) => void;
   onEmitNfeFromQuote: (quoteData: any) => void;
   onSaveQuote?: (quote: Quote) => void;
+  /** Recarrega as listas do banco depois de uma escrita (cadastro de produto). */
+  onReloadEntities?: () => Promise<void>;
   onNavigateToFleet?: () => void;
   onNavigateToPartsApplication?: () => void;
   onNavigateToNfe?: () => void;
@@ -89,6 +91,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
   onAddNewProduct,
   onEmitNfeFromQuote,
   onSaveQuote,
+  onReloadEntities,
   onNavigateToFleet,
   onNavigateToPartsApplication,
   onNavigateToNfe,

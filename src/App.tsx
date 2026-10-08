@@ -90,6 +90,9 @@ import {
   loadTenantEntities,
   isAccessDeniedError,
   isDatabaseNotConfiguredError,
+  createProduct,
+  createQuote,
+  type EntityLoadResult,
 } from './services/entityApi';
 import { seedList, loadEntityState, persistEntityState } from './utils/seedMode';
 import { fetchServerSession, logoutSession, buildUserSession } from './utils/sessionService';
@@ -428,32 +431,47 @@ export default function App() {
   //    cuida do logout).
   // Depende do ID do usuário, não do objeto de sessão: trocar de filial
   // reconstrói a sessão com a mesma identidade e não deve recarregar tudo.
-  useEffect(() => {
-    if (!userSession?.id) return;
+  /** Aplica o resultado de uma carga às quatro listas (e avisa o que falhou). */
+  const applyEntityLoad = (result: EntityLoadResult) => {
+    if (result.products) setProducts(result.products);
+    if (result.customers) setCustomers(result.customers);
+    if (result.suppliers) setSuppliers(result.suppliers);
+    if (result.quotes) setQuotes(result.quotes);
+
     const ENTITY_LABELS = {
       products: 'produtos',
       customers: 'clientes',
       suppliers: 'fornecedores',
       quotes: 'orçamentos',
     } as const;
+    const failures = result.failures.filter(
+      (f) => !isDatabaseNotConfiguredError(f.error) && !isAccessDeniedError(f.error)
+    );
+    if (failures.length > 0) {
+      showNotification(
+        'Falha ao carregar dados',
+        `Não foi possível carregar do banco: ${failures.map((f) => ENTITY_LABELS[f.entity]).join(', ')}. A tela pode estar desatualizada.`,
+        'warning'
+      );
+    }
+  };
+
+  /**
+   * Recarrega as quatro listas do banco. É chamado depois de cada escrita
+   * (cadastro de produto, cliente ou orçamento) para a tela refletir o que foi
+   * realmente gravado — inclusive o id e o saldo, que só o banco conhece.
+   */
+  const reloadEntities = async () => {
+    applyEntityLoad(await loadTenantEntities());
+  };
+
+  useEffect(() => {
+    if (!userSession?.id) return;
     let cancelled = false;
     (async () => {
       const result = await loadTenantEntities();
       if (cancelled) return;
-      if (result.products) setProducts(result.products);
-      if (result.customers) setCustomers(result.customers);
-      if (result.suppliers) setSuppliers(result.suppliers);
-      if (result.quotes) setQuotes(result.quotes);
-      const failures = result.failures.filter(
-        (f) => !isDatabaseNotConfiguredError(f.error) && !isAccessDeniedError(f.error)
-      );
-      if (failures.length > 0) {
-        showNotification(
-          'Falha ao carregar dados',
-          `Não foi possível carregar do banco: ${failures.map((f) => ENTITY_LABELS[f.entity]).join(', ')}. A tela pode estar desatualizada.`,
-          'warning'
-        );
-      }
+      applyEntityLoad(result);
     })();
     return () => {
       cancelled = true;
@@ -462,7 +480,22 @@ export default function App() {
 
   // Handlers for products
   const handleAddNewProduct = (newProd: Product) => {
+    // Local primeiro — o balcão não para se a gravação falhar — e, com banco
+    // configurado, grava e recarrega para a lista trazer o id e o saldo reais.
     setProducts(prev => [newProd, ...prev]);
+    void (async () => {
+      try {
+        await createProduct(newProd);
+        await reloadEntities();
+      } catch (error) {
+        if (isDatabaseNotConfiguredError(error)) return; // dev sem banco: segue local
+        showNotification(
+          'Produto não gravado no banco',
+          error instanceof Error ? error.message : 'Falha ao gravar o produto.',
+          'warning'
+        );
+      }
+    })();
   };
 
   const handleUpdateProductStock = (productId: string, quantityToAdd: number) => {
@@ -601,6 +634,25 @@ export default function App() {
       `Orçamento ${newQuote.quoteNumber} (${newQuote.customerName}) salvo.${isNew ? ' Lead capturado para remarketing WhatsApp!' : ''}`,
       'success'
     );
+
+    // Orçamento NOVO vai para o banco; um que já veio de lá (id `bud_…`) só tem
+    // o estado local atualizado — alterar orçamento gravado exige o PUT, que é
+    // o próximo passo do plano (item "alterar orçamento").
+    const jaEstaNoBanco = newQuote.id.startsWith('bud_');
+    if (jaEstaNoBanco) return;
+    void (async () => {
+      try {
+        await createQuote(newQuote, customers);
+        await reloadEntities();
+      } catch (error) {
+        if (isDatabaseNotConfiguredError(error)) return; // dev sem banco: segue local
+        showNotification(
+          'Orçamento não gravado no banco',
+          error instanceof Error ? error.message : 'Falha ao gravar o orçamento.',
+          'warning'
+        );
+      }
+    })();
   };
 
   // Handler for converting a quote to sale from ClientesOrcamentos
@@ -950,6 +1002,7 @@ export default function App() {
               onAddNewProduct={handleAddNewProduct}
               onEmitNfeFromQuote={handleEmitNfeFromQuote}
               onSaveQuote={handleSaveQuote}
+              onReloadEntities={reloadEntities}
               onNavigateToFleet={() => setCurrentView('frota')}
               onNavigateToPartsApplication={() => setCurrentView('consulta-aplicacao')}
               onNavigateToNfe={() => setCurrentView('nfe-venda')}
@@ -1022,6 +1075,7 @@ export default function App() {
               userSession={userSession}
               onUpdateProducts={setProducts}
               onAddNewProduct={handleAddNewProduct}
+              onReloadEntities={reloadEntities}
               onShowNotification={showNotification}
               onSelectForQuote={(p) => {
                 setSelectedProductForQuote(p);
@@ -1112,6 +1166,7 @@ export default function App() {
               companyProfile={companyProfile}
               onUpdateCustomers={setCustomers}
               onUpdateQuotes={setQuotes}
+              onReloadEntities={reloadEntities}
               onUpdateLeads={handleUpdateMarketingLeads}
               onConvertQuoteToSale={handleConvertQuoteToSale}
               onNavigateToQuoteWithCustomer={(cust) => {

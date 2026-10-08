@@ -44,6 +44,7 @@ import {
 } from '../utils/quoteMarketingSync';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { ImprimirOrcamentoSeletor } from './ImprimirOrcamentoSeletor';
+import { createCustomer, isDatabaseNotConfiguredError } from '../services/entityApi';
 
 // Shim para logoDownloadKit removido
 async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
@@ -67,6 +68,8 @@ interface ClientesOrcamentosProps {
   onUpdateLeads?: (leads: MarketingLead[]) => void;
   onConvertQuoteToSale: (quote: Quote) => void;
   onNavigateToQuoteWithCustomer?: (customer: Customer) => void;
+  /** Recarrega as listas do banco depois de uma escrita (cadastro de cliente). */
+  onReloadEntities?: () => Promise<void>;
   onTabChange?: (tab: 'orcamentos' | 'clientes' | 'politicas' | 'leads_marketing') => void;
   onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void;
 }
@@ -83,6 +86,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
   onUpdateLeads,
   onConvertQuoteToSale,
   onNavigateToQuoteWithCustomer,
+  onReloadEntities,
   onTabChange,
   onShowNotification,
 }) => {
@@ -319,6 +323,25 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
     onUpdateCustomers(updated);
     setIsCustomerModalOpen(false);
     setCustomerToEdit(null);
+
+    // Cliente NOVO vai para o banco (o alterado fica local até existir o PUT de
+    // cliente). Local primeiro, como no produto: a tela não perde o cadastro se
+    // a gravação falhar — mas o aviso diz que não foi gravado.
+    const isNewCustomer = !customers.some(c => c.id === savedCustomer.id);
+    if (!isNewCustomer) return;
+    void (async () => {
+      try {
+        await createCustomer(savedCustomer);
+        if (onReloadEntities) await onReloadEntities();
+      } catch (error) {
+        if (isDatabaseNotConfiguredError(error)) return; // dev sem banco: segue local
+        onShowNotification(
+          'Cliente não gravado no banco',
+          error instanceof Error ? error.message : 'Falha ao gravar o cliente.',
+          'warning'
+        );
+      }
+    })();
   };
 
   // Delete Customer
