@@ -30,14 +30,16 @@ import {
   Check
 } from 'lucide-react';
 import { Product, FleetVehicleModel, PartSystemCategory, VehicleFleetSegment, VehicleFleetItem } from '../types';
-import { 
-  BRAZILIAN_FLEET_DATABASE, 
-  getDistinctFleetMakes, 
-  getModelsByFleetMake, 
-  getAvailableYearsForSelection, 
+import {
+  BRAZILIAN_FLEET_DATABASE,
+  getDistinctFleetMakes,
+  getDistinctFleetSegments,
+  getMakesBySegment,
+  getModelsByFleetMake,
+  getAvailableYearsForSelection,
   getEnginesForSelection,
   queryPartsByVehicleApplication,
-  reverseLookupVehiclesForPart 
+  reverseLookupVehiclesForPart
 } from '../data/fleetDatabase';
 
 interface ConsultaAplicacaoPecasProps {
@@ -93,12 +95,8 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
 
   // Lista de montadoras filtrada por segmento
   const filteredMakesList = useMemo(() => {
-    if (selectedSegmentFilter === 'todos') return makesList;
-    const segmentVehicles = BRAZILIAN_FLEET_DATABASE.filter(v => v.segmento === selectedSegmentFilter);
-    const makesSet = new Set<string>();
-    segmentVehicles.forEach(v => makesSet.add(v.montadora));
-    return Array.from(makesSet).sort((a, b) => a.localeCompare(b));
-  }, [makesList, selectedSegmentFilter]);
+    return getMakesBySegment(selectedSegmentFilter as VehicleFleetSegment | 'todos');
+  }, [selectedSegmentFilter]);
   
   const modelsList = useMemo(() => {
     return getModelsByFleetMake(selectedMake);
@@ -526,31 +524,47 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
                 Filtrar por Categoria / Segmento:
               </label>
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                {[
-                  { id: 'todos', label: 'Todos os Segmentos', icon: '🌐' },
-                  { id: 'Caminhão / Pesado', label: '🚛 Caminhões & Pesados', highlight: true },
-                  { id: 'Automóvel / Hatch', label: '🚗 Carros & Hatches' },
-                  { id: 'SUV / Crossover', label: '🚙 SUVs & Crossovers' },
-                  { id: 'Picape / Utilitário', label: '🛻 Picapes & Utilitários' },
-                  { id: 'Motocicleta', label: '🏍️ Motos' },
-                  { id: 'Agrícola / Máquina', label: '🚜 Agrícola & Tratores' },
-                ].map(seg => (
-                  <button
-                    key={seg.id}
-                    type="button"
-                    onClick={() => handleSelectSegment(seg.id)}
-                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-                      selectedSegmentFilter === seg.id
-                        ? 'bg-sky-600 text-white shadow-sm ring-2 ring-sky-300'
-                        : seg.highlight
-                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-extrabold'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <span>{seg.icon || ''}</span>
-                    <span>{seg.label}</span>
-                  </button>
-                ))}
+                {(() => {
+                  // Os botões vêm do DADO (`getDistinctFleetSegments`), não de uma
+                  // lista escrita à mão: era daí que vinha o defeito — os rótulos
+                  // ("Automóvel / Hatch") não existiam na base ("Passeio") e o
+                  // filtro por igualdade devolvia vazio em 5 dos 6 botões.
+                  const ICONES: Record<string, string> = {
+                    'todos': '🌐',
+                    'Caminhão / Pesado': '🚛',
+                    'Passeio': '🚗',
+                    'SUV': '🚙',
+                    'Pickup / Utilitário': '🛻',
+                    'Van / Comercial Leve': '🚐',
+                    'Moto': '🏍️',
+                    'Agrícola': '🚜',
+                  };
+                  const segmentos: Array<{ id: string; label: string; highlight?: boolean }> = [
+                    { id: 'todos', label: 'Todos os Segmentos' },
+                    ...getDistinctFleetSegments().map((segmento) => ({
+                      id: segmento,
+                      label: segmento,
+                      highlight: segmento === 'Caminhão / Pesado',
+                    })),
+                  ];
+                  return segmentos.map((seg) => (
+                    <button
+                      key={seg.id}
+                      type="button"
+                      onClick={() => handleSelectSegment(seg.id)}
+                      className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+                        selectedSegmentFilter === seg.id
+                          ? 'bg-sky-600 text-white shadow-sm ring-2 ring-sky-300'
+                          : seg.highlight
+                          ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-extrabold'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <span>{ICONES[seg.id] || ''}</span>
+                      <span>{seg.label}</span>
+                    </button>
+                  ));
+                })()}
               </div>
             </div>
 

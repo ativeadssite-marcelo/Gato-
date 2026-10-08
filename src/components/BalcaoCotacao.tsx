@@ -33,15 +33,18 @@ import {
   MessageCircle,
   Copy
 } from 'lucide-react';
-import { Product, Customer, QuoteItem, CustomerType, StateTaxConfig, Quote, BranchUnit, UserSession, VehicleFleetItem } from '../types';
+import { Product, Customer, QuoteItem, CustomerType, StateTaxConfig, Quote, BranchUnit, UserSession, VehicleFleetItem, VehicleFleetSegment } from '../types';
 import { STATE_TAX_TABLE, INITIAL_BRANCHES } from '../data/initialData';
-import { 
-  BRAZILIAN_FLEET_DATABASE, 
-  getDistinctFleetMakes, 
-  getModelsByFleetMake, 
-  getAvailableYearsForSelection, 
+import {
+  BRAZILIAN_FLEET_DATABASE,
+  getDistinctFleetMakes,
+  getDistinctFleetSegments,
+  getMakesBySegment,
+  getModelsBySegmentAndMake,
+  getModelsByFleetMake,
+  getAvailableYearsForSelection,
   getEnginesForSelection,
-  queryPartsByVehicleApplication 
+  queryPartsByVehicleApplication
 } from '../data/fleetDatabase';
 import { CadastroPecaModal } from './CadastroPecaModal';
 import { CupomFiscalModal } from './CupomFiscalModal';
@@ -203,17 +206,21 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
   const [photoZoomUrl, setPhotoZoomUrl] = useState<string | null>(null);
 
   // Quick Vehicle Application Filter State inside Balcão
+  // Segmento é o primeiro nível da cascata (o balcão pensa "é caminhão ou é
+  // carro?" antes de "qual montadora?"). Os segmentos vêm do DADO.
+  const [quickSegment, setQuickSegment] = useState<VehicleFleetSegment | 'todos'>('todos');
   const [quickMake, setQuickMake] = useState<string>('');
   const [quickModelId, setQuickModelId] = useState<string>('');
   const [quickYear, setQuickYear] = useState<string>('');
   const [quickEngine, setQuickEngine] = useState<string>('');
   const [quickSearchTerm, setQuickSearchTerm] = useState<string>('');
 
-  const quickMakesList = useMemo(() => getDistinctFleetMakes(), []);
+  const quickSegmentsList = useMemo(() => getDistinctFleetSegments(), []);
+  const quickMakesList = useMemo(() => getMakesBySegment(quickSegment), [quickSegment]);
   const quickModelsList = useMemo(() => {
     if (!quickMake) return [];
-    return getModelsByFleetMake(quickMake);
-  }, [quickMake]);
+    return getModelsBySegmentAndMake(quickSegment, quickMake);
+  }, [quickSegment, quickMake]);
   const quickYearsList = useMemo(() => {
     return getAvailableYearsForSelection(quickModelId);
   }, [quickModelId]);
@@ -2046,6 +2053,29 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
 
             {/* Quick Filter Controls */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Segmento:</label>
+                <select
+                  id="quick-segmento"
+                  value={quickSegment}
+                  onChange={(e) => {
+                    // Trocar o segmento recomeça a cascata: a montadora escolhida
+                    // pode não existir no segmento novo.
+                    setQuickSegment(e.target.value as VehicleFleetSegment | 'todos');
+                    setQuickMake('');
+                    setQuickModelId('');
+                    setQuickYear('');
+                    setQuickEngine('');
+                  }}
+                  className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:outline-sky-500"
+                >
+                  <option value="todos">Todos os Segmentos</option>
+                  {quickSegmentsList.map((segmento) => (
+                    <option key={segmento} value={segmento}>{segmento}</option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Montadora:</label>
                 <select

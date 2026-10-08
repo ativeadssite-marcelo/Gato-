@@ -1,4 +1,4 @@
-import { FleetVehicleModel, Product, PartApplicationMatch, PartSystemCategory } from '../types';
+import { FleetVehicleModel, Product, PartApplicationMatch, PartSystemCategory, VehicleFleetSegment } from '../types';
 
 /**
  * BANCO DE DADOS DA FROTA COMERCIALIZADA NO BRASIL (1995 A 2027)
@@ -1135,6 +1135,49 @@ export function getDistinctFleetMakes(): string[] {
   const set = new Set<string>();
   BRAZILIAN_FLEET_DATABASE.forEach(v => set.add(v.montadora));
   return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Segmentos que EXISTEM na base, na ordem em que a tela os apresenta.
+ *
+ * A ordem é fixa (do leve ao pesado) e não alfabética: é a ordem em que o
+ * balcão pensa. Derivar a lista do dado — em vez de escrever os rótulos à mão —
+ * é o que impede o defeito que existia aqui: os botões diziam
+ * "Automóvel / Hatch" enquanto a base grava "Passeio", e o filtro por igualdade
+ * não devolvia nada. Com a lista vinda da base, um segmento sem veículo
+ * simplesmente não aparece.
+ */
+const ORDEM_SEGMENTOS: VehicleFleetSegment[] = [
+  'Passeio',
+  'SUV',
+  'Pickup / Utilitário',
+  'Van / Comercial Leve',
+  'Caminhão / Pesado',
+  'Moto',
+  'Agrícola',
+];
+
+export function getDistinctFleetSegments(): VehicleFleetSegment[] {
+  const presentes = new Set(BRAZILIAN_FLEET_DATABASE.map(v => v.segmento));
+  return ORDEM_SEGMENTOS.filter(segmento => presentes.has(segmento));
+}
+
+/** Montadoras que têm ao menos um veículo do segmento. */
+export function getMakesBySegment(segmento?: VehicleFleetSegment | 'todos'): string[] {
+  if (!segmento || segmento === 'todos') return getDistinctFleetMakes();
+  const set = new Set<string>();
+  BRAZILIAN_FLEET_DATABASE.filter(v => v.segmento === segmento).forEach(v => set.add(v.montadora));
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+/** Modelos de uma montadora dentro de um segmento (cascata da tela). */
+export function getModelsBySegmentAndMake(
+  segmento: VehicleFleetSegment | 'todos',
+  montadora: string
+): FleetVehicleModel[] {
+  const daMontadora = getModelsByFleetMake(montadora);
+  if (!segmento || segmento === 'todos') return daMontadora;
+  return daMontadora.filter(v => v.segmento === segmento);
 }
 
 // Modelos por Montadora
