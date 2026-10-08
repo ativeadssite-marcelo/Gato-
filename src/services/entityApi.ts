@@ -169,6 +169,8 @@ const QUOTE_STATUS_FROM_API: Record<string, Quote['status']> = {
   APPROVED: 'Aprovado',
   REJECTED: 'Recusado',
   CONVERTED: 'Convertido',
+  CANCELED: 'Cancelado',
+  CANCELLED: 'Cancelado',
 };
 
 function mapQuoteStatus(value: unknown): Quote['status'] {
@@ -176,7 +178,7 @@ function mapQuoteStatus(value: unknown): Quote['status'] {
   if (QUOTE_STATUS_FROM_API[raw]) return QUOTE_STATUS_FROM_API[raw];
   // A rota de escrita grava o status que o front mandar; se já veio em pt-BR,
   // passa direto. Valor desconhecido cai em 'Pendente' (o default do banco).
-  if (raw === 'Pendente' || raw === 'Aprovado' || raw === 'Recusado' || raw === 'Convertido') {
+  if (raw === 'Pendente' || raw === 'Aprovado' || raw === 'Recusado' || raw === 'Convertido' || raw === 'Cancelado') {
     return raw;
   }
   return 'Pendente';
@@ -339,6 +341,18 @@ export async function setProductActive(productId: string, active: boolean): Prom
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ active }),
+  });
+}
+
+/**
+ * Muda o status de um orçamento que já está no banco. Cancelar é o "excluir"
+ * do orçamento: a linha permanece (histórico do cliente), só sai da lista.
+ */
+export async function updateQuoteStatus(quoteId: string, status: Quote['status']): Promise<void> {
+  await apiJson(`/api/db/quotes/${encodeURIComponent(quoteId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
   });
 }
 

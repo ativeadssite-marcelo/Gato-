@@ -1052,6 +1052,12 @@ app.post("/api/db/quotes", requireAuth, requireTenantPermission("sales"), requir
     }
     await client.query("COMMIT");
 
+    // Ação sensível (documento comercial): entra na trilha, como as demais.
+    recordAudit(req, req.auth!.user, "CREATE_QUOTE", "customers_employees", budgetId, "success", {
+      details: `Orçamento ${safeNumber} salvo com ${Array.isArray(items) ? Math.min(items.length, 200) : 0} item(ns).`,
+      targetTenantId: tenantId,
+    });
+
     res.json({ success: true, budgetId, message: "DAV / Orçamento registrado no Supabase com sucesso!" });
   } catch (err: any) {
     await client.query("ROLLBACK").catch(() => {});
@@ -1061,6 +1067,159 @@ app.post("/api/db/quotes", requireAuth, requireTenantPermission("sales"), requir
     client.release();
   }
 });
+
+// Update Budget/DAV — cabeçalho e itens
+//
+// Serve às duas operações da tela de orçamentos:
+//   - CANCELAR: muda o status (os itens ficam como estão);
+//   - ALTERAR: troca cliente/itens/valores.
+// Quando `items` vem no corpo, os itens são SUBSTITUÍDOS numa transação — o que
+// a tela manda é o orçamento inteiro, não um item solto.
+app.put(
+  "/api/db/quotes/:id",
+  requireAuth,
+  requireTenantPermission("sales"),
+  requireAnyPermission(["customers_employees", "company_data"], { write: true }),
+  async (req, res) => {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
+    const scope = resolveDataScope(req, "customers_employees");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    if (!scope.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: "Informe o tenant de destino (x-target-tenant-id) para atualizar o orçamento.",
+      });
+    }
+    const tenantId = scope.tenantId;
+    const budgetId = String(req.params.id || "").trim().slice(0, 64);
+
+    const STATUS_VALIDOS = [
+      "Pendente", "Aprovado", "Recusado", "Convertido", "Cancelado",
+      "PENDING", "APPROVED", "REJECTED", "CONVERTED", "CANCELED", "CANCELLED",
+    ];
+    const statusInformado = req.body?.status;
+    if (statusInformado !== undefined && !STATUS_VALIDOS.includes(String(statusInformado))) {
+      return res.status(400).json({ success: false, error: "Status de orçamento inválido." });
+    }
+
+    const pool = getDbPool();
+    const client = await pool.connect();
+    try {
+      const found = await client.query(
+        'SELECT id, number FROM "Budget" WHERE id = $1 AND "tenantId" = $2 LIMIT 1;',
+        [budgetId, tenantId]
+      );
+      if (found.rows.length === 0) {
+        return res.status(404).json({ success: false, error: "Orçamento não encontrado nesta empresa." });
+      }
+      const numero = String(found.rows[0].number ?? "");
+
+      // Cliente: só é tocado quando vem no corpo, e vale a mesma regra do POST
+      // (id precisa ser do próprio tenant; sem id, busca pelo nome).
+      let customerId: string | null | undefined;
+      const providedCustomerId = req.body?.customerId;
+      const customerName = req.body?.customerName;
+      if (providedCustomerId && typeof providedCustomerId === "string") {
+        const cRes = await client.query(
+          'SELECT id FROM "Customer" WHERE id = $1 AND "tenantId" = $2 LIMIT 1;',
+          [providedCustomerId.trim().slice(0, 64), tenantId]
+        );
+        customerId = cRes.rows[0]?.id || null;
+        if (!customerId) {
+          return res.status(400).json({ success: false, error: "Cliente informado não pertence à sua empresa." });
+        }
+      } else if (customerName && typeof customerName === "string" && customerName.trim()) {
+        const safeCustomerQuery = `%${escapeSqlLike(customerName.trim().slice(0, 100))}%`;
+        const cRes = await client.query(
+          'SELECT id FROM "Customer" WHERE "tenantId" = $1 AND LOWER(name) LIKE LOWER($2) ORDER BY "createdAt" DESC LIMIT 1;',
+          [tenantId, safeCustomerQuery]
+        );
+        customerId = cRes.rows[0]?.id || null;
+        if (!customerId) {
+          return res.status(400).json({
+            success: false,
+            error: "Cliente não encontrado nesta empresa. Cadastre/selecione o cliente correto antes de salvar o orçamento.",
+          });
+        }
+      }
+
+      const sets: string[] = [];
+      const params: any[] = [];
+      const push = (column: string, value: unknown) => {
+        params.push(value);
+        sets.push(`"${column}" = $${params.length}`);
+      };
+      if (typeof req.body?.number === "string" && req.body.number.trim()) {
+        push("number", req.body.number.trim().slice(0, 50));
+      }
+      if (customerId !== undefined && customerId !== null) push("customerId", customerId);
+      if (typeof req.body?.total === "number" && Number.isFinite(req.body.total) && req.body.total >= 0) {
+        push("total", req.body.total);
+      }
+      if (statusInformado !== undefined) push("status", String(statusInformado).slice(0, 30));
+
+      const temItens = Array.isArray(req.body?.items);
+      if (sets.length === 0 && !temItens) {
+        return res.status(400).json({ success: false, error: "Informe ao menos um campo ou os itens do orçamento." });
+      }
+
+      await client.query("BEGIN");
+      if (sets.length > 0) {
+        const idIdx = params.length + 1;
+        params.push(budgetId);
+        const tenantIdx = params.length + 1;
+        params.push(tenantId);
+        await client.query(
+          `UPDATE "Budget" SET ${sets.join(", ")}, "updatedAt" = NOW() WHERE id = $${idIdx} AND "tenantId" = $${tenantIdx};`,
+          params
+        );
+      }
+      if (temItens) {
+        const boundedItems = (req.body.items as any[]).slice(0, 200);
+        await client.query('DELETE FROM "BudgetItem" WHERE "budgetId" = $1;', [budgetId]);
+        for (const it of boundedItems) {
+          const itemId = 'bi_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+          const itemQty = typeof it.quantity === "number" && Number.isFinite(it.quantity) && it.quantity > 0 ? it.quantity : 1;
+          const itemPrice = typeof it.unitPrice === "number" && Number.isFinite(it.unitPrice) && it.unitPrice >= 0 ? it.unitPrice : 0;
+          await client.query(
+            `INSERT INTO "BudgetItem" (id, "budgetId", "productId", quantity, "unitPrice", "createdAt")
+             VALUES ($1, $2, $3, $4, $5, NOW());`,
+            [itemId, budgetId, it.productId || null, itemQty, itemPrice]
+          );
+        }
+      }
+      await client.query("COMMIT");
+
+      const cancelando = ["Cancelado", "CANCELED", "CANCELLED"].includes(String(statusInformado));
+      recordAudit(
+        req,
+        req.auth!.user,
+        cancelando ? "CANCEL_QUOTE" : "UPDATE_QUOTE",
+        "customers_employees",
+        budgetId,
+        "success",
+        {
+          details: `Orçamento ${numero} ${cancelando ? "cancelado" : "alterado"}${temItens ? " (itens regravados)" : ""}.`,
+          targetTenantId: tenantId,
+        }
+      );
+
+      res.json({
+        success: true,
+        id: budgetId,
+        message: cancelando ? "Orçamento cancelado." : "Orçamento atualizado.",
+      });
+    } catch (err: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("[GATO DB] Falha ao atualizar orçamento:", err?.message || err);
+      res.status(500).json({ success: false, error: "Falha segura ao atualizar orçamento." });
+    } finally {
+      client.release();
+    }
+  }
+);
 
 // Sync GATO Catalog Products into Supabase (Rate limited and payload capped)
 // Protegido: sem autenticação qualquer terceiro sobrescrevia preços/estoque de outras empresas.

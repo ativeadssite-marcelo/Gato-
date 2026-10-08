@@ -218,6 +218,8 @@ test("orçamento: status do banco vira o status do front", () => {
   assert.strictEqual(mapQuoteRow(budgetRow).status, "Pendente");
   assert.strictEqual(mapQuoteRow({ ...budgetRow, status: "APPROVED" }).status, "Aprovado");
   assert.strictEqual(mapQuoteRow({ ...budgetRow, status: "Convertido" }).status, "Convertido");
+  assert.strictEqual(mapQuoteRow({ ...budgetRow, status: "CANCELED" }).status, "Cancelado");
+  assert.strictEqual(mapQuoteRow({ ...budgetRow, status: "Cancelado" }).status, "Cancelado");
   assert.strictEqual(mapQuoteRow({ ...budgetRow, status: "QUALQUER_COISA" }).status, "Pendente");
 });
 

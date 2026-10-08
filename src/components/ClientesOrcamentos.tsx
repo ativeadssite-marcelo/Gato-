@@ -44,7 +44,7 @@ import {
 } from '../utils/quoteMarketingSync';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { ImprimirOrcamentoSeletor } from './ImprimirOrcamentoSeletor';
-import { createCustomer, isDatabaseNotConfiguredError } from '../services/entityApi';
+import { createCustomer, isDatabaseNotConfiguredError, updateQuoteStatus } from '../services/entityApi';
 
 // Shim para logoDownloadKit removido
 async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
@@ -129,6 +129,9 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
 
   // Feedback do "Copiar Resumo" — guarda o id do orçamento copiado por 2,5s
   const [copiedQuoteId, setCopiedQuoteId] = useState<string | null>(null);
+  // Cancelamento em espera de confirmação digitada (ver modal no fim da tela).
+  const [cancelQuoteTarget, setCancelQuoteTarget] = useState<Quote | null>(null);
+  const [cancelQuoteConfirmation, setCancelQuoteConfirmation] = useState('');
 
   const handleOpenCupomForQuote = (q: Quote) => {
     setCupomQuote(q);
@@ -253,6 +256,13 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
             Recusado
           </span>
         );
+      case 'Cancelado':
+        return (
+          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-300 px-2.5 py-0.5 rounded-full font-bold text-[11px]">
+            <Ban className="w-3 h-3 text-slate-500" />
+            Cancelado
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full font-bold text-[11px]">
@@ -279,6 +289,39 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
     onShowNotification(
       'Status do Orçamento Atualizado',
       `Orçamento marcado como ${newStatus}.`,
+      'info'
+    );
+  };
+
+  /**
+   * Cancela o orçamento — o "excluir" do sistema.
+   *
+   * Não apaga nada: a linha continua no banco (proposta cancelada ainda é
+   * histórico do cliente) e sai da lista do dia a dia. Orçamento que já está no
+   * banco (`bud_…`) muda por lá; os de demonstração, só no estado local.
+   * A confirmação é DIGITADA (número do DAV) — clique errado não cancela venda.
+   */
+  const handleCancelQuote = async (quote: Quote) => {
+    if (quote.id.startsWith('bud_')) {
+      try {
+        await updateQuoteStatus(quote.id, 'Cancelado');
+        if (onReloadEntities) await onReloadEntities();
+      } catch (error) {
+        if (!isDatabaseNotConfiguredError(error)) {
+          onShowNotification(
+            'Não foi possível cancelar',
+            error instanceof Error ? error.message : 'Falha ao cancelar o orçamento.',
+            'warning'
+          );
+          return;
+        }
+      }
+    } else {
+      onUpdateQuotes(quotes.map((q) => (q.id === quote.id ? { ...q, status: 'Cancelado' as QuoteStatus } : q)));
+    }
+    onShowNotification(
+      'Orçamento Cancelado',
+      `${quote.quoteNumber} (${quote.customerName}) saiu da lista. O histórico foi preservado.`,
       'info'
     );
   };
@@ -478,7 +521,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto text-xs">
-              {['all', 'Pendente', 'Aprovado', 'Convertido', 'Recusado'].map((st) => (
+              {['all', 'Pendente', 'Aprovado', 'Convertido', 'Recusado', 'Cancelado'].map((st) => (
                 <button
                   key={st}
                   type="button"
@@ -621,7 +664,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                               <Eye className="w-4 h-4" />
                             </button>
 
-                            {quote.status !== 'Convertido' && (
+                            {quote.status !== 'Convertido' && quote.status !== 'Cancelado' && (
                               <button
                                 type="button"
                                 onClick={() => handleConvertQuote(quote)}
@@ -630,6 +673,20 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 <span>Converter em Venda (NF-e)</span>
+                              </button>
+                            )}
+
+                            {quote.status !== 'Convertido' && quote.status !== 'Cancelado' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCancelQuoteTarget(quote);
+                                  setCancelQuoteConfirmation('');
+                                }}
+                                className="p-1.5 text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                title="Cancelar orçamento (sai da lista; o histórico permanece)"
+                              >
+                                <Ban className="w-4 h-4" />
                               </button>
                             )}
 
@@ -1531,6 +1588,73 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
         }}
         onShowNotification={onShowNotification}
       />
+
+      {/* ===================================================================== */}
+      {/* MODAL: CANCELAR ORÇAMENTO — confirmação DIGITADA (número do DAV)       */}
+      {/* ===================================================================== */}
+      {cancelQuoteTarget && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-rose-100 text-rose-700 shrink-0">
+                <Ban className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Cancelar orçamento</span>
+                <h3 className="text-sm font-black text-slate-900 font-mono">{cancelQuoteTarget.quoteNumber}</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {cancelQuoteTarget.customerName} • R$ {cancelQuoteTarget.totalAmount.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-600 space-y-1">
+              <p>O orçamento <strong>sai da lista</strong> e não pode mais ser convertido em venda.</p>
+              <p>Ele <strong>não é apagado</strong>: continua no histórico do cliente e nos relatórios.</p>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                Para confirmar, digite o número <span className="font-mono text-slate-900">{cancelQuoteTarget.quoteNumber}</span>:
+              </label>
+              <input
+                type="text"
+                value={cancelQuoteConfirmation}
+                onChange={(e) => setCancelQuoteConfirmation(e.target.value)}
+                placeholder={cancelQuoteTarget.quoteNumber}
+                autoFocus
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-rose-400"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelQuoteTarget(null);
+                  setCancelQuoteConfirmation('');
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                disabled={cancelQuoteConfirmation.trim() !== cancelQuoteTarget.quoteNumber}
+                onClick={() => {
+                  const alvo = cancelQuoteTarget;
+                  setCancelQuoteTarget(null);
+                  setCancelQuoteConfirmation('');
+                  void handleCancelQuote(alvo);
+                }}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer"
+              >
+                Cancelar Orçamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

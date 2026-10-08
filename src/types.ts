@@ -418,7 +418,11 @@ export interface Customer {
   createdAt?: string;
 }
 
-export type QuoteStatus = 'Pendente' | 'Aprovado' | 'Recusado' | 'Convertido';
+/**
+ * `Cancelado` é o "excluir" do orçamento: ele sai da lista do dia a dia, mas a
+ * linha continua no banco — proposta cancelada ainda é histórico do cliente.
+ */
+export type QuoteStatus = 'Pendente' | 'Aprovado' | 'Recusado' | 'Convertido' | 'Cancelado';
 
 export interface Quote {
   id: string;
