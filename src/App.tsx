@@ -1160,6 +1160,9 @@ export default function App() {
               serviceOrders={serviceOrders}
               onUpdateServiceOrders={handleUpdateServiceOrders}
               onShowNotification={showNotification}
+              customers={customers}
+              products={products}
+              branchId={activeBranch.id}
             />
           )}
 
