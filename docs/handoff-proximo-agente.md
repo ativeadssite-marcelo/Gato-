@@ -10,8 +10,11 @@
 > Entregue em 08/10: modo base limpa (`VITE_USE_SEED=false`), provisionamento do contratante
 > (`scripts/provisionar-tenant.mjs`), **leitura e escrita do banco** (produto, cliente e
 > orçamento gravam; §3.19), **inativar produto** e **cancelar/alterar orçamento** com
-> confirmação digitada, orçamento em **tabela A4** e a correção do glob de teste do CI.
-> Backlog do dono em §4.2 (itens 4 a 7, com as decisões já tomadas). Leia §4.
+> confirmação digitada, orçamento em **tabela A4**, **cascata de veículos** corrigida (5 botões
+> de segmento não filtravam nada), **OS completa** (abrir, peças, mão de obra, fechar, reabrir,
+> cancelar), **reset de operação** com Zona de Risco, **entrada de nota por arquivo XML** — e a
+> migration 0007, que conserta a atualização de saldo do `sync-catalog`. **Resta o item 6a/6b/6c**
+> (locação, aplicação e lote: exigem tabela nova). Leia §4.
 
 ---
 
@@ -190,7 +193,7 @@ Confirmados em 02/10: `npm run validate-db` → **0 falhas, 42 OK** e
 
 ### Infra & documentos de referência
 
-- `db/migrations/*.sql` (**0000–0006**, todas aplicadas) + `npm run migrate` · `npm run validate-db` · Docker · CI (`.github/workflows/ci.yml`) · `scripts/criar-super-admin.mjs` (gera o SQL do primeiro super_admin de produção) · `scripts/provisionar-tenant.mjs` (gera o SQL do contratante + depósito — **sem ele todo cadastro responde "Tenant inválido"**).
+- `db/migrations/*.sql` (**0000–0007**, todas aplicadas) + `npm run migrate` · `npm run validate-db` · Docker · CI (`.github/workflows/ci.yml`) · `scripts/criar-super-admin.mjs` (gera o SQL do primeiro super_admin de produção) · `scripts/provisionar-tenant.mjs` (gera o SQL do contratante + depósito — **sem ele todo cadastro responde "Tenant inválido"**).
 - Docs: `arquitetura-saas.mmd`, `camadas-acesso.md`, `checklist-saas.md` (87 itens — workflow do AGENTS.md), `relatorio-gaps.md` (P0/P1/P2), `roadmap-pdv.md` (fases A/B/C do PDV), **`auditoria-2026-10-02.md`** (achados de segurança + estado de cada um), este `handoff-proximo-agente.md`.
 - Auditoria de segurança anterior: `PROJETO_SEGURANCA_AUDIT.md` + `SECURITY_AUDIT_STATUS.md` (raiz).
 - `.env.production` (raiz, **fora do git**): modelo comentado do ambiente de produção — é o que falta preencher para o deploy.
@@ -317,26 +320,33 @@ npm run migrate    # migrations   |  npm run validate-db
      rota de movimento de estoque; e as entidades **sem tabela** (`Order`, `Invoice`,
      `FinancialPayable`, `BankTransaction`, `ServiceOrder`, `MdfeRecord`, `MarketingLead`)
      seguem 100% locais — decidir se ganham migration.
-2. **Backlog do dono (08/10/2026)** — pedido em 7 itens; o 1/2/3 estão feitos (acima). Os demais,
-   com a decisão já tomada pelo dono:
-   - **Item 4 — reset para iniciar operação**: não existe. Escopo: apagar as 4 chaves de
-     movimento do localStorage (`gato_customers`, `gato_suppliers`, `gato_service_orders`,
-     `gato_marketing_leads`) e as tabelas do tenant, **preservando** config (perfil, filiais,
-     impostos, usuários). Exigir: dono/`tenant_admin`, confirmação digitada, auditoria e
-     backup JSON antes.
-   - **Item 5 — cascata**: já existe em Consulta de Aplicação (Segmento → Montadora → Modelo →
-     Ano → Motorização + Sistema). **Bug**: 5 dos 6 chips de segmento não casam com os literais
-     (`'Automóvel / Hatch'` vs `'Passeio'` etc.) — filtro vazio (`ConsultaAplicacaoPecas.tsx:97`).
-     Falta o nível Segmento no balcão, e "versão" não existe na base (o campo é `geracaoFase`).
-   - **Item 6 — estoque**: (a) locação não tem entidade nem coluna (com banco ligado, a locação
-     do produto se perde); (b) `Product.applications` não tem onde ser guardado;
-     (c) **lote = rastreabilidade** (código/validade/NF de origem, saldo por lote) — decidido
-     pelo dono; (d) **SEFAZ**: não existe nada real (certificado, distDFe, assinatura — a UI
-     afirma coisas que não acontecem). Decisão do dono: **por ora, XML de arquivo + persistir
-     no banco**; consulta ao SEFAZ fica para depois, com certificado A1.
-   - **Item 7 — OS**: a tela é esqueleto ("Nova OS" não cria, "Ver Detalhes" sem `onClick`); o
-     modelo de dados está pronto (`ServiceOrder` com `parts[]`/`labor[]`/checklist/garantia) e
-     persiste só em localStorage.
+2. **Backlog do dono (08/10/2026)** — pedido em 7 itens; **1, 2, 3, 4, 5, 7 e o 6d estão feitos**.
+   O que resta são os três itens de estoque que exigem migration/tabela nova:
+   - ~~Item 4 — reset~~ **feito**: `POST /api/db/reset-tenant` + Zona de Risco nas Configurações
+     (só `tenant_admin`, confirmação digitada conferida no servidor, auditoria anômala com a
+     contagem por tabela; preserva config, acesso, cobrança e `AuditLog`). O caminho de sucesso
+     **não foi executado** — apagar dado do dono exige ordem dele.
+   - ~~Item 5 — cascata~~ **feito**: os segmentos agora vêm do dado (`getDistinctFleetSegments`) e
+     o balcão ganhou o nível Segmento. "Versão" continua sem existir na base (o campo é
+     `geracaoFase`).
+   - **Item 6 — estoque (resta)**:
+     - ~~6d — XML~~ **feito**: campo de arquivo `.xml` e a entrada grava no banco via
+       `sync-catalog` (no caminho, a migration 0007 criou a chave única de `StockLevel` que a
+       rota assumia e nunca existiu — **a atualização de saldo por essa rota estava quebrada**);
+     - **6a — locação**: não há entidade nem coluna (`location` é texto livre no produto e se
+       perde ao ler do banco). Criar tabela de locação por depósito + CRUD com auditoria.
+     - **6b — aplicação da mercadoria**: `Product.applications` existe no front e **não tem
+       onde ser guardado** — com o banco ligado, o casamento peça↔veículo cai no textual.
+     - **6c — lote (rastreabilidade)**: decidido pelo dono = lote/código do fornecedor,
+       validade e NF de origem, com saldo por lote. Não existe em lugar nenhum hoje.
+   - ~~Item 7 — OS~~ **feito**: tela completa (abrir, peças, mão de obra, aprovar, iniciar,
+     aguardando peça, fechar, reabrir, cancelar com confirmação digitada). Regras em
+     `src/utils/serviceOrder.ts`, com teste. **Persiste no localStorage** — mover para o banco
+     (tabela `ServiceOrder`) é o passo seguinte.
+3. **Pendências conhecidas** (não pedidas, mas anotadas): baixa de estoque pela venda
+   (`handleUpdateProductStock`) ainda é só local — não existe rota de movimento de estoque;
+   edição de cliente (só o cadastro novo vai ao banco); `MarketplaceManager` segue importado sem
+   ser renderizado; o "decodificador de placa" da Consulta de Peças é simulado no código.
    **Modo base limpa (`VITE_USE_SEED=false`) é a ferramenta para conduzir esse trabalho:**
    ligue a flag e cada tela vazia mostra exatamente o que ainda falta ligar. Roteiro:
    parar o `npm run dev`, pôr a variável no `.env`, subir de novo, percorrer Estoque →
