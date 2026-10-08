@@ -136,6 +136,14 @@ Confirmados em 02/10: `npm run validate-db` → **0 falhas, 42 OK** e
   0 linhas em `Tenant`/`Warehouse`, então **todo** cadastro respondia "Tenant inválido") e o
   conserto do glob de teste (50 testes da raiz não rodavam no CI). A **escrita** pela tela
   ainda é local — é o próximo incremento de §4.1.
+- **Orçamento em tabela A4 paisagem (08/10/2026)**: o balcão só imprimia o cupom térmico. A pedido
+  do dono, entrou `buildOrcamentoTabelaHtml` — 9 colunas (Item, Código, Fabricante, Descrição,
+  Quantidade, **Equivalência**, Preço do Item, **ICMS do Item**, Preço Total) e o rodapé
+  Observação / Valor do ICMS / Outras Despesas / Valor Total. A **Equivalência** usa
+  `Product.similarCodes` (o campo existia e nenhuma impressão o usava); o **ICMS por item** é
+  derivado da alíquota que o orçamento já carrega — sem dado fiscal, sai R$ 0,00 (não inventa
+  imposto). O `ImprimirOrcamentoSeletor` unifica os 4 pontos de impressão num botão só com
+  seletor de formato (cupom 80mm ou tabela A4). 11 testes novos (suíte 112/112).
 - Próximas: **Fase B** (venda PDV com código de barras/carrinho) e **Fase C** (NFC-e real — hoje é stub).
 
 ---
