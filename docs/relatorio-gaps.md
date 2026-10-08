@@ -1,5 +1,8 @@
 # Relatório de Gaps (SaaS)
 
+> Última revisão: **08/10/2026** (o commit do trabalho de 02/10 e o modo base limpa foram
+> fechados; a lista vencida sobre árvore suja saiu).
+
 ## Resumo por Fase
 
 - **FASE 0 — Fundação do Projeto:** Parcial (falta validação zod de env, formatação/lint integrados, testes com coverage)
@@ -19,7 +22,9 @@
 ## Lista Priorizada de Ações
 
 ### P0 (Crítico)
-1. **Commitar o trabalho de 02/10:** Árvore suja com persistência PDV Fase A e Rbac do super admin. Não avançar antes de commitar ou abrir PR (excluindo `.olli/`).
+1. **Ligar o front na API (bloqueio do teste real):** o app inicializa as entidades de movimento
+   das constantes de `src/data/initialData.ts` e não lê nada do banco — ver §3.19 da handoff.
+   Sem isso não existe cadastro real nem teste de ponta a ponta. **Frente em andamento desde 08/10.**
 2. **Correção dos 3 P0 de Segurança (PDV e Billing):**
    - **P0-4**: Cartão/PIX sendo contado como dinheiro (`issueReceipt` gravando `sale_cash` indevidamente).
    - **P0-5**: Replay de webhook reativando assinatura inadimplente.
@@ -36,7 +41,7 @@
 
 ## Sugestão de Próximas 5 Tarefas para o Time
 
-1. **Commit de Limpeza (Ops):** Fazer `git add` do trabalho de persistência de caixa e segurança, gerando um commit coeso (ignorando a pasta `.olli/`).
+1. **Ligação Front ↔ API (P0, em andamento):** carregar `products`, `customers`, `quotes` e `suppliers` da API no `App.tsx` (começando pelo `GET /api/db/quotes`, que não existe) e fazer as telas escreverem via API — conduzido pelo modo base limpa (`VITE_USE_SEED=false`).
 2. **Hotfix de Segurança (Backend):** Corrigir `P0-4` (tipo de recebimento no caixa), `P0-5` (idempotência/verificação webhook Asaas) e `P0-6` (bloqueio de ativação manual).
 3. **Setup de Produção (Infra):** Configurar o `.env.production` no ambiente real, incluindo certificados DB (`SUPABASE_DB_SSL_CA`).
 4. **Fase B do PDV (Feature):** Implementar carrinho de compras com leitura de código de barras e baixa de movimento no caixa.

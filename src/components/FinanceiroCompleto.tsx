@@ -45,6 +45,7 @@ import {
   Order,
   ServiceOrder
 } from '../types';
+import { demoAddon } from '../utils/seedMode';
 
 interface FinanceiroCompletoProps {
   payables: FinancialPayable[];
@@ -354,7 +355,8 @@ export const FinanceiroCompleto: React.FC<FinanceiroCompletoProps> = ({
     // 1. Receita Bruta de Vendas (Pedidos de Balcão e OS)
     const vendasBalcaoTotal = branchOrders.reduce((acc, o) => acc + o.total, 0);
     const vendasOsTotal = branchOs.reduce((acc, os) => acc + os.totalAmount, 0);
-    const receitaBrutaTotal = (vendasBalcaoTotal + vendasOsTotal) || (selectedBranchFilter === 'todas' ? 52400 : 28300);
+    const receitaBrutaTotal =
+      (vendasBalcaoTotal + vendasOsTotal) || demoAddon(selectedBranchFilter === 'todas' ? 52400 : 28300);
 
     // 2. Deduções da Receita Bruta (Simples Nacional ~6.5% a 8% ou ICMS)
     const deducoesImpostos = receitaBrutaTotal * 0.065;
@@ -366,9 +368,10 @@ export const FinanceiroCompleto: React.FC<FinanceiroCompletoProps> = ({
     const margemBrutaPercent = receitaLiquida > 0 ? (lucroBruto / receitaLiquida) * 100 : 0;
 
     // 4. Despesas Operacionais (Contas a pagar de categoria não-peças + folha/aluguel)
-    const despesasOperacionais = scopedPayables
-      .filter((p) => p.category !== 'fornecedor_pecas')
-      .reduce((acc, p) => acc + p.amount, 0) || (selectedBranchFilter === 'todas' ? 7850 : 3400);
+    const despesasOperacionais =
+      scopedPayables
+        .filter((p) => p.category !== 'fornecedor_pecas')
+        .reduce((acc, p) => acc + p.amount, 0) || demoAddon(selectedBranchFilter === 'todas' ? 7850 : 3400);
 
     // 5. Lucro Líquido Real
     const lucroLiquido = lucroBruto - despesasOperacionais;

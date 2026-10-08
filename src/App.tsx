@@ -86,6 +86,7 @@ import {
 import { syncQuoteToMarketingLead } from './utils/quoteMarketingSync';
 import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
 import { onUnauthorized, hasSessionToken, clearSessionToken, apiJson } from './services/apiClient';
+import { seedList, loadEntityState, persistEntityState } from './utils/seedMode';
 import { fetchServerSession, logoutSession, buildUserSession } from './utils/sessionService';
 import type { SubscriptionStatus, TenantSubscription } from './types/billing';
 
@@ -323,101 +324,55 @@ export default function App() {
   const activeBranch = branches.find(b => b.id === activeStore) || branches[0] || INITIAL_BRANCHES[0];
 
   // Entities State
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [customers, setCustomers] = useState<Customer[]>(() => {
-    try {
-      const saved = localStorage.getItem('gato_customers');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.warn('Erro ao carregar clientes do localStorage', e);
-    }
-    return INITIAL_CUSTOMERS;
-  });
+  // `seedList`/`loadEntityState` devolvem lista vazia no modo base limpa (VITE_USE_SEED=false);
+  // sem a variável, o comportamento é exatamente o de antes.
+  const [products, setProducts] = useState<Product[]>(() => seedList(INITIAL_PRODUCTS));
+  const [customers, setCustomers] = useState<Customer[]>(() =>
+    loadEntityState('gato_customers', INITIAL_CUSTOMERS)
+  );
 
   useEffect(() => {
-    try {
-      localStorage.setItem('gato_customers', JSON.stringify(customers));
-    } catch (e) {
-      console.warn('Erro ao salvar clientes no localStorage', e);
-    }
+    persistEntityState('gato_customers', customers);
   }, [customers]);
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-    try {
-      const saved = localStorage.getItem('gato_suppliers');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.warn('Erro ao carregar fornecedores do localStorage', e);
-    }
-    return INITIAL_SUPPLIERS;
-  });
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() =>
+    loadEntityState('gato_suppliers', INITIAL_SUPPLIERS)
+  );
 
   useEffect(() => {
-    try {
-      localStorage.setItem('gato_suppliers', JSON.stringify(suppliers));
-    } catch (e) {
-      console.warn('Erro ao salvar fornecedores no localStorage', e);
-    }
+    persistEntityState('gato_suppliers', suppliers);
   }, [suppliers]);
-  const [marketplaces, setMarketplaces] = useState<MarketplaceSetting[]>(INITIAL_MARKETPLACES);
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
-  const [invoices, setInvoices] = useState<InvoiceRecord[]>(INITIAL_INVOICES);
-  const [quotes, setQuotes] = useState<Quote[]>(INITIAL_QUOTES);
-  const [notifications, setNotifications] = useState<PushNotification[]>(INITIAL_NOTIFICATIONS);
-  const [payables, setPayables] = useState<FinancialPayable[]>(INITIAL_PAYABLES);
-  const [receivables, setReceivables] = useState<FinancialReceivable[]>(INITIAL_RECEIVABLES);
-  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>(INITIAL_BANK_TRANSACTIONS);
-  const [mdfeRecords, setMdfeRecords] = useState<MdfeRecord[]>(INITIAL_MDFE);
+  const [marketplaces, setMarketplaces] = useState<MarketplaceSetting[]>(() => seedList(INITIAL_MARKETPLACES));
+  const [orders, setOrders] = useState<Order[]>(() => seedList(INITIAL_ORDERS));
+  const [invoices, setInvoices] = useState<InvoiceRecord[]>(() => seedList(INITIAL_INVOICES));
+  const [quotes, setQuotes] = useState<Quote[]>(() => seedList(INITIAL_QUOTES));
+  const [notifications, setNotifications] = useState<PushNotification[]>(() => seedList(INITIAL_NOTIFICATIONS));
+  const [payables, setPayables] = useState<FinancialPayable[]>(() => seedList(INITIAL_PAYABLES));
+  const [receivables, setReceivables] = useState<FinancialReceivable[]>(() => seedList(INITIAL_RECEIVABLES));
+  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>(() => seedList(INITIAL_BANK_TRANSACTIONS));
+  const [mdfeRecords, setMdfeRecords] = useState<MdfeRecord[]>(() => seedList(INITIAL_MDFE));
   const [selectedCustomerForQuote, setSelectedCustomerForQuote] = useState<Customer | null>(null);
   const [selectedVehicleForQuote, setSelectedVehicleForQuote] = useState<VehicleFleetItem | null>(null);
   const [selectedProductForQuote, setSelectedProductForQuote] = useState<Product | null>(null);
   const [lastIssuedInvoiceId, setLastIssuedInvoiceId] = useState<string | null>(null);
   const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
-  const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>(() => {
-    try {
-      const saved = localStorage.getItem('gato_service_orders');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.warn('Could not load service orders from localStorage', e);
-    }
-    return INITIAL_SERVICE_ORDERS;
-  });
+  const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>(() =>
+    loadEntityState('gato_service_orders', INITIAL_SERVICE_ORDERS)
+  );
 
   const handleUpdateServiceOrders = (orders: ServiceOrder[]) => {
     setServiceOrders(orders);
-    try {
-      localStorage.setItem('gato_service_orders', JSON.stringify(orders));
-    } catch (e) {
-      console.warn('Could not save service orders to localStorage', e);
-    }
+    persistEntityState('gato_service_orders', orders);
   };
 
   // Marketing Leads & CRM WhatsApp database
-  const [marketingLeads, setMarketingLeads] = useState<MarketingLead[]>(() => {
-    try {
-      const saved = localStorage.getItem('gato_marketing_leads');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.warn('Could not load marketing leads from localStorage', e);
-    }
-    return INITIAL_MARKETING_LEADS;
-  });
+  const [marketingLeads, setMarketingLeads] = useState<MarketingLead[]>(() =>
+    loadEntityState('gato_marketing_leads', INITIAL_MARKETING_LEADS)
+  );
 
   const handleUpdateMarketingLeads = (newLeads: MarketingLead[]) => {
     setMarketingLeads(newLeads);
-    try {
-      localStorage.setItem('gato_marketing_leads', JSON.stringify(newLeads));
-    } catch (e) {
-      console.warn('Could not save marketing leads to localStorage', e);
-    }
+    persistEntityState('gato_marketing_leads', newLeads);
   };
 
   // Active Toast Notification Banner

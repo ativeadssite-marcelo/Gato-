@@ -35,6 +35,7 @@ import {
 import brakeRotorImg from '../assets/images/brake_rotor_part_1789396161455.jpg';
 import { Product, BranchUnit, CompanyProfile } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_BRANCHES } from '../data/initialData';
+import { USE_SEED_DATA } from '../utils/seedMode';
 
 // Utilitários de busca automotiva resiliente (sem acentos, multi-tokens e normalização de códigos)
 export function normalizeSearchString(val: string): string {
@@ -233,9 +234,11 @@ export const ConsultaPecasView: React.FC<ConsultaPecasViewProps> = ({
   const [copiedOem, setCopiedOem] = useState(false);
   const [addedAnimation, setAddedAnimation] = useState(false);
 
-  // Converte produtos gerais da loja para itens consultáveis
+  // Converte produtos gerais da loja para itens consultáveis.
+  // O destaque fixo é vitrine da demonstração: no modo base limpa (VITE_USE_SEED=false) ele
+  // não entra, senão o catálogo nunca aparece vazio e o teste mostraria uma peça inexistente.
   const allCatalogParts: DetailedPartItem[] = useMemo(() => {
-    const list: DetailedPartItem[] = [DEFAULT_FEATURED_PART];
+    const list: DetailedPartItem[] = USE_SEED_DATA ? [DEFAULT_FEATURED_PART] : [];
 
     products.forEach((p) => {
       // Evita duplicar se já for o featured

@@ -6,11 +6,11 @@
 > funcionalidades completas e pontos de atenção**. Atualize-o quando o estado do
 > projeto mudar (é fonte de verdade viva, não um relatório morto).
 >
-> Estado desta handoff: **06/10/2026** (trabalho de 02/10 reverificado em 05/10 + orçamento
-> imprimível em 06/10) — branch `feat/billing-saas`.
-> ⚠️ **O trabalho de 02/10 continua SEM COMMIT** (PDV persistente, RBAC do super_admin,
-> migrations 0005/0006, script de super admin, doc de auditoria) — nada foi commitado nos
-> três dias seguintes. Leia §4 antes de começar qualquer coisa.
+> Estado desta handoff: **08/10/2026** — branch `feat/billing-saas`, tudo commitado e no `origin`.
+> Entregue em 06/10: orçamento imprimível/copiável em Vendas e o modo base limpa
+> (`VITE_USE_SEED=false`, commitado em 08/10) para testar o sistema como empresa nova.
+> **Frente em andamento desde 08/10: ligar o front na API** — antes de planejar qualquer coisa,
+> leia §3.19; é o bloqueio do teste real. Leia §4 para a ordem dos trabalhos.
 
 ---
 
@@ -235,20 +235,38 @@ npm run migrate    # migrations   |  npm run validate-db
 10. Escopo de dados: SaaS-wide usa `own_tenant_only`/`full` + `audit_required` para dados de tenant (`company_data`, `customers_employees`).
 
 ### 🐛 Conhecidos / armadilhas
-11. **Itens de menu sem view**: `relatorios` e `ordem-servico` existem no `Sidebar` mas **não têm render em `App.tsx`** nesta branch → tela em branco ao clicar. Ou se implementa a view, ou remove/alias o item (hoje `relatorios` deveria mapear para `financeiro`).
+11. ~~**Itens de menu sem view**~~ — **resolvido em 02/10/2026** (commitado em 06/10): `App.tsx`
+    passou a renderizar `ordem-servico` → `OrdemServicoManager` e `relatorios` → `FinanceiroCompleto`
+    (junto de `financeiro`). Não reintroduza itens de menu sem view.
 12. **NFC-e é stub** (`EmissaoNfe.tsx` → "feature em desenvolvimento") — Fase C do roadmap; não prometa emissão real sem integração fiscal homologada.
 13. `.kilo/worktrees/*` são worktrees de outras branches — **ignore** em buscas/análises (duplicam resultados).
 14. `vite.config.ts` tem HMR/watch desabilitáveis via `DISABLE_HMR` — não altere (regra do ambiente AI Studio).
 15. O dev server **não observa** `server.ts` (tsx sem `--watch`): mudança em `server/**` exige **reiniciar** o processo (matar PID da porta 3000 e `npm run dev`). Front tem HMR automático.
 16. `npm run lint` era bloqueado por erros pré-existentes de tipo em `caixaRoutes.ts` — **corrigidos em 01/10/2026**; se voltar a falhar, é regressão sua ou de novo código.
 17. Checklist/estado do agente: workflow do `AGENTS.md` pede marcar `checklist-saas.md` e gerar `relatorio-gaps.md` — faça **antes** de propor código e **nunca altere código sem confirmar o plano**.
-18. **Worktree SUJA** (desde 02/10/2026; **confirmada ainda suja em 05/10/2026**): a árvore está **sem commit** há três dias. Modificados:
-    `server/caixa.ts`, `server/caixaRoutes.ts`, `server/auth.ts`, `server/auth.test.ts`,
-    `server/identityStore.ts`, `server/rbacEngine.ts`, `server.ts`, `.gitignore`, este handoff.
-    Novos: `db/migrations/0005_pdv_operacional.sql`, `db/migrations/0006_tenant_logo.sql`,
-    `server/caixa.test.ts`, `scripts/criar-super-admin.mjs`. `package.json`/`package-lock.json`
-    têm o CLI `supabase` que o dono instalou. `.olli/` é ferramenta externa — **não commitar**.
-    **Primeira tarefa do próximo dia: commitar isso** (ou abrir PR), antes de emendar trabalho novo.
+18. ~~**Worktree SUJA**~~ — **resolvido em 06/10/2026**: tudo commitado e enviado ao `origin`
+    em três commits (`b2a99e9` trabalho de 02/10, `3fad6f7` orçamento, `4742f62` docs). Só
+    `.olli/` segue fora do git, por decisão registrada — **não commitar**.
+19. 🚨 **O app NÃO lê as entidades do banco — este é o bloqueio do teste real.** O
+    `src/App.tsx` inicializa `products`, `customers`, `quotes`, `orders`, `invoices`, financeiro,
+    etc. **direto das constantes de `src/data/initialData.ts`**, e a única chamada de rede dele é
+    `/api/billing/subscription`. A ponte com o Postgres existe em três lugares apenas: o painel
+    de visualização em `ConfiguracoesSaaS.tsx`, o CRUD de `FornecedoresManager.tsx` e o
+    `POST /api/db/sync-catalog` — que empurra o seed **para dentro** do banco, no sentido
+    contrário. Consequência prática: apagar os seeds deixa o sistema em branco, sem caminho para
+    carregar dado real. **Ligar o front na API é o trabalho que falta para existir teste real e
+    para a produção.**
+20. **O banco está praticamente vazio** (conferido em 06/10/2026, contagem tabela a tabela):
+    de 26 tabelas, só três têm linhas — `AuditLog` 59, `RbacUser` 1 (`usr_super_admin`),
+    `UserCredential` 1. Todas as tabelas de negócio (`Product`, `Customer`, `Receipt`,
+    `CashRegister`, `Invoice`, `Tenant`, ...) têm **0 linhas**. Não existe dado de demonstração
+    no banco: o que parece fake na tela vem do código. O `npm run validate-db` acusa 2 falhas
+    que são **falsos positivos**: `AuditLog` e `RbacUser` apontam para o tenant `system`, que é a
+    própria plataforma SaaS e não tem linha em `Tenant` por desenho.
+21. **Modo base limpa** (`VITE_USE_SEED=false`, commitado em 06/10): faz o app iniciar sem os
+    seeds de movimento e sem ler o localStorage dessas entidades, para ver o sistema como empresa
+    nova. Não apaga nada e é reversível. Configuração (perfil, filiais, tabelas fiscais) continua
+    carregando. Detalhes e roteiro de teste no item 1 de §4.
 
 ### ✅ Definição de pronto (DoD) mínimo
 - `npm run lint` verde · `npm test` verde · feature com teste quando houver lógica de servidor ·
@@ -263,9 +281,22 @@ npm run migrate    # migrations   |  npm run validate-db
 > — com o que já foi resolvido, os P0/P1/P2 abertos e os dois falsos positivos que a
 > verificação derrubou. É o documento de trabalho para segurança.
 
-0. **Commitar o trabalho de 02/10** (§3.18) — segue sem commit desde então (confirmado em
-   05/10). Fazer isso antes de emendar qualquer trabalho novo.
-1. **Fechar os 3 P0 que restam** (todos com caminho de exploração definido em
+0. ~~**Commitar o trabalho de 02/10**~~ — feito em 06/10 (três commits, enviados ao `origin`).
+1. **Ligar o front na API — é o que falta para o teste real existir** (§3.19). Sem isso, o
+   sistema não sai do dado de demonstração: não há como cadastrar um produto real e vê-lo
+   voltar do banco. Escopo sugerido, em ordem:
+   - `GET /api/db/quotes` (hoje não existe) e o `App.tsx` passar a carregar `products`,
+     `customers`, `quotes` e `suppliers` da API, mantendo o seed só como fallback de dev;
+   - telas que hoje só leem props do `App.tsx` (Estoque, Vendas, Orçamentos) passarem a
+     escrever via API em vez de só mexer no estado/localStorage;
+   - decidir o que fazer com as entidades que não têm tabela nenhuma (`Order`, `Invoice`,
+     `FinancialPayable`, `BankTransaction`, `ServiceOrder`) — ou ganham migration, ou saem
+     do escopo do primeiro teste.
+   **Modo base limpa (`VITE_USE_SEED=false`) é a ferramenta para conduzir esse trabalho:**
+   ligue a flag e cada tela vazia mostra exatamente o que ainda falta ligar. Roteiro:
+   parar o `npm run dev`, pôr a variável no `.env`, subir de novo, percorrer Estoque →
+   Clientes → Vendas → Caixa e anotar o que não tem caminho de cadastro.
+2. **Fechar os 3 P0 que restam** (todos com caminho de exploração definido em
    `auditoria-2026-10-02.md`; os P0-1/P0-2/P0-3 já foram):
    - **P0-4 — cartão/PIX contado como dinheiro** no caixa (`issueReceipt` grava sempre
      `sale_cash`). É o mais visível: o fechamento acusa falta que não existe.
@@ -273,17 +304,17 @@ npm run migrate    # migrations   |  npm run validate-db
      — a fórmula aparece em três lugares (servidor, `CaixaView`, relatório).
    - **P0-5 — replay de webhook** reativa assinatura inadimplente (`billing/webhook.ts`).
    - **P0-6 — autoativação de plano pago** sem gateway (`billing/subscriptions.ts`).
-2. **Preparar o deploy de teste**: `.env.production` (raiz, fora do git) está comentado e
+3. **Preparar o deploy de teste**: `.env.production` (raiz, fora do git) está comentado e
    esperando `GATO_SESSION_SECRET` (48+ aleatórios), `GATO_MASTER_PASSWORD`,
    `SUPABASE_DB_PASSWORD` e `ASAAS_*`. **Não esqueça o `SUPABASE_DB_SSL_CA`**: o caminho é
    da máquina local e **não existe no container** — copie o `prod-ca-2021.crt` para a imagem
    ou monte como volume. Decidir também `ASAAS_ENV` (sandbox no teste) e `GATO_TRUST_PROXY`
    (depende de haver proxy na frente).
-3. **Fase B — PDV venda**: carrinho no `BalcaoCotacao` com leitor de código de barras (HID),
+4. **Fase B — PDV venda**: carrinho no `BalcaoCotacao` com leitor de código de barras (HID),
    totalização, troco no fechamento e **vínculo automático venda → `POST /api/caixa/movements`**.
-4. **Fase C — NFC-e**: emissão/cancelamento/reimpressão (homologação SEFAZ).
-5. Corrigir itens de menu órfãos (§3.11) — quick win de UX.
-6. Avançar `docs/relatorio-gaps.md` (P0s de observabilidade: logs JSON, métricas, alertas).
+5. **Fase C — NFC-e**: emissão/cancelamento/reimpressão (homologação SEFAZ).
+6. ~~Corrigir itens de menu órfãos (§3.11)~~ — feito; ver §3.11.
+7. Avançar `docs/relatorio-gaps.md` (P0s de observabilidade: logs JSON, métricas, alertas).
 
 > **Regra de ouro deste projeto:** primeiro o plano, depois o código; tenant, auditoria
 > e teste em toda mudança de servidor; cobrança sempre pelo gateway; português em tudo.

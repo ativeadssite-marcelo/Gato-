@@ -434,6 +434,15 @@ export const ConnectorsManager: React.FC<ConnectorsManagerProps> = ({
             <button
               id="btn-open-simulate-order"
               onClick={() => {
+                // Sem produto cadastrado o modal de simulação estoura em `simSelectedProduct.id`.
+                if (products.length === 0) {
+                  onShowNotification({
+                    title: 'Nenhum produto cadastrado',
+                    message: 'Cadastre um produto antes de simular um pedido.',
+                    type: 'warning',
+                  });
+                  return;
+                }
                 setSimSelectedProduct(products[0]);
                 setSimQuantity(1);
                 setIsOrderSimModalOpen(true);
@@ -788,6 +797,15 @@ export const ConnectorsManager: React.FC<ConnectorsManagerProps> = ({
 
               <button
                 onClick={() => {
+                  // Sem produto cadastrado o modal de simulação estoura em `simSelectedProduct.id`.
+                  if (products.length === 0) {
+                    onShowNotification({
+                      title: 'Nenhum produto cadastrado',
+                      message: 'Cadastre um produto antes de simular um pedido.',
+                      type: 'warning',
+                    });
+                    return;
+                  }
                   setSimSelectedProduct(products[0]);
                   setSimQuantity(1);
                   setIsOrderSimModalOpen(true);

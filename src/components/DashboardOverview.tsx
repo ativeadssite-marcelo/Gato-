@@ -23,6 +23,7 @@ import {
   Tooltip 
 } from 'recharts';
 import { Product, Order, InvoiceRecord } from '../types';
+import { demoAddon, USE_SEED_DATA } from '../utils/seedMode';
 
 interface DashboardOverviewProps {
   products: Product[];
@@ -41,25 +42,29 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 }) => {
   const lowStockProducts = products.filter(p => p.stock <= p.minStock);
   const totalStockUnits = products.reduce((acc, p) => acc + p.stock, 0);
+  // Valor do estoque a preço de venda — é o que substitui o número fixo da demonstração
+  // quando o modo base limpa está ligado.
+  const stockValue = products.reduce((acc, p) => acc + p.stock * (p.sellingPrice || 0), 0);
 
   // Cálculos dinâmicos dos Indicadores Chave de Desempenho (KPIs)
   const kpis = useMemo(() => {
     // 1. Faturamento do Dia
     const baseRevenueFromOrders = orders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-    const dailyRevenue = baseRevenueFromOrders > 0 ? baseRevenueFromOrders + 7820.00 : 18450.00;
+    const dailyRevenue =
+      baseRevenueFromOrders > 0 ? baseRevenueFromOrders + demoAddon(7820.00) : demoAddon(18450.00);
 
     // 2. Quantidade de Peças Vendidas
     const piecesCountFromOrders = orders.reduce((acc, o) => {
       return acc + (o.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0);
     }, 0);
-    const totalPiecesSold = piecesCountFromOrders > 0 ? piecesCountFromOrders + 64 : 148;
+    const totalPiecesSold = piecesCountFromOrders > 0 ? piecesCountFromOrders + demoAddon(64) : demoAddon(148);
 
     // 3. Ticket Médio de Vendas
-    const ordersCount = Math.max(orders.length, 1) + 26;
+    const ordersCount = Math.max(orders.length, 1) + demoAddon(26);
     const averageTicket = dailyRevenue / ordersCount;
 
     // 4. Margem Média Realizada
-    const averageMargin = 38.6;
+    const averageMargin = demoAddon(38.6);
 
     // Dados para os micro-gráficos Recharts
     const hourlyRevenueData = [
@@ -238,7 +243,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
             <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
               <span className="text-slate-400">Meta diária: R$ 15.000,00</span>
-              <span className="text-emerald-600 font-bold">123% atingida</span>
+              <span className="text-emerald-600 font-bold">
+                {USE_SEED_DATA ? '123% atingida' : `${Math.round((kpis.dailyRevenue / 15000) * 100)}% atingida`}
+              </span>
             </div>
           </div>
 
@@ -360,7 +367,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 {kpis.averageMargin}%
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Estoque ativo: R$ 482.903,20
+                Estoque ativo: R$ {USE_SEED_DATA
+                  ? '482.903,20'
+                  : stockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
 

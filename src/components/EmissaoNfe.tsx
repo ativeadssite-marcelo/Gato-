@@ -120,6 +120,17 @@ export const EmissaoNfe: React.FC<EmissaoNfeProps> = ({
     const customer = customers.find(c => c.id === newNfeForm.customerId) || customers[0];
     const product = products.find(p => p.id === newNfeForm.productId) || products[0];
 
+    // Sem esta guarda, uma base sem clientes ou sem produtos (modo base limpa,
+    // VITE_USE_SEED=false) estoura em `customer.uf` / `product.sellingPrice` abaixo.
+    if (!customer || !product) {
+      onShowNotification(
+        'Cadastro necessário',
+        'Cadastre ao menos um cliente e um produto antes de emitir a NF-e de venda.',
+        'warning'
+      );
+      return;
+    }
+
     const isInternal = (customer.uf || 'MS') === currentBranch.uf;
     const icmsTaxRate = isInternal ? 0.17 : 0.18; // 17% MS internal
     const totalProd = product.sellingPrice * newNfeForm.quantity;

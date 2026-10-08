@@ -250,9 +250,15 @@ export const EmpresaFiliaisManager: React.FC<EmpresaFiliaisManagerProps> = ({
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </div>
             <div>
-              <strong className="block text-white text-sm truncate">{currentActiveBranch.name}</strong>
-              <p className="text-sky-200 text-[11px]">{currentActiveBranch.city} - {currentActiveBranch.uf} • {currentActiveBranch.cdCode}</p>
-              <p className="text-[10px] font-mono text-white/80 mt-1">CNPJ: {currentActiveBranch.cnpj}</p>
+              {currentActiveBranch ? (
+                <>
+                  <strong className="block text-white text-sm truncate">{currentActiveBranch.name}</strong>
+                  <p className="text-sky-200 text-[11px]">{currentActiveBranch.city} - {currentActiveBranch.uf} • {currentActiveBranch.cdCode}</p>
+                  <p className="text-[10px] font-mono text-white/80 mt-1">CNPJ: {currentActiveBranch.cnpj}</p>
+                </>
+              ) : (
+                <p className="text-amber-200 text-[11px]">Nenhuma filial cadastrada. Cadastre a primeira unidade abaixo.</p>
+              )}
             </div>
           </div>
         </div>
