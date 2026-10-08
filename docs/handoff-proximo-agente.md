@@ -7,10 +7,10 @@
 > projeto mudar (é fonte de verdade viva, não um relatório morto).
 >
 > Estado desta handoff: **08/10/2026** — branch `feat/billing-saas`, tudo commitado e no `origin`.
-> Entregue em 06/10: orçamento imprimível/copiável em Vendas e o modo base limpa
-> (`VITE_USE_SEED=false`, commitado em 08/10) para testar o sistema como empresa nova.
-> **Frente em andamento desde 08/10: ligar o front na API** — antes de planejar qualquer coisa,
-> leia §3.19; é o bloqueio do teste real. Leia §4 para a ordem dos trabalhos.
+> Entregue em 08/10: o modo base limpa (`VITE_USE_SEED=false`), o provisionamento do contratante
+> (`scripts/provisionar-tenant.mjs`) e a **leitura real** — o app carrega produtos, clientes,
+> fornecedores e orçamentos do banco (§3.19; a escrita pela tela ainda é local, é o próximo
+> incremento). Extra: o CI voltou a rodar os 50 testes da raiz (aspas no glob). Leia §4.
 
 ---
 
@@ -129,6 +129,13 @@ Confirmados em 02/10: `npm run validate-db` → **0 falhas, 42 OK** e
   do dono**: data de validade com 1 dia a menos, CNPJ fictício no documento (`DEFAULT_COMPANY_RECEIPT_INFO`)
   e o desconto que não fecha a conta (`discountAmount` nunca é subtraído de `totalAmount`).
   Testes: **75/75** (`server/orcamento/orcamento.test.ts`, 12 novos).
+- **Leitura do banco ligada (08/10/2026)**: o app nasceu lendo tudo do código. Agora, com sessão
+  verificada, `products`/`customers`/`suppliers`/`quotes` vêm das rotas `/api/db/*` — o banco
+  vence o seed, inclusive quando devolve vazio; 503 (sem banco) mantém o seed de dev. No
+  caminho: `GET /api/db/quotes` (não existia), `scripts/provisionar-tenant.mjs` (o banco tinha
+  0 linhas em `Tenant`/`Warehouse`, então **todo** cadastro respondia "Tenant inválido") e o
+  conserto do glob de teste (50 testes da raiz não rodavam no CI). A **escrita** pela tela
+  ainda é local — é o próximo incremento de §4.1.
 - Próximas: **Fase B** (venda PDV com código de barras/carrinho) e **Fase C** (NFC-e real — hoje é stub).
 
 ---
@@ -169,12 +176,12 @@ Confirmados em 02/10: `npm run validate-db` → **0 falhas, 42 OK** e
 | `/api/caixa` | `caixaRoutes.ts` + `caixa.ts` | PDV: summary/open/close/movements/receipts/boletos — **auditado, multi-tenant, persistente** (hidrata do Postgres desde 02/10/2026; 12 testes em `server/caixa.test.ts`) |
 | `/api/admin/database` | `adminDatabaseRoutes.ts` | Credenciais de DB em runtime (Super Admin) |
 | `/api/credentials`, `/api/license`, `/api/v1` | `credentialsRoutes.ts`, `licenseRoutes.ts`, `v1Routes.ts` | API keys, licença de máquina, API versionada |
-| Rotas inline em `server.ts` | — | `/api/db/*`, `/api/connectors/*`, `/api/gemini/assist`, `/api/vehicles`, `/api/marketplaces/*`, quotas |
+| Rotas inline em `server.ts` | — | `/api/db/*` (products, customers, suppliers, branches, **quotes GET/POST**, sync-catalog), `/api/connectors/*`, `/api/gemini/assist`, `/api/vehicles`, `/api/marketplaces/*`, quotas |
 | Transversais | `quotas.ts`, `rateLimit.ts`, `auditStore.ts`, `identityStore.ts`, `store.ts`, `migrate.ts`, `notifications/cron.ts` | Uso/quota (402), rate limit (`standardApiLimiter` 250/min por IP), auditoria, seeds em memória + mirror Postgres, migrations, cron de billing/trial |
 
 ### Infra & documentos de referência
 
-- `db/migrations/*.sql` (**0000–0006**, todas aplicadas) + `npm run migrate` · `npm run validate-db` · Docker · CI (`.github/workflows/ci.yml`) · `scripts/criar-super-admin.mjs` (gera o SQL do primeiro super_admin de produção).
+- `db/migrations/*.sql` (**0000–0006**, todas aplicadas) + `npm run migrate` · `npm run validate-db` · Docker · CI (`.github/workflows/ci.yml`) · `scripts/criar-super-admin.mjs` (gera o SQL do primeiro super_admin de produção) · `scripts/provisionar-tenant.mjs` (gera o SQL do contratante + depósito — **sem ele todo cadastro responde "Tenant inválido"**).
 - Docs: `arquitetura-saas.mmd`, `camadas-acesso.md`, `checklist-saas.md` (87 itens — workflow do AGENTS.md), `relatorio-gaps.md` (P0/P1/P2), `roadmap-pdv.md` (fases A/B/C do PDV), **`auditoria-2026-10-02.md`** (achados de segurança + estado de cada um), este `handoff-proximo-agente.md`.
 - Auditoria de segurança anterior: `PROJETO_SEGURANCA_AUDIT.md` + `SECURITY_AUDIT_STATUS.md` (raiz).
 - `.env.production` (raiz, **fora do git**): modelo comentado do ambiente de produção — é o que falta preencher para o deploy.
@@ -247,23 +254,25 @@ npm run migrate    # migrations   |  npm run validate-db
 18. ~~**Worktree SUJA**~~ — **resolvido em 06/10/2026**: tudo commitado e enviado ao `origin`
     em três commits (`b2a99e9` trabalho de 02/10, `3fad6f7` orçamento, `4742f62` docs). Só
     `.olli/` segue fora do git, por decisão registrada — **não commitar**.
-19. 🚨 **O app NÃO lê as entidades do banco — este é o bloqueio do teste real.** O
-    `src/App.tsx` inicializa `products`, `customers`, `quotes`, `orders`, `invoices`, financeiro,
-    etc. **direto das constantes de `src/data/initialData.ts`**, e a única chamada de rede dele é
-    `/api/billing/subscription`. A ponte com o Postgres existe em três lugares apenas: o painel
-    de visualização em `ConfiguracoesSaaS.tsx`, o CRUD de `FornecedoresManager.tsx` e o
-    `POST /api/db/sync-catalog` — que empurra o seed **para dentro** do banco, no sentido
-    contrário. Consequência prática: apagar os seeds deixa o sistema em branco, sem caminho para
-    carregar dado real. **Ligar o front na API é o trabalho que falta para existir teste real e
-    para a produção.**
-20. **O banco está praticamente vazio** (conferido em 06/10/2026, contagem tabela a tabela):
-    de 26 tabelas, só três têm linhas — `AuditLog` 59, `RbacUser` 1 (`usr_super_admin`),
-    `UserCredential` 1. Todas as tabelas de negócio (`Product`, `Customer`, `Receipt`,
-    `CashRegister`, `Invoice`, `Tenant`, ...) têm **0 linhas**. Não existe dado de demonstração
-    no banco: o que parece fake na tela vem do código. O `npm run validate-db` acusa 2 falhas
-    que são **falsos positivos**: `AuditLog` e `RbacUser` apontam para o tenant `system`, que é a
-    própria plataforma SaaS e não tem linha em `Tenant` por desenho.
-21. **Modo base limpa** (`VITE_USE_SEED=false`, commitado em 06/10): faz o app iniciar sem os
+19. ⚠️ **A LEITURA do banco foi ligada em 08/10/2026; a ESCRITA ainda não.** O que mudou:
+    `src/services/entityApi.ts` + um efeito no `App.tsx` carregam `products`, `customers`,
+    `suppliers` e `quotes` das rotas `/api/db/*` quando há sessão verificada — o banco **vence**
+    o seed, inclusive quando devolve lista vazia; servidor sem banco (503) mantém o seed de
+    dev/demo; 403/401 são silêncio (papel sem o recurso / sessão caindo). O que **não** mudou:
+    as telas continuam escrevendo só no estado/localStorage — cadastrar produto, cliente ou
+    orçamento pela tela **não** chega ao banco ainda (é o próximo incremento). Entidades sem
+    tabela nenhuma (`Order`, `Invoice`, `FinancialPayable`, `BankTransaction`, `ServiceOrder`,
+    `MdfeRecord`, `MarketingLead`) seguem 100% locais.
+20. **O banco deixou de estar vazio em 08/10/2026.** Antes, de 26 tabelas só `AuditLog`,
+    `RbacUser` e `UserCredential` tinham linhas. Agora existe o tenant de teste
+    `cmtt58e6o0000ju346a0g6s32` (MG Auto Peças) com um depósito (`wh_..._cd01`), e a verificação
+    da leitura criou **dado de teste por API**: 1 produto (`TESTE-001`), 1 cliente e 1 orçamento
+    (`DAV-TESTE-001`) — todos com "(pode excluir)" no nome. **Provisionar outro tenant:**
+    `node scripts/provisionar-tenant.mjs <tenantId> "<nome>"` e colar o SQL no Supabase. O
+    `npm run validate-db` segue acusando 2 falhas que são **falsos positivos**: `AuditLog` e
+    `RbacUser` apontam para o tenant `system`, que é a própria plataforma SaaS e não tem linha
+    em `Tenant` por desenho.
+21. **Modo base limpa** (`VITE_USE_SEED=false`, commitado em 08/10): faz o app iniciar sem os
     seeds de movimento e sem ler o localStorage dessas entidades, para ver o sistema como empresa
     nova. Não apaga nada e é reversível. Configuração (perfil, filiais, tabelas fiscais) continua
     carregando. Detalhes e roteiro de teste no item 1 de §4.
@@ -282,16 +291,18 @@ npm run migrate    # migrations   |  npm run validate-db
 > verificação derrubou. É o documento de trabalho para segurança.
 
 0. ~~**Commitar o trabalho de 02/10**~~ — feito em 06/10 (três commits, enviados ao `origin`).
-1. **Ligar o front na API — é o que falta para o teste real existir** (§3.19). Sem isso, o
-   sistema não sai do dado de demonstração: não há como cadastrar um produto real e vê-lo
-   voltar do banco. Escopo sugerido, em ordem:
-   - `GET /api/db/quotes` (hoje não existe) e o `App.tsx` passar a carregar `products`,
-     `customers`, `quotes` e `suppliers` da API, mantendo o seed só como fallback de dev;
-   - telas que hoje só leem props do `App.tsx` (Estoque, Vendas, Orçamentos) passarem a
-     escrever via API em vez de só mexer no estado/localStorage;
-   - decidir o que fazer com as entidades que não têm tabela nenhuma (`Order`, `Invoice`,
-     `FinancialPayable`, `BankTransaction`, `ServiceOrder`) — ou ganham migration, ou saem
-     do escopo do primeiro teste.
+1. ~~**Ligar o front na API**~~ — **leitura feita em 08/10/2026; falta a escrita.**
+   - ✅ `GET /api/db/quotes` criado (`server/quotes/quotes.ts`, com teste) e o `App.tsx`
+     carregando `products`, `customers`, `suppliers` e `quotes` da API
+     (`src/services/entityApi.ts`), com o seed só como fallback de dev (503);
+   - ✅ `scripts/provisionar-tenant.mjs` — provisiona `Tenant` + depósito, sem o que todo
+     cadastro responde "Tenant inválido" (o tenant de teste já está provisionado);
+   - ⏭️ **próximo incremento — a escrita**: telas gravarem via API (produto no Estoque,
+     cliente em Clientes, orçamento no Balcão) em vez de só mexer no estado local; estender o
+     `POST /api/db/products` a `barcode`/`description` (as colunas já existem) e **fechar a
+     auditoria que falta no `POST /api/db/quotes`** (grava Budget sem `recordAudit`);
+   - pendente de decisão: entidades sem tabela nenhuma (`Order`, `Invoice`, `FinancialPayable`,
+     `BankTransaction`, `ServiceOrder`) — ou ganham migration, ou saem do escopo do primeiro teste.
    **Modo base limpa (`VITE_USE_SEED=false`) é a ferramenta para conduzir esse trabalho:**
    ligue a flag e cada tela vazia mostra exatamente o que ainda falta ligar. Roteiro:
    parar o `npm run dev`, pôr a variável no `.env`, subir de novo, percorrer Estoque →

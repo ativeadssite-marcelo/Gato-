@@ -24,7 +24,10 @@
 ### P0 (Crítico)
 1. **Ligar o front na API (bloqueio do teste real):** o app inicializa as entidades de movimento
    das constantes de `src/data/initialData.ts` e não lê nada do banco — ver §3.19 da handoff.
-   Sem isso não existe cadastro real nem teste de ponta a ponta. **Frente em andamento desde 08/10.**
+   Sem isso não existe cadastro real nem teste de ponta a ponta.
+   **Estado em 08/10: a LEITURA foi feita** (`GET /api/db/quotes` criado, `src/services/entityApi.ts`
+   + carregamento no `App.tsx`, tenant de teste provisionado). **Falta a ESCRITA**: as telas ainda
+   gravam só no estado local, e o `POST /api/db/quotes` não registra auditoria.
 2. **Correção dos 3 P0 de Segurança (PDV e Billing):**
    - **P0-4**: Cartão/PIX sendo contado como dinheiro (`issueReceipt` gravando `sale_cash` indevidamente).
    - **P0-5**: Replay de webhook reativando assinatura inadimplente.
