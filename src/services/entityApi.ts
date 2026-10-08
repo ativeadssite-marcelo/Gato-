@@ -103,6 +103,7 @@ export function mapProductRow(row: ApiRow): Product {
     location: { corridor: '', shelf: '', box: '' },
     stock,
     stockCentral: stock,
+    active: row.active !== false,
     minStock: toNumber(row.minStock),
     unitCost,
     transportCost: 0,
@@ -326,6 +327,19 @@ export async function createCustomer(customer: Customer): Promise<string> {
     throw new ApiError('O servidor não devolveu o id do cliente cadastrado.', 500);
   }
   return data.id;
+}
+
+/**
+ * Liga/desliga o produto no catálogo. Inativar é o "excluir" do sistema: a
+ * linha continua no banco (venda, nota e orçamento apontam para ela), mas o
+ * produto sai do catálogo e do balcão.
+ */
+export async function setProductActive(productId: string, active: boolean): Promise<void> {
+  await apiJson(`/api/db/products/${encodeURIComponent(productId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ active }),
+  });
 }
 
 /**

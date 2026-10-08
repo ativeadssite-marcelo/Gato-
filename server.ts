@@ -406,6 +406,102 @@ app.post("/api/db/products", requireAuth, requireTenantPermission("item_register
   }
 });
 
+// Update / inactivate product
+//
+// "Excluir" produto no GATO é INATIVAR: a venda, a nota e o orçamento apontam
+// para ele (a FK de `BudgetItem` é ON DELETE SET NULL — apagar a linha deixaria
+// o histórico com buracos). Esta rota edita os campos do cadastro e liga/desliga
+// o `active`; quem exige a confirmação digitada é a tela de estoque.
+app.put(
+  "/api/db/products/:id",
+  requireAuth,
+  requireTenantPermission("item_register"),
+  requirePermission("company_data", { write: true }),
+  async (req, res) => {
+    try {
+      if (!isDatabaseConfigured()) {
+        return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+      }
+      const scope = resolveDataScope(req, "company_data");
+      if (!scope.ok) return sendScopeDenied(res, scope);
+      if (!scope.tenantId) {
+        return res.status(400).json({
+          success: false,
+          error: "Informe o tenant de destino (x-target-tenant-id) para atualizar o produto.",
+        });
+      }
+      const tenantId = scope.tenantId;
+      const productId = String(req.params.id || "").trim().slice(0, 64);
+
+      const pool = getDbPool();
+      const found = await pool.query(
+        'SELECT id, sku, name, active FROM "Product" WHERE id = $1 AND "tenantId" = $2 LIMIT 1;',
+        [productId, tenantId]
+      );
+      if (found.rows.length === 0) {
+        return res.status(404).json({ success: false, error: "Produto não encontrado nesta empresa." });
+      }
+
+      // Só os campos informados entram no UPDATE (os mesmos da API v1).
+      const sets: string[] = [];
+      const params: any[] = [];
+      const push = (column: string, value: unknown) => {
+        params.push(value);
+        sets.push(`"${column}" = $${params.length}`);
+      };
+      if (typeof req.body?.name === "string" && req.body.name.trim()) push("name", req.body.name.trim().slice(0, 255));
+      if (typeof req.body?.brand === "string" && req.body.brand.trim()) push("brand", req.body.brand.trim().slice(0, 100));
+      const toMoney = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
+      const costPrice = toMoney(req.body?.costPrice);
+      if (costPrice !== null) push("costPrice", costPrice);
+      const salePrice = toMoney(req.body?.salePrice);
+      if (salePrice !== null) push("salePrice", salePrice);
+      if (Number.isFinite(Number(req.body?.minStock)) && Number(req.body.minStock) >= 0) {
+        push("minStock", Math.floor(Number(req.body.minStock)));
+      }
+      if (typeof req.body?.active === "boolean") push("active", req.body.active);
+
+      if (sets.length === 0) {
+        return res.status(400).json({ success: false, error: "Informe ao menos um campo para atualizar." });
+      }
+
+      const idIdx = params.length + 1;
+      params.push(productId);
+      const tenantIdx = params.length + 1;
+      params.push(tenantId);
+      await pool.query(
+        `UPDATE "Product" SET ${sets.join(", ")}, "updatedAt" = NOW() WHERE id = $${idIdx} AND "tenantId" = $${tenantIdx};`,
+        params
+      );
+
+      const inativando = req.body?.active === false;
+      recordAudit(
+        req,
+        req.auth!.user,
+        inativando ? "INACTIVATE_PRODUCT" : "UPDATE_PRODUCT",
+        "company_data",
+        productId,
+        "success",
+        {
+          details: inativando
+            ? `Produto ${found.rows[0].sku} inativado (sai do catálogo; o histórico permanece).`
+            : `Produto ${found.rows[0].sku} atualizado.`,
+          targetTenantId: tenantId,
+        }
+      );
+
+      res.json({
+        success: true,
+        id: productId,
+        message: inativando ? "Produto inativado." : "Produto atualizado.",
+      });
+    } catch (err: any) {
+      console.error("[GATO DB] Falha ao atualizar produto:", err?.message || err);
+      res.status(500).json({ success: false, error: "Falha segura ao atualizar produto." });
+    }
+  }
+);
+
 // ==========================================
 // SUPABASE STORAGE: LOGO DO CLIENTE POR TENANT
 // ==========================================

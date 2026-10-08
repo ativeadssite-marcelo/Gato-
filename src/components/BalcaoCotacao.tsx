@@ -312,6 +312,8 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
   // Filtered Products based on Search Input, Group and Plate
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
+      // Produto inativado não se vende: sai do balcão (segue no histórico).
+      if (p.active === false) return false;
       const term = searchTerm.trim().toLowerCase();
       const matchesTerm = !term || (
         p.name.toLowerCase().includes(term) ||

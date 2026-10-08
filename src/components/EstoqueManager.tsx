@@ -25,10 +25,13 @@ import {
   ClipboardCheck,
   Truck,
   Cable,
-  Zap
+  Zap,
+  Ban,
+  RotateCcw
 } from 'lucide-react';
 import { Product, VehicleCategory, UserSession, PhysicalInventoryItem } from '../types';
 import { CadastroPecaModal } from './CadastroPecaModal';
+import { setProductActive, isDatabaseNotConfiguredError } from '../services/entityApi';
 
 // Shim para imageOptimizer removido
 function formatImageSize(bytes: number): string {
@@ -58,9 +61,14 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
   onSelectForQuote,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [filterLowStockOnly, setFilterLowStockOnly] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');  const [filterLowStockOnly, setFilterLowStockOnly] = useState(false);
   const [filterExternalStockOnly, setFilterExternalStockOnly] = useState(false);
+  // Produto inativado sai da lista do dia a dia; o olho só aparece quando o
+  // operador pede — é o "excluir" reversível do sistema (item não comercializado).
+  const [showInactive, setShowInactive] = useState(false);
+  // Inativação em espera de confirmação digitada (ver modal no fim do arquivo).
+  const [inactivateTarget, setInactivateTarget] = useState<Product | null>(null);
+  const [inactivateConfirmation, setInactivateConfirmation] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCadastroModalOpen, setIsCadastroModalOpen] = useState(false);
   const [previewZoomUrl, setPreviewZoomUrl] = useState<string | null>(null);
@@ -186,6 +194,36 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
     responsible: 'Operador de Balcão',
   });
 
+  /**
+   * Inativa (ou reativa) o produto no catálogo.
+   *
+   * Inativar é o "excluir" do sistema: a linha continua no banco porque venda,
+   * nota e orçamento apontam para ela. A confirmação é DIGITADA (o modal exige
+   * o código da peça) — um clique errado não tira mercadoria do catálogo.
+   */
+  const handleSetProductActive = async (product: Product, active: boolean) => {
+    try {
+      await setProductActive(product.id, active);
+      if (onReloadEntities) await onReloadEntities();
+      onShowNotification(
+        active ? 'Produto Reativado' : 'Produto Inativado',
+        `${product.code} — ${product.name} ${active ? 'voltou ao catálogo.' : 'saiu do catálogo; o histórico de vendas e orçamentos foi preservado.'}`,
+        'success'
+      );
+    } catch (error) {
+      if (isDatabaseNotConfiguredError(error)) {
+        // Dev sem banco: o estado local é a única fonte, então muda só ele.
+        onUpdateProducts(products.map((p) => (p.id === product.id ? { ...p, active } : p)));
+        return;
+      }
+      onShowNotification(
+        'Não foi possível atualizar o produto',
+        error instanceof Error ? error.message : 'Falha ao atualizar o produto.',
+        'warning'
+      );
+    }
+  };
+
   // Filter products
   const filteredProducts = products.filter((p) => {
     const term = searchTerm.toLowerCase();
@@ -209,8 +247,9 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
     const matchesLowStock = !filterLowStockOnly || centralStock <= p.minStock;
     const hasExternalStock = (p.stockExternal?.total || 0) > 0 || (p.stockExternal?.meliFull || 0) > 0 || (p.stockExternal?.amazonFba || 0) > 0;
     const matchesExternal = !filterExternalStockOnly || hasExternalStock;
+    const matchesActive = showInactive || p.active !== false;
 
-    return matchesSearch && matchesCategory && matchesLowStock && matchesExternal;
+    return matchesSearch && matchesCategory && matchesLowStock && matchesExternal && matchesActive;
   });
 
   // Handle stock movement execution
@@ -403,6 +442,21 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
               <span>Estoque Externo (Full/FBA)</span>
             </button>
 
+            {/* Mostrar inativos — o produto não comercializado sai do catálogo */}
+            <button
+              type="button"
+              onClick={() => setShowInactive(!showInactive)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition cursor-pointer ${
+                showInactive
+                  ? 'bg-slate-700 text-white ring-2 ring-slate-400 shadow-xs'
+                  : 'bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200'
+              }`}
+              title="Produtos inativados saem do catálogo e do balcão, mas continuam no histórico"
+            >
+              <Ban className="w-3.5 h-3.5" />
+              <span>Mostrar Inativos</span>
+            </button>
+
             {/* Imprimir Etiquetas de Código de Barras */}
             <button
               type="button"
@@ -518,13 +572,19 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
 
                       {/* Name */}
                       <td className="p-3.5 align-middle">
-                        <p className="font-extrabold text-slate-900 leading-tight">
+                        <p className={`font-extrabold leading-tight ${product.active === false ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
                           {product.name}
                         </p>
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-0.5">
                           <span className="uppercase font-semibold text-sky-700">NCM: {product.ncm}</span>
                           <span>•</span>
                           <span>{product.category.toUpperCase()}</span>
+                          {product.active === false && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-black uppercase">
+                              <Ban className="w-2.5 h-2.5" />
+                              Inativo
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -635,6 +695,30 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
                           >
                             <ArrowUpRight className="w-4 h-4" />
                           </button>
+
+                          {/* Inativar / Reativar — "excluir" sem perder o histórico */}
+                          {product.active === false ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleSetProductActive(product, true)}
+                              className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
+                              title="Reativar: volta ao catálogo e ao balcão"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInactivateTarget(product);
+                                setInactivateConfirmation('');
+                              }}
+                              className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer"
+                              title="Inativar: tira do catálogo sem apagar o histórico"
+                            >
+                              <Ban className="w-4 h-4" />
+                            </button>
+                          )}
 
                           {/* Quick Quote trigger */}
                           {onSelectForQuote && (
@@ -1319,6 +1403,73 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
                   <span>Ajustar Estoque Automaticamente</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: INATIVAR PRODUTO — confirmação DIGITADA (não excluir sem intenção) */}
+      {/* ========================================================================= */}
+      {inactivateTarget && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+                <Ban className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Inativar produto</span>
+                <h3 className="text-sm font-black text-slate-900">{inactivateTarget.name}</h3>
+                <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                  {inactivateTarget.code} • {inactivateTarget.brand}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-600 space-y-1">
+              <p>O produto <strong>sai do catálogo, da consulta e do balcão</strong> — não será mais vendido.</p>
+              <p>Ele <strong>não é apagado</strong>: vendas, notas e orçamentos que já o usam continuam íntegros, e dá para reativar depois.</p>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                Para confirmar, digite o código <span className="font-mono text-slate-900">{inactivateTarget.code}</span>:
+              </label>
+              <input
+                type="text"
+                value={inactivateConfirmation}
+                onChange={(e) => setInactivateConfirmation(e.target.value)}
+                placeholder={inactivateTarget.code}
+                autoFocus
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setInactivateTarget(null);
+                  setInactivateConfirmation('');
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={inactivateConfirmation.trim() !== inactivateTarget.code}
+                onClick={() => {
+                  const alvo = inactivateTarget;
+                  setInactivateTarget(null);
+                  setInactivateConfirmation('');
+                  void handleSetProductActive(alvo, false);
+                }}
+                className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer"
+              >
+                Inativar Produto
+              </button>
             </div>
           </div>
         </div>

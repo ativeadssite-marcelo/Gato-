@@ -148,8 +148,7 @@ test("produto: markup é derivado do custo e da venda; custo zero não divide po
   assert.strictEqual(semCusto.markupPercent, 0);
 });
 
-test("produto: campo sem coluna no banco sai neutro, não inventado", () => {
-  const product = mapProductRow({ id: "p", sku: "S", name: "N" });
+test("produto: campo sem coluna no banco sai neutro, não inventado", () => {  const product = mapProductRow({ id: "p", sku: "S", name: "N" });
   assert.strictEqual(product.oemCode, "");
   assert.strictEqual(product.supplier, "");
   assert.strictEqual(product.ncm, "");
@@ -354,4 +353,18 @@ test("payload de orçamento: item leva preço final e quantidade", () => {
     quantity: 4,
     unitPrice: 85,
   });
+});
+
+// -------------------------------------------------------------------------
+// Inativação (o "excluir" do sistema)
+// -------------------------------------------------------------------------
+
+test("produto do banco com active=false chega inativado no front", () => {
+  const inativo = mapProductRow({ id: "p", sku: "S", name: "N", active: false });
+  assert.strictEqual(inativo.active, false);
+});
+
+test("produto sem a coluna active (seed, cadastro novo) conta como ativo", () => {
+  const produto = mapProductRow({ id: "p", sku: "S", name: "N" });
+  assert.strictEqual(produto.active, true);
 });

@@ -167,6 +167,12 @@ export interface Product {
   };
   stock: number;
   stockCentral?: number;   // Saldo Físico no CD Central / Loja Matriz
+  /**
+   * `false` = produto inativado (não é mais comercializado). Sai do catálogo e
+   * do balcão, mas continua no histórico de vendas, notas e orçamentos.
+   * Ausente conta como ativo — é o que os seeds e o cadastro novo produzem.
+   */
+  active?: boolean;
   stockExternal?: ProductExternalStock; // Saldos em Estoques Externos (Meli Full, Amazon FBA, etc.)
   minStock: number;
   unitCost: number;       // Custo de compra da NF

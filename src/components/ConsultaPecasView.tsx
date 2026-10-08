@@ -241,6 +241,8 @@ export const ConsultaPecasView: React.FC<ConsultaPecasViewProps> = ({
     const list: DetailedPartItem[] = USE_SEED_DATA ? [DEFAULT_FEATURED_PART] : [];
 
     products.forEach((p) => {
+      // Produto inativado não aparece na consulta/vitrine.
+      if (p.active === false) return;
       // Evita duplicar se já for o featured
       if (p.code === DEFAULT_FEATURED_PART.brandCode || p.oemCode === DEFAULT_FEATURED_PART.oemCode) {
         return;
