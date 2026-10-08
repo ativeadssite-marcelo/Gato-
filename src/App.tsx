@@ -1303,6 +1303,7 @@ export default function App() {
               onUpdateCompanyProfile={handleUpdateCompanyProfile}
               onUpdateProducts={setProducts}
               onRestoreData={handleRestoreData}
+              onReloadEntities={reloadEntities}
               onShowNotification={showNotification}
             />
           )}

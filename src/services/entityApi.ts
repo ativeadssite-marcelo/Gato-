@@ -428,6 +428,20 @@ export async function createQuote(quote: Quote, customers: Customer[]): Promise<
   return data.budgetId;
 }
 
+/**
+ * Zera os dados de operação do contratante (produtos, clientes, fornecedores,
+ * orçamentos e movimento de caixa). O servidor confere a confirmação contra o
+ * nome da empresa — não adianta mandar o texto que o cliente acha certo — e
+ * registra a ação na auditoria como anômala.
+ */
+export async function resetTenantData(confirmacao: string): Promise<{ linhasPorTabela: Record<string, number> }> {
+  return apiJson('/api/db/reset-tenant', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirmacao }),
+  });
+}
+
 /** Entidade que falhou ao carregar, com o erro original para quem chamou decidir. */
 export interface EntityLoadFailure {
   entity: 'products' | 'customers' | 'suppliers' | 'quotes';

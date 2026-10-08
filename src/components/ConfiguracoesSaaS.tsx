@@ -31,11 +31,14 @@ import {
   Save,
   Sparkles,
   Rocket,
-  Camera
+  Camera,
+  AlertTriangle,
+  Trash2
 } from 'lucide-react';
 import { Product, Order, Customer, InvoiceRecord, CompanyProfile, BranchUnit } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
 import { ClienteLogoCustomizer } from './ClienteLogoCustomizer';
+import { resetTenantData } from '../services/entityApi';
 
 // Shim para imageOptimizer removido
 function formatImageSize(bytes: number): string {
@@ -65,6 +68,8 @@ interface ConfiguracoesSaaSProps {
   onUpdateCompanyProfile?: (profile: CompanyProfile) => void;
   onUpdateProducts?: (products: Product[]) => void;
   onRestoreData: (backupData: any) => void;
+  /** Recarrega as listas do banco (usado depois de zerar os dados de operação). */
+  onReloadEntities?: () => Promise<void>;
   onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void;
 }
 
@@ -81,6 +86,7 @@ export const ConfiguracoesSaaS: React.FC<ConfiguracoesSaaSProps> = ({
   onUpdateCompanyProfile,
   onUpdateProducts,
   onRestoreData,
+  onReloadEntities,
   onShowNotification,
 }) => {
   // Company Profile / Nome Fantasia Form State
@@ -422,6 +428,42 @@ export const ConfiguracoesSaaS: React.FC<ConfiguracoesSaaSProps> = ({
     { id: 'b-2', timestamp: 'Ontem às 18:00:00', size: '2.3 MB', status: 'Sucesso', destination: 'Nuvem GCP Storage (Backup Automático)' },
     { id: 'b-3', timestamp: 'Ontem às 12:00:00', size: '2.3 MB', status: 'Sucesso', destination: 'Nuvem GCP Storage (Backup Automático)' },
   ]);
+
+  // Zona de risco: zerar os dados de operação ("começar a operar")
+  const [resetConfirmacao, setResetConfirmacao] = useState('');
+  const [resetando, setResetando] = useState(false);
+
+  /**
+   * Zera o cadastro e o movimento da empresa no banco. O servidor revalida a
+   * confirmação (nome da empresa) e recusa quem não é admin do tenant — aqui é
+   * só a borda. Depois de zerar, as listas recarregam para a tela não continuar
+   * mostrando o que já não existe.
+   */
+  const handleResetTenantData = async () => {
+    setResetando(true);
+    try {
+      const resultado = await resetTenantData(resetConfirmacao);
+      const linhas = Object.entries(resultado?.linhasPorTabela || {})
+        .filter(([, n]) => n > 0)
+        .map(([tabela, n]) => `${tabela}: ${n}`)
+        .join(' • ');
+      setResetConfirmacao('');
+      onShowNotification(
+        'Dados de operação zerados',
+        linhas ? `Registros apagados — ${linhas}.` : 'Não havia nada a apagar.',
+        'info'
+      );
+      if (onReloadEntities) await onReloadEntities();
+    } catch (error) {
+      onShowNotification(
+        'Não foi possível zerar',
+        error instanceof Error ? error.message : 'Falha ao zerar os dados de operação.',
+        'warning'
+      );
+    } finally {
+      setResetando(false);
+    }
+  };
 
   // Export full JSON backup
   const handleExportFullBackup = () => {
@@ -1441,6 +1483,81 @@ export const ConfiguracoesSaaS: React.FC<ConfiguracoesSaaSProps> = ({
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* ZONA DE RISCO — zerar os dados de operação para começar a operar      */}
+      {/* ===================================================================== */}
+      <div className="bg-white rounded-2xl border-2 border-rose-200 shadow-sm overflow-hidden" id="card-zona-de-risco">
+        <div className="flex items-center gap-2.5 bg-rose-50 px-5 py-3 border-b border-rose-200">
+          <div className="p-2 rounded-xl bg-rose-100 border border-rose-200">
+            <AlertTriangle className="w-5 h-5 text-rose-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-black text-rose-900">Zona de Risco — iniciar operação com a casa limpa</h2>
+            <p className="text-[11px] text-rose-700">
+              Apaga o cadastro e o movimento desta empresa no banco. Não tem volta.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <span className="block text-[10px] font-black text-slate-500 uppercase mb-1">O que é apagado</span>
+              <p className="text-slate-600">
+                Produtos, clientes, fornecedores, orçamentos e o movimento do caixa (turnos, recibos e boletos).
+              </p>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+              <span className="block text-[10px] font-black text-emerald-700 uppercase mb-1">O que é preservado</span>
+              <p className="text-emerald-800">
+                Perfil da empresa, filiais, tabelas de imposto, usuários, assinatura e <strong>todo o histórico de
+                auditoria</strong>.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-900">
+            <strong>Antes de zerar:</strong> baixe o backup na rotina de backup acima. O reset não faz cópia.
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+              Para liberar o botão, digite o nome da empresa como está no cadastro do contratante
+              {companyProfile?.tradeName ? (
+                <>
+                  {' '}(no perfil local: <span className="font-mono text-slate-900">{companyProfile.tradeName}</span>)
+                </>
+              ) : null}
+              :
+            </label>
+            <input
+              type="text"
+              value={resetConfirmacao}
+              onChange={(e) => setResetConfirmacao(e.target.value)}
+              placeholder="Nome da empresa"
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[11px] text-slate-500">
+              {resetConfirmacao.trim().length === 0
+                ? 'O botão fica bloqueado até a confirmação.'
+                : 'A conferência final é feita no servidor (que informa o nome exato se não conferir); a ação é registrada na auditoria como anômala.'}
+            </span>
+            <button
+              type="button"
+              disabled={resetando || resetConfirmacao.trim().length === 0}
+              onClick={() => void handleResetTenantData()}
+              className="flex items-center gap-1.5 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer whitespace-nowrap"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{resetando ? 'Zerando…' : 'Zerar dados de operação'}</span>
+            </button>
           </div>
         </div>
       </div>

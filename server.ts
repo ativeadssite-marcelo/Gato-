@@ -43,6 +43,7 @@ import { hydrateIdentityStore } from "./server/identityStore";
 import { hydrateAuditStore } from "./server/auditStore";
 import { seedBillingStore } from "./server/store";
 import { listQuotes } from "./server/quotes/quotes";
+import { confirmacaoValida, resetStatements } from "./server/tenantReset/tenantReset";
 import { startBillingCron } from "./server/notifications/cron";
 
 dotenv.config();
@@ -1215,6 +1216,99 @@ app.put(
       await client.query("ROLLBACK").catch(() => {});
       console.error("[GATO DB] Falha ao atualizar orçamento:", err?.message || err);
       res.status(500).json({ success: false, error: "Falha segura ao atualizar orçamento." });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// Reset dos dados do contratante — "começar a operar com a casa limpa"
+//
+// Ação mais destrutiva do sistema. Quatro travas, nesta ordem:
+//   1. só o ADMIN DO TENANT (dono da empresa) — nem a equipe SaaS, por aqui;
+//   2. confirmação DIGITADA que precisa bater com o nome da empresa (comparada
+//      sem acento e sem caixa, no servidor — o cliente não decide o esperado);
+//   3. transação única, com TODA exclusão limitada ao tenant;
+//   4. auditoria marcada como anômala, com o número de linhas por tabela.
+// Configuração, acesso, cobrança e a própria trilha de auditoria ficam fora.
+app.post(
+  "/api/db/reset-tenant",
+  requireAuth,
+  requirePermission("company_data", { write: true }),
+  async (req, res) => {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+    }
+    const scope = resolveDataScope(req, "company_data");
+    if (!scope.ok) return sendScopeDenied(res, scope);
+    if (!scope.tenantId) {
+      return res.status(400).json({ success: false, error: "Tenant não identificado na sessão." });
+    }
+    if (req.auth?.user.roleCode !== "tenant_admin") {
+      return res.status(403).json({
+        success: false,
+        error: "Somente o administrador da empresa pode zerar os dados de operação.",
+      });
+    }
+    const tenantId = scope.tenantId;
+
+    const pool = getDbPool();
+    const client = await pool.connect();
+    try {
+      const tenantRes = await client.query(
+        'SELECT name FROM "Tenant" WHERE id = $1 LIMIT 1;',
+        [tenantId]
+      );
+      if (tenantRes.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Contratante não encontrado no banco — provisione a empresa antes de zerar os dados.",
+        });
+      }
+      const nomeEmpresa = String(tenantRes.rows[0].name ?? "");
+
+      if (!confirmacaoValida(req.body?.confirmacao, nomeEmpresa)) {
+        recordAudit(
+          req,
+          req.auth!.user,
+          "RESET_TENANT_DATA_BLOCKED",
+          "company_data",
+          tenantId,
+          "blocked",
+          { details: "Confirmação digitada não confere com o nome da empresa.", anomalous: true, targetTenantId: tenantId }
+        );
+        return res.status(400).json({
+          success: false,
+          error: `Confirmação não confere. Digite o nome da empresa (${nomeEmpresa}) para confirmar.`,
+        });
+      }
+
+      const linhasPorTabela: Record<string, number> = {};
+      await client.query("BEGIN");
+      for (const { tabela, sql } of resetStatements(tenantId)) {
+        const result = await client.query(sql, [tenantId]);
+        linhasPorTabela[tabela] = result.rowCount || 0;
+      }
+      await client.query("COMMIT");
+
+      recordAudit(req, req.auth!.user, "RESET_TENANT_DATA", "company_data", tenantId, "warning", {
+        details: `Dados de operação zerados: ${Object.entries(linhasPorTabela)
+          .filter(([, n]) => n > 0)
+          .map(([tabela, n]) => `${tabela}=${n}`)
+          .join(", ") || "nada a apagar"}.`,
+        anomalous: true,
+        targetTenantId: tenantId,
+      });
+
+      res.json({
+        success: true,
+        message: "Dados de operação zerados. Configuração, usuários e histórico de auditoria foram preservados.",
+        linhasPorTabela,
+      });
+    } catch (err: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("[GATO DB] Falha ao zerar dados do tenant:", err?.message || err);
+      res.status(500).json({ success: false, error: "Falha segura ao zerar os dados. Nada foi apagado." });
     } finally {
       client.release();
     }
