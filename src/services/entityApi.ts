@@ -356,6 +356,40 @@ export async function updateQuoteStatus(quoteId: string, status: Quote['status']
   });
 }
 
+export function buildQuoteUpdatePayload(quote: Quote, customers: Customer[]): Record<string, unknown> {
+  const clienteDoBanco = customers.some((cliente) => cliente.id === quote.customerId);
+  return {
+    number: quote.quoteNumber,
+    // Sem cliente resolvido o campo NÃO vai: o banco mantém o vínculo que já tem
+    // (mandar o nome de um cadastro que não está lá produziria 400).
+    ...(clienteDoBanco ? { customerId: quote.customerId } : {}),
+    total: quote.totalAmount,
+    status: quote.status,
+    items: (quote.items || []).map((item) => ({
+      productId: item.productId || null,
+      quantity: item.quantity,
+      unitPrice: item.finalUnitPrice,
+    })),
+  };
+}
+
+/**
+ * Altera um orçamento que já está no banco: cabeçalho e itens (o servidor
+ * SUBSTITUI os itens — o que a tela manda é o orçamento inteiro).
+ *
+ * Diferente do `createQuote`, NÃO cai para a busca por nome quando o cliente
+ * não está na lista: o vínculo certo já existe no banco, e mandar o nome de um
+ * cadastro que não está lá só produziria 400. Sem cliente resolvido, o
+ * orçamento mantém o vínculo que já tem.
+ */
+export async function updateQuote(quote: Quote, customers: Customer[]): Promise<void> {
+  await apiJson(`/api/db/quotes/${encodeURIComponent(quote.id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildQuoteUpdatePayload(quote, customers)),
+  });
+}
+
 /**
  * Payload do `POST /api/db/quotes`.
  *

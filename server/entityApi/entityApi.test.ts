@@ -17,6 +17,7 @@ import {
   buildCustomerPayload,
   buildProductPayload,
   buildQuotePayload,
+  buildQuoteUpdatePayload,
   isAccessDeniedError,
   isDatabaseNotConfiguredError,
   mapCustomerRow,
@@ -360,7 +361,6 @@ test("payload de orçamento: item leva preço final e quantidade", () => {
 // -------------------------------------------------------------------------
 // Inativação (o "excluir" do sistema)
 // -------------------------------------------------------------------------
-
 test("produto do banco com active=false chega inativado no front", () => {
   const inativo = mapProductRow({ id: "p", sku: "S", name: "N", active: false });
   assert.strictEqual(inativo.active, false);
@@ -369,4 +369,29 @@ test("produto do banco com active=false chega inativado no front", () => {
 test("produto sem a coluna active (seed, cadastro novo) conta como ativo", () => {
   const produto = mapProductRow({ id: "p", sku: "S", name: "N" });
   assert.strictEqual(produto.active, true);
+});
+
+// -------------------------------------------------------------------------
+// Alteração de orçamento (PUT)
+// -------------------------------------------------------------------------
+
+test("alteração de orçamento: mantém o número, o status e regrava os itens", () => {
+  const payload = buildQuoteUpdatePayload(
+    quoteDoFront({ id: "bud_1", customerId: "cust_do_banco", status: "Cancelado" }),
+    [clienteDoFront({ id: "cust_do_banco" })],
+  ) as Record<string, unknown> & { items: Array<Record<string, unknown>> };
+
+  assert.strictEqual(payload.number, "DAV-2026-00489");
+  assert.strictEqual(payload.status, "Cancelado");
+  assert.strictEqual(payload.customerId, "cust_do_banco");
+  assert.deepStrictEqual(payload.items[0], { productId: "p-1", quantity: 4, unitPrice: 85 });
+});
+
+test("alteração de orçamento: cliente fora da lista não é enviado (o vínculo do banco permanece)", () => {
+  // Diferente do create: aqui NÃO cai para o nome — o orçamento já existe no
+  // banco e mandar nome de cadastro ausente só daria 400.
+  const payload = buildQuoteUpdatePayload(quoteDoFront({ id: "bud_1", customerId: "cust-1" }), []);
+
+  assert.ok(!("customerId" in payload));
+  assert.ok(!("customerName" in payload));
 });

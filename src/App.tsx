@@ -92,6 +92,7 @@ import {
   isDatabaseNotConfiguredError,
   createProduct,
   createQuote,
+  updateQuote as updateQuoteInApi,
   type EntityLoadResult,
 } from './services/entityApi';
 import { seedList, loadEntityState, persistEntityState } from './utils/seedMode';
@@ -360,6 +361,11 @@ export default function App() {
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>(() => seedList(INITIAL_BANK_TRANSACTIONS));
   const [mdfeRecords, setMdfeRecords] = useState<MdfeRecord[]>(() => seedList(INITIAL_MDFE));
   const [selectedCustomerForQuote, setSelectedCustomerForQuote] = useState<Customer | null>(null);
+  /**
+   * Orçamento que o usuário mandou ALTERAR na tela de Orçamentos. Fica aqui
+   * enquanto o balcão edita; o balcão avisa quando consumir, e o App limpa.
+   */
+  const [quoteBeingEdited, setQuoteBeingEdited] = useState<Quote | null>(null);
   const [selectedVehicleForQuote, setSelectedVehicleForQuote] = useState<VehicleFleetItem | null>(null);
   const [selectedProductForQuote, setSelectedProductForQuote] = useState<Product | null>(null);
   const [lastIssuedInvoiceId, setLastIssuedInvoiceId] = useState<string | null>(null);
@@ -649,6 +655,40 @@ export default function App() {
         showNotification(
           'Orçamento não gravado no banco',
           error instanceof Error ? error.message : 'Falha ao gravar o orçamento.',
+          'warning'
+        );
+      }
+    })();
+  };
+
+  /**
+   * Manda um orçamento salvo para o balcão, em modo de alteração.
+   * O balcão hidrata o carrinho e, ao salvar, grava por cima (PUT) em vez de
+   * criar outro DAV.
+   */
+  const handleEditQuote = (quote: Quote) => {
+    setQuoteBeingEdited(quote);
+    setCurrentView('cotacao');
+  };
+
+  /**
+   * Grava a alteração de um orçamento que já existe: local primeiro (a tela não
+   * perde a edição se o banco falhar), depois o PUT e a recarga das listas.
+   */
+  const handleUpdateQuote = (quote: Quote) => {
+    setQuotes(prev => prev.map(q => q.id === quote.id ? quote : q));
+    showNotification('Orçamento Alterado!', `${quote.quoteNumber} (${quote.customerName}) atualizado.`, 'success');
+
+    if (!quote.id.startsWith('bud_')) return; // demonstração: não está no banco
+    void (async () => {
+      try {
+        await updateQuoteInApi(quote, customers);
+        await reloadEntities();
+      } catch (error) {
+        if (isDatabaseNotConfiguredError(error)) return; // dev sem banco: segue local
+        showNotification(
+          'Alteração não gravada no banco',
+          error instanceof Error ? error.message : 'Falha ao gravar a alteração do orçamento.',
           'warning'
         );
       }
@@ -1003,6 +1043,9 @@ export default function App() {
               onEmitNfeFromQuote={handleEmitNfeFromQuote}
               onSaveQuote={handleSaveQuote}
               onReloadEntities={reloadEntities}
+              initialQuote={quoteBeingEdited}
+              onUpdateQuote={handleUpdateQuote}
+              onEditQuoteConsumed={() => setQuoteBeingEdited(null)}
               onNavigateToFleet={() => setCurrentView('frota')}
               onNavigateToPartsApplication={() => setCurrentView('consulta-aplicacao')}
               onNavigateToNfe={() => setCurrentView('nfe-venda')}
@@ -1167,6 +1210,7 @@ export default function App() {
               onUpdateCustomers={setCustomers}
               onUpdateQuotes={setQuotes}
               onReloadEntities={reloadEntities}
+              onEditQuote={handleEditQuote}
               onUpdateLeads={handleUpdateMarketingLeads}
               onConvertQuoteToSale={handleConvertQuoteToSale}
               onNavigateToQuoteWithCustomer={(cust) => {

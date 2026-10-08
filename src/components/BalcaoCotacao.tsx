@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Search, 
-  Plus, 
-  Trash2, 
-  Printer, 
-  FileText, 
+import {
+  Search,
+  Plus,
+  Trash2,
+  Printer,
+  Edit3,
+  FileText,
   DollarSign, 
   User, 
   Car, 
@@ -73,6 +74,12 @@ interface BalcaoCotacaoProps {
   onSaveQuote?: (quote: Quote) => void;
   /** Recarrega as listas do banco depois de uma escrita (cadastro de produto). */
   onReloadEntities?: () => Promise<void>;
+  /** Orçamento que veio de "Alterar" na tela de Orçamentos — hidrata o carrinho. */
+  initialQuote?: Quote | null;
+  /** Grava a alteração de um orçamento já existente (PUT, não cria outro). */
+  onUpdateQuote?: (quote: Quote) => void;
+  /** Chamado depois de consumir o `initialQuote`, para o App limpar o estado. */
+  onEditQuoteConsumed?: () => void;
   onNavigateToFleet?: () => void;
   onNavigateToPartsApplication?: () => void;
   onNavigateToNfe?: () => void;
@@ -92,6 +99,9 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
   onEmitNfeFromQuote,
   onSaveQuote,
   onReloadEntities,
+  initialQuote,
+  onUpdateQuote,
+  onEditQuoteConsumed,
   onNavigateToFleet,
   onNavigateToPartsApplication,
   onNavigateToNfe,
@@ -239,6 +249,38 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
   // Número do DAV corrente — alimenta o modal DOCUMENTO e a impressão do orçamento.
   // Fica `null` enquanto nada foi salvo (aí o documento sai como pré-visualização).
   const [currentDavNumber, setCurrentDavNumber] = useState<string | null>(null);
+  /**
+   * Orçamento salvo que está sendo ALTERADO no balcão (veio de "Alterar" na tela
+   * de Orçamentos). Enquanto ele existe, salvar grava por cima — mesmo id e
+   * mesmo número — em vez de criar outro DAV.
+   */
+  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+
+  // Hidrata o carrinho com o orçamento que veio para alteração. O cliente só é
+  // trocado se ele existir na lista atual: se o cadastro saiu da lista, o
+  // vínculo do banco permanece (o PUT não mexe em cliente sem cliente novo).
+  useEffect(() => {
+    if (!initialQuote) return;
+    setEditingQuote(initialQuote);
+    setQuoteItems(initialQuote.items || []);
+    setCurrentDavNumber(initialQuote.quoteNumber);
+    if (initialQuote.paymentCondition) setPaymentMethod(initialQuote.paymentCondition);
+    if (customers.some((c) => c.id === initialQuote.customerId)) {
+      setSelectedCustomerId(initialQuote.customerId);
+    }
+    setVehicleData((v) => ({
+      ...v,
+      plate: initialQuote.vehiclePlate || v.plate,
+      model: initialQuote.vehicleModel || v.model,
+    }));
+    onShowNotification(
+      'Orçamento em Alteração',
+      `${initialQuote.quoteNumber} carregado no balcão. Salvar grava por cima do orçamento atual.`,
+      'info'
+    );
+    if (onEditQuoteConsumed) onEditQuoteConsumed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuote?.id]);
   const [copiedDavSummary, setCopiedDavSummary] = useState(false);
 
   // Sync with initialCustomer or activeStore if updated from outside
@@ -464,29 +506,39 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
       return;
     }
 
-    const davNumber = `DAV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newQuote = buildDavQuote(davNumber, status);
+    const davNumber = editingQuote
+      ? editingQuote.quoteNumber
+      : `DAV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newQuote = editingQuote
+      ? { ...buildDavQuote(davNumber, status), id: editingQuote.id }
+      : buildDavQuote(davNumber, status);
     setCurrentDavNumber(davNumber);
 
-    if (onSaveQuote) {
+    if (editingQuote && onUpdateQuote) {
+      // Alterar um orçamento que já existe: mantém id e número, troca o conteúdo.
+      onUpdateQuote(newQuote);
+      setEditingQuote(null);
+    } else if (onSaveQuote) {
       onSaveQuote(newQuote);
     }
 
-    setPendingDavs(prev => [
-      {
-        id: newQuote.id,
-        number: newQuote.quoteNumber,
-        client: currentCustomer.name,
-        items: quoteItems.length,
-        total: quoteTotal,
-        time: new Date().toLocaleTimeString().slice(0, 5),
-      },
-      ...prev
-    ]);
+    if (!editingQuote) {
+      setPendingDavs(prev => [
+        {
+          id: newQuote.id,
+          number: newQuote.quoteNumber,
+          client: currentCustomer.name,
+          items: quoteItems.length,
+          total: quoteTotal,
+          time: new Date().toLocaleTimeString().slice(0, 5),
+        },
+        ...prev
+      ]);
+    }
 
     onShowNotification(
-      'DAV Registrado com Sucesso!',
-      `${davNumber} salvo para ${currentCustomer.name}. Lead sincronizado com a base de marketing!`,
+      editingQuote ? 'Orçamento Alterado!' : 'DAV Registrado com Sucesso!',
+      `${davNumber} ${editingQuote ? 'atualizado' : `salvo para ${currentCustomer.name}`}.`,
       'success'
     );
   };
@@ -682,6 +734,27 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
             <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
             <span>PENDÊNCIAS ({pendingDavs.length})</span>
           </button>
+
+          {/* Alteração em andamento: salvar grava por cima deste orçamento */}
+          {editingQuote && (
+            <div className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-400/50 px-2.5 py-1 rounded text-[11px] font-extrabold uppercase text-amber-200">
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Alterando {editingQuote.quoteNumber}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingQuote(null);
+                  setQuoteItems([]);
+                  setCurrentDavNumber(null);
+                  onShowNotification('Alteração Cancelada', 'O balcão voltou a criar um orçamento novo.', 'info');
+                }}
+                className="ml-1 text-amber-100 hover:text-white underline cursor-pointer"
+                title="Desistir da alteração e voltar a criar um orçamento novo"
+              >
+                cancelar
+              </button>
+            </div>
+          )}
 
           {/* Documento Button */}
           <button

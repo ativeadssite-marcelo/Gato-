@@ -70,6 +70,8 @@ interface ClientesOrcamentosProps {
   onNavigateToQuoteWithCustomer?: (customer: Customer) => void;
   /** Recarrega as listas do banco depois de uma escrita (cadastro de cliente). */
   onReloadEntities?: () => Promise<void>;
+  /** Manda o orçamento para o balcão em modo de alteração. */
+  onEditQuote?: (quote: Quote) => void;
   onTabChange?: (tab: 'orcamentos' | 'clientes' | 'politicas' | 'leads_marketing') => void;
   onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void;
 }
@@ -87,6 +89,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
   onConvertQuoteToSale,
   onNavigateToQuoteWithCustomer,
   onReloadEntities,
+  onEditQuote,
   onTabChange,
   onShowNotification,
 }) => {
@@ -663,6 +666,17 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+
+                            {onEditQuote && quote.status !== 'Convertido' && quote.status !== 'Cancelado' && (
+                              <button
+                                type="button"
+                                onClick={() => onEditQuote(quote)}
+                                className="p-1.5 text-[#0284C7] hover:bg-sky-50 rounded-lg transition cursor-pointer"
+                                title="Alterar orçamento: abre no balcão para editar itens e valores"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                            )}
 
                             {quote.status !== 'Convertido' && quote.status !== 'Cancelado' && (
                               <button
