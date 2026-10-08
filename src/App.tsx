@@ -1104,6 +1104,7 @@ export default function App() {
               existingProducts={products}
               onAddNewProduct={handleAddNewProduct}
               onUpdateProductStock={handleUpdateProductStock}
+              onReloadEntities={reloadEntities}
               onImportComplete={(updatedProds, newInvs) => {
                 setProducts(updatedProds);
                 setInvoices(prev => [...newInvs, ...prev]);

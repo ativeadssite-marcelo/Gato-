@@ -442,6 +442,30 @@ export async function resetTenantData(confirmacao: string): Promise<{ linhasPorT
   });
 }
 
+/**
+ * Payload do `POST /api/db/sync-catalog` — o mesmo caminho que o painel de
+ * Configurações usa para empurrar o catálogo. A rota ATUALIZA preço e saldo do
+ * produto pelo SKU (não soma): quem manda o saldo já somado é quem chama.
+ */
+export function buildSyncCatalogPayload(products: Product[]): Record<string, unknown> {
+  return {
+    products: products.map((product) => ({
+      code: product.code,
+      name: product.name,
+      brand: product.brand || undefined,
+      costPrice: product.unitCost,
+      salePrice: product.sellingPrice,
+      minStock: product.minStock,
+      stock: Math.max(0, Math.floor(product.stockCentral ?? product.stock ?? 0)),
+    })),
+  };
+}
+
+/** Grava no banco o preço e o saldo dos produtos informados. */
+export async function syncCatalog(products: Product[]): Promise<void> {
+  await postJson('/api/db/sync-catalog', buildSyncCatalogPayload(products));
+}
+
 /** Entidade que falhou ao carregar, com o erro original para quem chamou decidir. */
 export interface EntityLoadFailure {
   entity: 'products' | 'customers' | 'suppliers' | 'quotes';

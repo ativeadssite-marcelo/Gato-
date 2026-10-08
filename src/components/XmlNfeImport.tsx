@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Product, XmlInvoiceHeader, XmlItemParsed, VehicleApplication, VehicleCategory } from '../types';
 import { SAMPLE_NFE_XML } from '../data/initialData';
+import { syncCatalog, isDatabaseNotConfiguredError } from '../services/entityApi';
 
 interface XmlNfeImportProps {
   products?: Product[];
@@ -27,6 +28,8 @@ interface XmlNfeImportProps {
   onImportComplete?: (updatedProducts: Product[], newInvoices: any[]) => void;
   onAddNewProduct?: (newProd: Product) => void;
   onUpdateProductStock?: (productId: string, quantityToAdd: number) => void;
+  /** Recarrega as listas do banco depois de gravar a entrada. */
+  onReloadEntities?: () => Promise<void>;
   onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void;
 }
 
@@ -36,6 +39,7 @@ export const XmlNfeImport: React.FC<XmlNfeImportProps> = ({
   onImportComplete,
   onAddNewProduct,
   onUpdateProductStock,
+  onReloadEntities,
   onShowNotification,
 }) => {
   const activeProducts = products || existingProducts || [];
@@ -244,22 +248,46 @@ export const XmlNfeImport: React.FC<XmlNfeImportProps> = ({
 
     if (currentItem.isRegistered && currentItem.existingProductId) {
       // 1. CÓDIGO CADASTRADO: Subir para locação, somar estoque e configurar base de impostos!
+      let produtoAtualizado: Product | null = null;
       updatedProducts = updatedProducts.map((prod) => {
         if (prod.id === currentItem.existingProductId) {
           const newStock = prod.stock + currentItem.qCom;
-          return {
+          produtoAtualizado = {
             ...prod,
             stock: newStock,
             unitCost: currentItem.vUnCom,
             taxBaseIcms: currentItem.vICMS ? currentItem.vICMS : prod.taxBaseIcms,
             updatedAt: new Date().toISOString(),
           };
+          return produtoAtualizado;
         }
         return prod;
       });
 
       if (onUpdateProductStock && currentItem.existingProductId) {
         onUpdateProductStock(currentItem.existingProductId, currentItem.qCom);
+      }
+
+      // O estoque da tela mudava só na memória: a nota de entrada somava no
+      // navegador e sumia no recarregamento. Aqui o produto alterado vai para o
+      // banco (a rota de sincronização atualiza preços e saldo pelo SKU).
+      if (produtoAtualizado) {
+        const paraGravar = produtoAtualizado;
+        void (async () => {
+          try {
+            await syncCatalog([paraGravar]);
+            if (onReloadEntities) await onReloadEntities();
+          } catch (error) {
+            if (isDatabaseNotConfiguredError(error)) return; // dev sem banco: segue local
+            onShowNotification(
+              'Entrada não gravada no banco',
+              `O estoque de '${paraGravar.name}' subiu só na tela. ${
+                error instanceof Error ? error.message : 'Falha ao gravar a entrada.'
+              }`,
+              'warning'
+            );
+          }
+        })();
       }
 
       onShowNotification(
@@ -438,6 +466,38 @@ export const XmlNfeImport: React.FC<XmlNfeImportProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Upload do arquivo .xml — o título da tela prometia upload e só
+                  havia o campo de colar. Mesmo caminho do texto colado: lê o
+                  arquivo e processa. */}
+              <label
+                htmlFor="xml-file-input"
+                className="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-lg shadow-2xs transition cursor-pointer"
+                title="Selecionar o arquivo .xml baixado do fornecedor"
+              >
+                <Upload className="w-4 h-4 text-slate-500" />
+                <span>Escolher arquivo .xml</span>
+              </label>
+              <input
+                id="xml-file-input"
+                type="file"
+                accept=".xml,text/xml,application/xml"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  // Limpa o valor para permitir escolher o MESMO arquivo de novo.
+                  e.target.value = '';
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const conteudo = String(reader.result || '');
+                    setXmlInput(conteudo);
+                    void handleParseXml(conteudo);
+                  };
+                  reader.onerror = () =>
+                    onShowNotification('Falha ao ler o arquivo', 'Não foi possível ler o XML selecionado.', 'warning');
+                  reader.readAsText(file);
+                }}
+              />
               <button
                 type="button"
                 id="btn-process-xml"

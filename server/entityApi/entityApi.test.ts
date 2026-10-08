@@ -18,6 +18,7 @@ import {
   buildProductPayload,
   buildQuotePayload,
   buildQuoteUpdatePayload,
+  buildSyncCatalogPayload,
   isAccessDeniedError,
   isDatabaseNotConfiguredError,
   mapCustomerRow,
@@ -394,4 +395,36 @@ test("alteração de orçamento: cliente fora da lista não é enviado (o víncu
 
   assert.ok(!("customerId" in payload));
   assert.ok(!("customerName" in payload));
+});
+
+// -------------------------------------------------------------------------
+// Entrada de nota (XML) — gravação de preço e saldo
+// -------------------------------------------------------------------------
+
+test("payload de sincronização leva o saldo JÁ SOMADO e o custo da nota", () => {
+  const payload = buildSyncCatalogPayload([
+    { ...produtoDoFront(), code: "RET-1113", unitCost: 44.9, sellingPrice: 89.9, minStock: 3, stock: 15, stockCentral: 15 },
+  ]) as { products: Array<Record<string, unknown>> };
+
+  assert.deepStrictEqual(payload.products[0], {
+    code: "RET-1113",
+    name: "RETENTOR CUBO TRASEIRO 1113",
+    brand: "Sabó",
+    costPrice: 44.9,
+    salePrice: 89.9,
+    minStock: 3,
+    stock: 15,
+  });
+});
+
+test("payload de sincronização usa stockCentral quando existe e nunca manda saldo negativo", () => {
+  const comCentral = buildSyncCatalogPayload([
+    { ...produtoDoFront(), stock: 99, stockCentral: 4 },
+  ]) as { products: Array<Record<string, unknown>> };
+  assert.strictEqual(comCentral.products[0].stock, 4);
+
+  const negativo = buildSyncCatalogPayload([
+    { ...produtoDoFront(), stock: -3, stockCentral: undefined },
+  ]) as { products: Array<Record<string, unknown>> };
+  assert.strictEqual(negativo.products[0].stock, 0);
 });
