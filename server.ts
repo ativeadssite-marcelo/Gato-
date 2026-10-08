@@ -42,6 +42,7 @@ import { runMigrations } from "./server/migrate";
 import { hydrateIdentityStore } from "./server/identityStore";
 import { hydrateAuditStore } from "./server/auditStore";
 import { seedBillingStore } from "./server/store";
+import { listQuotes } from "./server/quotes/quotes";
 import { startBillingCron } from "./server/notifications/cron";
 
 dotenv.config();
@@ -835,6 +836,40 @@ app.post("/api/db/suppliers", requireAuth, requireTenantPermission("stock_inboun
     res.status(500).json({ success: false, error: "Falha segura ao cadastrar fornecedor." });
   }
 });
+
+// List Budgets/DAVs of the authenticated tenant (header + items)
+// Mesma audiência do POST logo abaixo: quem pode criar também pode listar.
+// O miolo (query + agrupamento dos itens) vive em server/quotes/quotes.ts, que
+// tem teste próprio; aqui é só a borda HTTP com os três guardas de sempre.
+app.get(
+  "/api/db/quotes",
+  requireAuth,
+  requireTenantPermission("sales"),
+  requireAnyPermission(["customers_employees", "company_data"]),
+  async (req, res) => {
+    try {
+      if (!isDatabaseConfigured()) {
+        return res.status(503).json({ success: false, error: DB_NOT_CONFIGURED_MESSAGE });
+      }
+      const scope = resolveDataScope(req, "customers_employees");
+      if (!scope.ok) return sendScopeDenied(res, scope);
+
+      const quotes = await listQuotes(getDbPool(), {
+        tenantId: scope.tenantId,
+        global: scope.global,
+      });
+      res.json({
+        success: true,
+        count: quotes.length,
+        quotes,
+        source: 'Budget (Supabase PostgreSQL)',
+      });
+    } catch (err: any) {
+      console.error("[GATO DB] Falha ao listar orçamentos:", err?.message || err);
+      res.status(500).json({ success: false, error: "Falha segura ao consultar orçamentos." });
+    }
+  }
+);
 
 // Save Budget/DAV into Supabase
 // Correções críticas:

@@ -86,6 +86,11 @@ import {
 import { syncQuoteToMarketingLead } from './utils/quoteMarketingSync';
 import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
 import { onUnauthorized, hasSessionToken, clearSessionToken, apiJson } from './services/apiClient';
+import {
+  loadTenantEntities,
+  isAccessDeniedError,
+  isDatabaseNotConfiguredError,
+} from './services/entityApi';
 import { seedList, loadEntityState, persistEntityState } from './utils/seedMode';
 import { fetchServerSession, logoutSession, buildUserSession } from './utils/sessionService';
 import type { SubscriptionStatus, TenantSubscription } from './types/billing';
@@ -409,6 +414,51 @@ export default function App() {
   const handleMarkNotificationRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
+
+  // -----------------------------------------------------------------------
+  // ENTIDADES REAIS DO TENANT (08/10/2026)
+  // -----------------------------------------------------------------------
+  // Com sessão verificada, as quatro listas passam a vir do banco. Três regras:
+  //  - o banco VENCE o seed, inclusive quando devolve lista vazia — é o que faz
+  //    a empresa nova aparecer vazia de verdade (o dado de demonstração sai da
+  //    tela quando existe banco; ver §3.19 da handoff);
+  //  - servidor SEM banco (503) mantém o seed: é o modo dev/demo de sempre;
+  //  - falha inesperada avisa e mantém o que está em tela (403/401 são silêncio
+  //    de propósito: papel sem o recurso, ou sessão caindo — o apiClient já
+  //    cuida do logout).
+  // Depende do ID do usuário, não do objeto de sessão: trocar de filial
+  // reconstrói a sessão com a mesma identidade e não deve recarregar tudo.
+  useEffect(() => {
+    if (!userSession?.id) return;
+    const ENTITY_LABELS = {
+      products: 'produtos',
+      customers: 'clientes',
+      suppliers: 'fornecedores',
+      quotes: 'orçamentos',
+    } as const;
+    let cancelled = false;
+    (async () => {
+      const result = await loadTenantEntities();
+      if (cancelled) return;
+      if (result.products) setProducts(result.products);
+      if (result.customers) setCustomers(result.customers);
+      if (result.suppliers) setSuppliers(result.suppliers);
+      if (result.quotes) setQuotes(result.quotes);
+      const failures = result.failures.filter(
+        (f) => !isDatabaseNotConfiguredError(f.error) && !isAccessDeniedError(f.error)
+      );
+      if (failures.length > 0) {
+        showNotification(
+          'Falha ao carregar dados',
+          `Não foi possível carregar do banco: ${failures.map((f) => ENTITY_LABELS[f.entity]).join(', ')}. A tela pode estar desatualizada.`,
+          'warning'
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userSession?.id]);
 
   // Handlers for products
   const handleAddNewProduct = (newProd: Product) => {
