@@ -44,12 +44,10 @@ import {
 } from '../data/fleetDatabase';
 import { CadastroPecaModal } from './CadastroPecaModal';
 import { CupomFiscalModal } from './CupomFiscalModal';
+import { ImprimirOrcamentoSeletor } from './ImprimirOrcamentoSeletor';
 import {
   buildOrcamentoResumo,
-  buildOrcamentoThermalHtml,
-  DEFAULT_COMPANY_RECEIPT_INFO,
 } from '../utils/quoteMarketingSync';
-import { printHtmlDocument } from '../utils/printDocument';
 import { copyTextToClipboard } from '../utils/clipboard';
 
 interface VehicleData {
@@ -427,29 +425,9 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
     notes: `Vendedor: ${sellerName} • Veículo: ${vehicleData.plate} (${vehicleData.model}) • Pagamento: ${paymentMethod}`,
   });
 
-  /**
-   * Imprime o orçamento do DAV corrente numa janela própria (térmica 80mm).
-   * Não salva nada — é seguro chamar só para conferir ou entregar ao cliente.
-   */
-  const handlePrintOrcamento = () => {
-    if (quoteItems.length === 0) {
-      onShowNotification('Orçamento Vazio', 'Adicione pelo menos um item antes de imprimir.', 'warning');
-      return;
-    }
-
-    const quote = buildDavQuote(currentDavNumber ?? 'S/N (pré-visualização)', 'Pendente');
-    const resultado = printHtmlDocument(buildOrcamentoThermalHtml(quote, DEFAULT_COMPANY_RECEIPT_INFO), {
-      title: `Orçamento ${quote.quoteNumber}`,
-    });
-
-    if (!resultado.ok) {
-      onShowNotification(
-        'Pop-up bloqueado',
-        'Autorize pop-ups neste site para imprimir o orçamento.',
-        'warning'
-      );
-    }
-  };
+  // A impressão do DAV saiu daqui para o `ImprimirOrcamentoSeletor`: o mesmo
+  // botão oferece o cupom térmico (80mm) e a tabela A4, e a guarda de
+  // "orçamento vazio" e o aviso de pop-up bloqueado vivem num lugar só.
 
   /** Copia o resumo curto do DAV corrente (número, cliente, itens, total e validade). */
   const handleCopyOrcamentoResumo = () => {
@@ -1538,15 +1516,13 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
                 <h2 className="text-base font-black text-slate-900 font-mono">{currentDavNumber ?? 'PRÉ-VISUALIZAÇÃO'}</h2>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handlePrintOrcamento}
+                <ImprimirOrcamentoSeletor
+                  quote={buildDavQuote(currentDavNumber ?? 'S/N (pré-visualização)', 'Pendente')}
+                  products={products}
+                  onShowNotification={onShowNotification}
                   className="flex items-center gap-1.5 bg-[#0C4A6E] hover:bg-[#0C4A6E]/90 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition cursor-pointer"
-                  title="Imprimir o orçamento na térmica 80mm"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Imprimir Orçamento</span>
-                </button>
+                  label="Imprimir Orçamento"
+                />
                 <button
                   type="button"
                   onClick={handleCopyOrcamentoResumo}
@@ -2184,6 +2160,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
         isOpen={isCupomModalOpen}
         onClose={() => setIsCupomModalOpen(false)}
         quote={cupomQuote}
+        products={products}
         onQuoteSentWhatsapp={(updatedQuote) => {
           if (onSaveQuote) onSaveQuote(updatedQuote);
         }}

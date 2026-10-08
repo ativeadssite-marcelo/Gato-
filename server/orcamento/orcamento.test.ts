@@ -13,10 +13,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert";
-import type { Quote, QuoteItem } from "../../src/types";
+import type { Product, Quote, QuoteItem } from "../../src/types";
 import {
   CUPOM_WIDTH,
   buildOrcamentoResumo,
+  buildOrcamentoTabelaHtml,
   buildOrcamentoThermalHtml,
   generateCupomFiscalText,
   type CompanyReceiptInfo,
@@ -242,4 +243,136 @@ test("buildOrcamentoThermalHtml: usa a empresa informada, não o cabeçalho padr
   const html = buildOrcamentoThermalHtml(quote(), EMPRESA_LONGA);
   assert.ok(html.includes("GATO COMERCIO E DISTRIBUICAO"));
   assert.ok(!html.includes("GATO COMÉRCIO E DISTRIBUIÇÃO DE AUTOPEÇAS LTDA"));
+});
+
+// =========================================================================
+// TABELA A4 (paisagem) — o "pedido" de 9 colunas
+// =========================================================================
+
+function produto(overrides: Partial<Product> = {}): Product {
+  return {
+    id: "p-1",
+    code: "RET-1113",
+    oemCode: "",
+    similarCodes: ["SAB-1113", "MAH-2201"],
+    barcode: "",
+    name: "RETENTOR CUBO TRASEIRO 1113",
+    brand: "Sabó",
+    category: "auto",
+    supplier: "",
+    location: { corridor: "", shelf: "", box: "" },
+    stock: 10,
+    minStock: 2,
+    unitCost: 42,
+    transportCost: 0,
+    markupPercent: 0,
+    sellingPrice: 85,
+    ncm: "",
+    cst: "",
+    cfop: "",
+    taxBaseIcms: 0,
+    applications: [],
+    updatedAt: "2026-10-08T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+test("buildOrcamentoTabelaHtml: traz as nove colunas do documento e o rodapé de totais", () => {
+  const html = buildOrcamentoTabelaHtml(quote());
+
+  for (const coluna of [
+    "Item",
+    "Código",
+    "Fabricante",
+    "Descrição do Item",
+    "Quantidade",
+    "Equivalência",
+    "Preço do Item",
+    "ICMS do Item",
+    "Preço Total",
+  ]) {
+    assert.ok(html.includes(`>${coluna}</th>`), `faltou a coluna ${coluna}`);
+  }
+
+  assert.ok(html.includes("Valor do ICMS"));
+  assert.ok(html.includes("Outras Despesas"));
+  assert.ok(html.includes("Valor Total:"));
+  assert.ok(html.includes("Observação:"));
+});
+
+test("buildOrcamentoTabelaHtml: imprime em A4 paisagem e avisa que não tem valor fiscal", () => {
+  const html = buildOrcamentoTabelaHtml(quote());
+  assert.ok(html.includes("size: A4 landscape"));
+  assert.ok(html.toLowerCase().includes("sem valor fiscal"));
+});
+
+test("buildOrcamentoTabelaHtml: numera os itens em três dígitos", () => {
+  const html = buildOrcamentoTabelaHtml(
+    quote({ items: [item(), item({ productId: "p-2", productCode: "BOM-952504" })] }),
+  );
+  assert.ok(html.includes(">001</td>"));
+  assert.ok(html.includes(">002</td>"));
+});
+
+test("buildOrcamentoTabelaHtml: equivalência vem do similarCodes do produto casado pelo productId", () => {
+  const html = buildOrcamentoTabelaHtml(quote(), EMPRESA_LONGA, [produto()]);
+  assert.ok(html.includes("SAB-1113, MAH-2201"));
+});
+
+test("buildOrcamentoTabelaHtml: item sem produto cadastrado não quebra e deixa a equivalência vazia", () => {
+  const html = buildOrcamentoTabelaHtml(quote(), EMPRESA_LONGA, []);
+  assert.ok(html.includes('class="equivalencia mono"></td>'));
+  assert.ok(html.includes("RETENTOR CUBO TRASEIRO 1113"));
+});
+
+test("buildOrcamentoTabelaHtml: ICMS do item sai da alíquota que o orçamento carrega", () => {
+  // 4 x 85,00 = 340,00 de item e 57,80 de imposto → alíquota de 17%.
+  const html = buildOrcamentoTabelaHtml(
+    quote({
+      items: [item({ quantity: 4, finalUnitPrice: 85, total: 340 })],
+      subtotalAmount: 340,
+      totalAmount: 340,
+      taxAmount: 57.8,
+    }),
+  );
+  // Uma vez na coluna do item, outra no rodapé.
+  const ocorrencias = html.match(/R\$ 57,80/g) || [];
+  assert.strictEqual(ocorrencias.length, 2);
+});
+
+test("buildOrcamentoTabelaHtml: orçamento sem informação fiscal imprime ICMS zerado", () => {
+  const html = buildOrcamentoTabelaHtml(
+    quote({ items: [item({ total: 340 })], taxAmount: 0 }),
+  );
+  assert.ok(html.includes('R$ 0,00'));
+  assert.ok(!html.includes("R$ 57,80"));
+});
+
+test("buildOrcamentoTabelaHtml: escapa nome de cliente e descrição do item", () => {
+  const html = buildOrcamentoTabelaHtml(
+    quote({
+      customerName: '<script>alert("xss")</script> & Cia',
+      items: [item({ productName: '<img src=x onerror=alert(1)>PARAFUSO' })],
+    }),
+  );
+  assert.ok(!html.includes("<script>alert"));
+  assert.ok(!html.includes("<img src=x"));
+  assert.ok(html.includes("&lt;script&gt;"));
+  assert.ok(html.includes("&amp; Cia"));
+});
+
+test("buildOrcamentoTabelaHtml: orçamento sem itens sai com aviso, não com tabela vazia", () => {
+  const html = buildOrcamentoTabelaHtml(quote({ items: [], totalAmount: 0, taxAmount: 0 }));
+  assert.ok(html.includes("Nenhum item informado."));
+});
+
+test("buildOrcamentoTabelaHtml: usa a empresa informada, não o cabeçalho padrão", () => {
+  const html = buildOrcamentoTabelaHtml(quote(), EMPRESA_LONGA);
+  assert.ok(html.includes("GATO COMERCIO E DISTRIBUICAO"));
+  assert.ok(!html.includes("GATO COMÉRCIO E DISTRIBUIÇÃO DE AUTOPEÇAS LTDA"));
+});
+
+test("buildOrcamentoTabelaHtml: a condição de pagamento aparece no documento", () => {
+  const html = buildOrcamentoTabelaHtml(quote({ paymentCondition: "2.20 - PIX" }));
+  assert.ok(html.includes("2.20 - PIX"));
 });

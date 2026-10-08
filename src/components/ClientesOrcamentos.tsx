@@ -41,11 +41,9 @@ import { CupomFiscalModal } from './CupomFiscalModal';
 import {
   syncQuoteToMarketingLead,
   buildOrcamentoResumo,
-  buildOrcamentoThermalHtml,
-  DEFAULT_COMPANY_RECEIPT_INFO,
 } from '../utils/quoteMarketingSync';
-import { printHtmlDocument } from '../utils/printDocument';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { ImprimirOrcamentoSeletor } from './ImprimirOrcamentoSeletor';
 
 // Shim para logoDownloadKit removido
 async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
@@ -133,20 +131,9 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
     setIsCupomModalOpen(true);
   };
 
-  /** Imprime o orçamento numa janela própria (térmica 80mm) — só o documento, sem o app atrás. */
-  const handlePrintOrcamento = (q: Quote) => {
-    const resultado = printHtmlDocument(buildOrcamentoThermalHtml(q, DEFAULT_COMPANY_RECEIPT_INFO), {
-      title: `Orçamento ${q.quoteNumber}`,
-    });
-
-    if (!resultado.ok) {
-      onShowNotification?.(
-        'Pop-up bloqueado',
-        'Autorize pop-ups neste site para imprimir o orçamento.',
-        'warning'
-      );
-    }
-  };
+  // A impressão saiu daqui para o `ImprimirOrcamentoSeletor`: o mesmo botão
+  // oferece o cupom térmico (80mm) e a tabela A4, e o aviso de pop-up bloqueado
+  // vive num lugar só.
 
   /** Copia o resumo curto do orçamento (número, cliente, itens, total e validade). */
   const handleCopyOrcamento = (q: Quote) => {
@@ -582,15 +569,13 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                               <span className="hidden lg:inline">WhatsApp</span>
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handlePrintOrcamento(quote)}
+                            <ImprimirOrcamentoSeletor
+                              quote={quote}
+                              products={products}
+                              onShowNotification={onShowNotification}
                               className="flex items-center gap-1 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 px-2 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
-                              title="Imprimir o orçamento agora, na térmica 80mm"
-                            >
-                              <Printer className="w-3.5 h-3.5 text-sky-600" />
-                              <span className="hidden lg:inline">Imprimir</span>
-                            </button>
+                              label="Imprimir"
+                            />
 
                             <button
                               type="button"
@@ -1429,15 +1414,13 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                   <span>Orçamento (80mm)</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handlePrintOrcamento(viewingQuote)}
+                <ImprimirOrcamentoSeletor
+                  quote={viewingQuote}
+                  products={products}
+                  onShowNotification={onShowNotification}
                   className="flex items-center gap-1.5 px-3 py-2 bg-[#0C4A6E] hover:bg-[#0C4A6E]/90 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
-                  title="Imprimir o orçamento agora, na térmica 80mm"
-                >
-                  <Printer className="w-4 h-4 text-sky-200" />
-                  <span>Imprimir Orçamento</span>
-                </button>
+                  label="Imprimir Orçamento"
+                />
 
                 <button
                   type="button"
@@ -1514,6 +1497,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
         isOpen={isCupomModalOpen}
         onClose={() => setIsCupomModalOpen(false)}
         quote={cupomQuote}
+        products={products}
         onQuoteSentWhatsapp={(updatedQuote) => {
           const updatedQuotes = quotes.map(q => q.id === updatedQuote.id ? updatedQuote : q);
           onUpdateQuotes(updatedQuotes);

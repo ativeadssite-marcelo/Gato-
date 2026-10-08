@@ -1,4 +1,4 @@
-import { Quote, MarketingLead } from '../types';
+import { Quote, MarketingLead, Product } from '../types';
 
 export interface CompanyReceiptInfo {
   name: string;
@@ -265,6 +265,171 @@ export function buildOrcamentoThermalHtml(
 </style>
 </head>
 <body><pre>${escapeHtml(texto)}</pre></body>
+</html>`;
+}
+
+/**
+ * Documento do orçamento em TABELA (A4 paisagem) — o modelo de "pedido" que o
+ * balcão reconhece: uma linha por peça, ICMS por item e o rodapé de totais.
+ *
+ * Complementa `buildOrcamentoThermalHtml` (cupom 80mm), **não substitui**: a
+ * térmica continua no balcão e a tabela é para quem tem impressora A4.
+ *
+ * Duas regras que valem a pena entender:
+ * - a coluna EQUIVALÊNCIA sai de `Product.similarCodes` (o cadastro já tem o
+ *   campo e nenhuma impressão o usava); item de produto não cadastrado sai com
+ *   a coluna vazia, sem quebrar o documento;
+ * - o ICMS por item é DERIVADO da alíquota que o próprio orçamento carrega
+ *   (`taxAmount` ÷ soma dos itens × total do item). Orçamento sem informação
+ *   fiscal (ex.: vindo do banco) imprime R$ 0,00 — não inventamos imposto.
+ */
+export function buildOrcamentoTabelaHtml(
+  quote: Quote,
+  company: CompanyReceiptInfo = DEFAULT_COMPANY_RECEIPT_INFO,
+  products: Product[] = []
+): string {
+  const itens = quote.items || [];
+  const somaItens = itens.reduce((acc, item) => acc + (Number(item.total) || 0), 0);
+  const aliquota = somaItens > 0 && quote.taxAmount > 0 ? quote.taxAmount / somaItens : 0;
+  const produtoPorId = new Map(products.map((produto) => [produto.id, produto]));
+
+  const linhasItens = itens.length
+    ? itens
+        .map((item, index) => {
+          const equivalentes = produtoPorId.get(item.productId)?.similarCodes?.join(', ') || '';
+          const icmsItem = (Number(item.total) || 0) * aliquota;
+          return `
+      <tr>
+        <td class="centro">${String(index + 1).padStart(3, '0')}</td>
+        <td class="mono">${escapeHtml(item.productCode)}</td>
+        <td>${escapeHtml(item.brand)}</td>
+        <td class="descricao">${escapeHtml(item.productName)}</td>
+        <td class="num">${item.quantity}</td>
+        <td class="equivalencia mono">${escapeHtml(equivalentes)}</td>
+        <td class="num">R$ ${formatBRL(item.finalUnitPrice)}</td>
+        <td class="num">R$ ${formatBRL(icmsItem)}</td>
+        <td class="num destaque">R$ ${formatBRL(item.total)}</td>
+      </tr>`;
+        })
+        .join('')
+    : `
+      <tr>
+        <td colspan="9" class="centro vazio">Nenhum item informado.</td>
+      </tr>`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Orçamento ${escapeHtml(quote.quoteNumber)}</title>
+<style>
+  @page { size: A4 landscape; margin: 8mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; line-height: 1.35; color: #000; }
+  .mono { font-family: 'Consolas', 'Courier New', monospace; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 6px; }
+  .empresa .nome { font-size: 12px; font-weight: bold; }
+  .doc-info { text-align: right; white-space: nowrap; }
+  .doc-info .titulo { font-size: 13px; font-weight: bold; }
+  .aviso { font-size: 8px; font-weight: bold; text-transform: uppercase; }
+  .linha-info { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 3px; }
+  .pagamento { font-weight: bold; margin: 5px 0 6px; }
+  table.itens { width: 100%; border-collapse: collapse; }
+  table.itens th, table.itens td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; }
+  table.itens th { background: #ececec; font-size: 8.5px; text-transform: uppercase; text-align: left; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  td.centro, th.centro { text-align: center; }
+  .descricao { font-size: 9.5px; }
+  .equivalencia { font-size: 8.5px; word-break: break-word; }
+  .destaque { font-weight: bold; }
+  .vazio { font-style: italic; padding: 8px; }
+  table.rodape { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  table.rodape td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; }
+  table.rodape .rotulo { font-size: 8.5px; text-transform: uppercase; text-align: right; white-space: nowrap; }
+  table.rodape .obs { width: 45%; font-size: 9px; }
+  .assinatura { margin-top: 18px; display: flex; justify-content: space-between; gap: 24px; }
+  .assinatura div { flex: 1; border-top: 1px solid #000; padding-top: 3px; text-align: center; font-size: 8.5px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="empresa">
+    <div class="nome">${escapeHtml(company.name)}</div>
+    <div>${escapeHtml(company.fantasyName)}</div>
+    <div>CNPJ: ${escapeHtml(company.cnpj)} &nbsp; IE: ${escapeHtml(company.ie)}</div>
+    <div>${escapeHtml(company.address)} — ${escapeHtml(company.city)}/${escapeHtml(company.uf)}</div>
+    <div>Fone: ${escapeHtml(company.phone)} &nbsp; WhatsApp: ${escapeHtml(company.whatsapp)}</div>
+  </div>
+  <div class="doc-info">
+    <div class="titulo">ORÇAMENTO Nº ${escapeHtml(quote.quoteNumber)}</div>
+    <div>Emissão: ${escapeHtml(formatarData(quote.createdAt, '-'))}</div>
+    <div>Validade: ${escapeHtml(formatarData(quote.validUntil))}</div>
+    <div class="aviso">Documento auxiliar de venda (DAV) — sem valor fiscal</div>
+  </div>
+</header>
+
+<div class="linha-info">
+  <span><strong>Cliente:</strong> ${escapeHtml(quote.customerName || 'Não informado')}</span>
+  <span><strong>Documento:</strong> ${escapeHtml(quote.customerDocument || '-')}</span>
+  <span><strong>Cidade/UF:</strong> ${escapeHtml(quote.customerCity || '-')}/${escapeHtml(quote.customerUf || '-')}</span>
+  <span><strong>Telefone:</strong> ${escapeHtml(quote.customerPhone || '-')}</span>
+</div>
+<div class="linha-info">
+  <span><strong>Veículo:</strong> ${escapeHtml(quote.vehicleModel || '-')}</span>
+  <span><strong>Placa:</strong> ${escapeHtml(quote.vehiclePlate || '-')}</span>
+  <span><strong>Vendedor:</strong> ${escapeHtml(quote.sellerName || 'Balcão')}</span>
+</div>
+<div class="pagamento">Condição de pagamento: ${escapeHtml(quote.paymentCondition || 'A combinar')}</div>
+
+<table class="itens">
+  <colgroup>
+    <col style="width: 5%" />
+    <col style="width: 10%" />
+    <col style="width: 9%" />
+    <col style="width: 30%" />
+    <col style="width: 6%" />
+    <col style="width: 12%" />
+    <col style="width: 9%" />
+    <col style="width: 9%" />
+    <col style="width: 10%" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th class="centro">Item</th>
+      <th>Código</th>
+      <th>Fabricante</th>
+      <th>Descrição do Item</th>
+      <th class="num">Quantidade</th>
+      <th>Equivalência</th>
+      <th class="num">Preço do Item</th>
+      <th class="num">ICMS do Item</th>
+      <th class="num">Preço Total</th>
+    </tr>
+  </thead>
+  <tbody>${linhasItens}
+  </tbody>
+</table>
+
+<table class="rodape">
+  <tr>
+    <td rowspan="2" class="obs"><strong>Observação:</strong> ${escapeHtml(quote.notes || '')}</td>
+    <td class="rotulo">Valor do ICMS</td>
+    <td class="rotulo">Outras Despesas</td>
+    <td class="rotulo">Valor Total:</td>
+  </tr>
+  <tr>
+    <td class="num">R$ ${formatBRL(quote.taxAmount)}</td>
+    <td class="num">R$ ${formatBRL(0)}</td>
+    <td class="num destaque">R$ ${formatBRL(quote.totalAmount)}</td>
+  </tr>
+</table>
+
+<div class="assinatura">
+  <div>${escapeHtml(company.fantasyName)}</div>
+  <div>${escapeHtml(quote.customerName || 'Cliente')}</div>
+</div>
+</body>
 </html>`;
 }
 

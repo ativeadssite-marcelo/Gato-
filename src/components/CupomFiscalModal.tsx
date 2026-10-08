@@ -17,18 +17,17 @@ import {
   Tag,
   AlertCircle
 } from 'lucide-react';
-import { Quote, MarketingLead, CompanyProfile } from '../types';
+import { Quote, MarketingLead, CompanyProfile, Product } from '../types';
 import {
   DEFAULT_COMPANY_RECEIPT_INFO,
   generateCupomFiscalText,
   buildQuoteWhatsappMessage,
   buildOrcamentoResumo,
-  buildOrcamentoThermalHtml,
   sendWhatsappMessage,
   CompanyReceiptInfo
 } from '../utils/quoteMarketingSync';
-import { printHtmlDocument } from '../utils/printDocument';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { ImprimirOrcamentoSeletor } from './ImprimirOrcamentoSeletor';
 
 // Shim para logoDownloadKit removido
 async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
@@ -40,6 +39,8 @@ interface CupomFiscalModalProps {
   onClose: () => void;
   quote: Quote | null;
   companyInfo?: CompanyReceiptInfo;
+  /** Repassado ao seletor de impressão: só a coluna EQUIVALÊNCIA da tabela A4 usa. */
+  products?: Product[];
   onQuoteSentWhatsapp?: (updatedQuote: Quote, targetWhatsapp: string) => void;
   onShowNotification?: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void;
 }
@@ -49,6 +50,7 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
   onClose,
   quote,
   companyInfo = DEFAULT_COMPANY_RECEIPT_INFO,
+  products = [],
   onQuoteSentWhatsapp,
   onShowNotification
 }) => {
@@ -73,23 +75,9 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  /**
-   * Imprime o orçamento numa janela própria (térmica 80mm). `window.print()` na página
-   * imprimiria o app inteiro com o modal por cima — não há CSS de impressão no projeto.
-   */
-  const handlePrint = () => {
-    const resultado = printHtmlDocument(buildOrcamentoThermalHtml(quote, companyInfo), {
-      title: `Orçamento ${quote.quoteNumber}`,
-    });
-
-    if (!resultado.ok) {
-      onShowNotification?.(
-        'Pop-up bloqueado',
-        'Autorize pop-ups neste site para imprimir o orçamento.',
-        'warning'
-      );
-    }
-  };
+  // A impressão saiu daqui para o `ImprimirOrcamentoSeletor`: o mesmo botão
+  // oferece o cupom térmico e a tabela A4, e o aviso de pop-up bloqueado vive
+  // num lugar só (antes estava repetido em cada tela que imprimia).
 
   const handleCopyReceiptText = () => {
     void copyTextToClipboard(generateCupomFiscalText(quote, companyInfo)).then((ok) => {
@@ -456,14 +444,14 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
 
               {/* Quick Actions under Cupom */}
               <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={handlePrint}
+                <ImprimirOrcamentoSeletor
+                  quote={quote}
+                  products={products}
+                  company={companyInfo}
+                  onShowNotification={onShowNotification}
                   className="flex items-center gap-2 bg-[#0C4A6E] hover:bg-[#0C4A6E]/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition active:scale-95 cursor-pointer"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Imprimir Orçamento (Térmica 80mm)</span>
-                </button>
+                  label="Imprimir Orçamento"
+                />
 
                 <button
                   type="button"
