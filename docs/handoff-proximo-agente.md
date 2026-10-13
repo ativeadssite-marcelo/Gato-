@@ -7,8 +7,9 @@
 > projeto mudar (é fonte de verdade viva, não um relatório morto).
 >
 > Estado desta handoff: **13/10/2026** — remoto canônico `ativeadssite-marcelo/Gato-`,
-> branch `main`, sincronizada com o commit local `5b06feb`; repositórios remotos antigos
-> foram removidos. A pasta local `.olli/` é ambiente auxiliar e não faz parte do projeto enviado.
+> branch `main`; conteúdo do projeto e metadados `.olli/` foram enviados conforme autorização
+> do dono para preservar tudo antes de excluir a pasta local. Repositórios remotos antigos
+> foram removidos.
 > Entregue em 08/10: modo base limpa (`VITE_USE_SEED=false`), provisionamento do contratante
 > (`scripts/provisionar-tenant.mjs`), **leitura e escrita do banco** (produto, cliente e
 > orçamento gravam; §3.19), **inativar produto** e **cancelar/alterar orçamento** com
@@ -339,9 +340,9 @@ npm run migrate    # migrations   |  npm run validate-db
 15. O dev server **não observa** `server.ts` (tsx sem `--watch`): mudança em `server/**` exige **reiniciar** o processo (matar PID da porta 3000 e `npm run dev`). Front tem HMR automático.
 16. `npm run lint` era bloqueado por erros pré-existentes de tipo em `caixaRoutes.ts` — **corrigidos em 01/10/2026**; se voltar a falhar, é regressão sua ou de novo código.
 17. Checklist/estado do agente: workflow do `AGENTS.md` pede marcar `checklist-saas.md` e gerar `relatorio-gaps.md` — faça **antes** de propor código e **nunca altere código sem confirmar o plano**.
-18. ~~**Worktree SUJA**~~ — **resolvido em 06/10/2026**: tudo commitado e enviado ao `origin`
-    em três commits (`b2a99e9` trabalho de 02/10, `3fad6f7` orçamento, `4742f62` docs). Só
-    `.olli/` segue fora do git, por decisão registrada — **não commitar**.
+18. ~~**Worktree SUJA**~~ — as alterações do projeto estão commitadas e enviadas ao remoto
+    canônico `ativeadssite-marcelo/Gato-`. A pasta `.olli/`, anteriormente local, foi incluída
+    a pedido do dono para preservação antes de remover a pasta de trabalho local.
 19. ⚠️ **A LEITURA e a ESCRITA do banco estão ligadas desde 08/10/2026 — com ressalvas.**
     Leitura: `src/services/entityApi.ts` + um efeito no `App.tsx` carregam `products`,
     `customers`, `suppliers` e `quotes` das rotas `/api/db/*` quando há sessão verificada — o
