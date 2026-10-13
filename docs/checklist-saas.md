@@ -14,7 +14,7 @@
 - [x] CI/CD (GitHub Actions / GitLab CI) — `.github/workflows/ci.yml`
 - [ ] Lint + formatter + pre-commit hooks <!-- parcial: só `tsc --noEmit` como lint; sem eslint/prettier/pre-commit -->
 - [ ] Testes automatizados (unit + integration) com cobertura mínima definida <!-- parcial: 14 testes unit (`node:test` via tsx); sem testes de integração nem cobertura mínima -->
-- [x] Migrations versionadas (Prisma, Knex, Alembic, Flyway) — `db/migrations/*.sql` + `server/migrate.ts`
+- [x] Migrations versionadas (Prisma, Knex, Alembic, Flyway) — `db/migrations/*.sql` + `server/migrate.ts`; em produção, configuração/busca/falha de migration aborta o startup
 - [x] Seeds para ambiente de dev — `src/data/initialData.ts` + `server/rbacEngine.ts` + `server/store.ts` (em memória)
 
 ## FASE 1 — Multi-tenancy
@@ -30,7 +30,7 @@
 - [ ] Refresh token com rotação
 - [ ] 2FA para super_admin e tenant_admin <!-- parcial: modelo `mfaEnabled`/`mfaEnforced`/`requiresMfa`; sem fluxo real de verificação 2FA (TOTP) -->
 - [x] RBAC com papéis: `super_admin`, `tenant_admin`, `usuario_comum` (+ `saas_*`, `tenant_user`, `tenant_readonly`)
-- [x] Middleware de autorização por rota — `requirePermission`/`requireAnyPermission`/`requireSaasScope`
+- [x] Middleware de autorização por rota — `requirePermission`/`requireAnyPermission`/`requireSaasScope`; alteração de overrides globais restrita a `super_admin`, payload sanitizado
 - [x] Log de auditoria em toda ação sensível (quem, o quê, quando, IP) — `recordAudit` com PII mascarada
 - [ ] Rate limiting por tenant e por IP <!-- parcial: rate limit por IP em memória (250/min); sem rate limit por tenant -->
 

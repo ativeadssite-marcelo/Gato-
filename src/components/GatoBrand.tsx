@@ -1,5 +1,6 @@
 import React from 'react';
-import gatoLogoOfficial from '../assets/images/gato_logo_official_1789999085285.jpg';
+import gatoLogoIcon from '../assets/images/gato_logo_2026_icon.jpg';
+import gatoLogoFull from '../assets/images/gato_logo_2026.png';
 
 interface GatoBrandProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -37,7 +38,7 @@ export const GatoBrand: React.FC<GatoBrandProps> = ({
         id="gato-brand-full-banner"
       >
         <img 
-          src={gatoLogoOfficial} 
+          src={gatoLogoFull}
           alt="GATO - Gestão de Estoque SaaS de Autopeças" 
           className="w-full h-auto object-cover max-h-[340px] transition-transform duration-500 group-hover:scale-[1.01]"
           referrerPolicy="no-referrer"
@@ -56,9 +57,9 @@ export const GatoBrand: React.FC<GatoBrandProps> = ({
         }`}
       >
         <img 
-          src={customLogoUrl || gatoLogoOfficial} 
+          src={customLogoUrl || gatoLogoIcon}
           alt={tradeName ? `Logo ${tradeName}` : 'GATO Logo'} 
-          className={`w-full h-full ${customLogoUrl ? 'object-contain' : 'object-cover object-[center_28%] scale-125'}`}
+          className={`w-full h-full ${customLogoUrl ? 'object-contain' : 'object-cover'}`}
           referrerPolicy="no-referrer"
         />
         {/* Subtle glossy overlay rim */}
@@ -97,4 +98,3 @@ export const GatoBrand: React.FC<GatoBrandProps> = ({
     </div>
   );
 };
-

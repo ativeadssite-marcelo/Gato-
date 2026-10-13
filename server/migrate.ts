@@ -3,8 +3,8 @@
 // =========================================================================
 // Aplica, em ordem, os arquivos .sql de `db/migrations` ainda não registrados
 // na tabela de controle "SchemaMigration". Cada arquivo roda dentro de uma
-// transação e é registrado ao final. Falhas são registradas no log e não
-// interrompem a subida do servidor (best-effort, como o resto do seed).
+// transação e é registrado ao final. Em produção, o startup verifica o resumo
+// e aborta antes de abrir a porta se alguma migração falhar.
 // =========================================================================
 
 import fs from "node:fs";
@@ -15,11 +15,30 @@ import { getDbPool, isDatabaseConfigured } from "./db";
 // (`tsx server.ts` a partir da raiz) quanto no bundle de produção (WORKDIR /app).
 const MIGRATIONS_DIR = path.resolve(process.cwd(), "db", "migrations");
 
-interface MigrationResult {
+export interface MigrationResult {
   name: string;
   applied: boolean;
   skipped: boolean;
   error?: string;
+}
+
+export function assertProductionMigrationsReady(
+  isProduction: boolean,
+  databaseConfigured: boolean,
+  results: MigrationResult[],
+): void {
+  if (!isProduction) return;
+  if (!databaseConfigured) {
+    throw new Error("[GATO Startup] Banco de dados obrigatório em produção.");
+  }
+  if (results.length === 0) {
+    throw new Error("[GATO Startup] Nenhuma migração foi encontrada; inicialização cancelada.");
+  }
+
+  const failed = results.filter((result) => result.error).map((result) => result.name);
+  if (failed.length > 0) {
+    throw new Error(`[GATO Startup] Migrações falharam: ${failed.join(", ")}.`);
+  }
 }
 
 function ensureControlTable(): Promise<void> {
@@ -72,7 +91,8 @@ async function applyMigration(name: string): Promise<void> {
 
 /**
  * Aplica as migrações pendentes. Retorna o resumo por arquivo.
- * Sem banco configurado, retorna lista vazia (fail-open no dev, como o seed).
+ * Sem banco configurado, retorna lista vazia; o startup permite isso somente
+ * fora de produção.
  */
 export async function runMigrations(): Promise<MigrationResult[]> {
   if (!isDatabaseConfigured()) {

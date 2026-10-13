@@ -1,11 +1,11 @@
 # Relatório de Gaps (SaaS)
 
-> Última revisão: **08/10/2026** (o commit do trabalho de 02/10 e o modo base limpa foram
-> fechados; a lista vencida sobre árvore suja saiu).
+> Última revisão: **13/10/2026**. Atualizado após correção do fail-open de migrations no startup
+> de produção e revisão das pendências registradas na auditoria de segurança.
 
 ## Resumo por Fase
 
-- **FASE 0 — Fundação do Projeto:** Parcial (falta validação zod de env, formatação/lint integrados, testes com coverage)
+- **FASE 0 — Fundação do Projeto:** Parcial (migrations versionadas; boot de produção agora aborta se DB/migrations falharem; falta formatter/pre-commit e meta de cobertura)
 - **FASE 1 — Multi-tenancy:** Feito
 - **FASE 2 — Autenticação e Autorização:** Parcial (falta 2FA, refresh token e rate limit por tenant)
 - **FASE 3 — Planos e Quotas:** Parcial (falta tabela db para planos e sync com código, job de recálculo e CRUD no Admin)
@@ -22,30 +22,34 @@
 ## Lista Priorizada de Ações
 
 ### P0 (Crítico)
-1. **Ligar o front na API (bloqueio do teste real):** o app inicializa as entidades de movimento
-   das constantes de `src/data/initialData.ts` e não lê nada do banco — ver §3.19 da handoff.
-   Sem isso não existe cadastro real nem teste de ponta a ponta.
-   **Estado em 08/10: a LEITURA foi feita** (`GET /api/db/quotes` criado, `src/services/entityApi.ts`
-   + carregamento no `App.tsx`, tenant de teste provisionado). **Falta a ESCRITA**: as telas ainda
-   gravam só no estado local, e o `POST /api/db/quotes` não registra auditoria.
-2. **Correção dos 3 P0 de Segurança (PDV e Billing):**
-   - **P0-4**: Cartão/PIX sendo contado como dinheiro (`issueReceipt` gravando `sale_cash` indevidamente).
-   - **P0-5**: Replay de webhook reativando assinatura inadimplente.
-   - **P0-6**: Autoativação de plano pago ignorando gateway.
-3. **Deploy de Teste (.env.production):** Injetar configurações obrigatórias para DB, master password, gateway Asaas e session secret.
+1. **Executar deploy de teste em staging:** staging ainda não está disponível. Quando existir,
+   configurar segredos e TLS/CA, usar Asaas sandbox e tenant descartável; validar boot, migrations,
+   autenticação, cobrança/webhook e fluxos essenciais antes de produção.
+2. **Fechar os 9 achados P1 restantes** documentados em
+   [`auditoria-2026-10-02.md`](./auditoria-2026-10-02.md) antes de disponibilizar publicamente.
+3. **Avaliar/remediar o advisory alto de `source-map-js`** reportado por
+   `npm audit --omit=dev --audit-level=high`; ainda não foi corrigido nem validado como explorável.
+4. **Configurar e verificar segredos e infraestrutura de produção**, incluindo DB SSL CA, domínio,
+   proxy confiável, backups e restauração.
+
+> O bloqueio P0-7 de migrations/startup foi corrigido nesta revisão. Os P0-4/P0-5/P0-6 de caixa e
+> billing também constam como corrigidos em [`auditoria-2026-10-02.md`](./auditoria-2026-10-02.md).
+> Isso não equivale a aprovação para deploy público: faltam staging e os itens acima.
 
 ### P1 (Importante)
-4. **Rate Limit por Tenant e Validação de `.env` (Zod):** Evitar sobrecarga direcional e garantir subida segura da aplicação.
-5. **Self-service de Assinatura (Upgrade/Downgrade):** Funcionalidade para Admin do Tenant atualizar cartão ou plano.
+5. **Rate limit por tenant e MFA TOTP:** hoje o rate limit é por IP; MFA e políticas associadas
+   seguem pendentes conforme os achados P1.
+6. **Persistência e isolamento multi-tenant:** tratar os demais achados P1 de webhooks, matriz
+   tributária, frota, LGPD, senha master, overrides RBAC e broadcast.
 
 ### P2 (Desejável)
-6. **Observabilidade (Logs JSON, Métricas):** Melhorar capacidade de debug em produção.
-7. **E-mails HTML e Fila de Disparo (Redis/MQ):** Melhorar UI/UX da comunicação e não bloquear event-loop.
+7. **Observabilidade (Logs JSON, Métricas):** Melhorar capacidade de debug em produção.
+8. **E-mails HTML e Fila de Disparo (Redis/MQ):** Melhorar UI/UX da comunicação e não bloquear event-loop.
 
 ## Sugestão de Próximas 5 Tarefas para o Time
 
-1. **Ligação Front ↔ API (P0, em andamento):** carregar `products`, `customers`, `quotes` e `suppliers` da API no `App.tsx` (começando pelo `GET /api/db/quotes`, que não existe) e fazer as telas escreverem via API — conduzido pelo modo base limpa (`VITE_USE_SEED=false`).
-2. **Hotfix de Segurança (Backend):** Corrigir `P0-4` (tipo de recebimento no caixa), `P0-5` (idempotência/verificação webhook Asaas) e `P0-6` (bloqueio de ativação manual).
-3. **Setup de Produção (Infra):** Configurar o `.env.production` no ambiente real, incluindo certificados DB (`SUPABASE_DB_SSL_CA`).
-4. **Fase B do PDV (Feature):** Implementar carrinho de compras com leitura de código de barras e baixa de movimento no caixa.
-5. **Fase C do PDV (Feature):** Iniciar integração para emissão de NFC-e (hoje apenas um stub).
+1. Disponibilizar staging isolado com banco/tenant descartáveis e credenciais de Asaas sandbox.
+2. Validar em staging boot, migrations, smoke tests e fluxos críticos de venda, autenticação e cobrança.
+3. Remediar os 9 achados P1 restantes da auditoria, começando por autorização cross-tenant e credenciais.
+4. Resolver o advisory de `source-map-js` com atualização compatível e repetir a auditoria de dependências.
+5. Configurar segredos, TLS, backups/restauração, domínio e proxy confiável antes de produção.

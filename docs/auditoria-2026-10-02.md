@@ -27,21 +27,22 @@
 
 ---
 
-## 🔴 Abertos — P0 (bloqueadores de produção)
+## ✅ P0 corrigidos em 09/10/2026
 
-### P0-4 — Venda em cartão/PIX contabilizada como dinheiro
+### P0-4 — Venda em cartão/PIX contabilizada como dinheiro — corrigido
 `server/caixa.ts` (`issueReceipt`): o movimento da venda é gravado **sempre** como
 `sale_cash` (`input.type === "credit_note" ? "refund_card" : "sale_cash"`), ignorando
 o `paymentMethod`. Efeito: venda em cartão/PIX entra no "esperado em dinheiro" do
 bater-caixa e o fechamento acusa **falta fantasma**. Também afeta `getCaixaSummary`,
 `closeCashRegister` e o relatório impresso, que somam por tipo de movimento.
 
-> **Nota de desenho (decisão pendente):** o `expected` soma hoje dinheiro + cartão +
-> PIX + boleto (só vale/voucher fica de fora). Se cartão não deve compor o esperado
-> da gaveta, a correção é maior que trocar o tipo do movimento — envolve a fórmula
-> em três lugares (servidor, `CaixaView` e o relatório). Alinhar com o dono antes.
+`issueReceipt` agora classifica o movimento pela forma de pagamento e o teste cobre
+dinheiro, cartão, PIX e boleto. Decisão do dono (09/10): o esperado continuará somando
+essas quatro formas; vales/vouchers ficam fora. Tela e relatório identificam o valor
+como total. **Não comparar esse total com o dinheiro físico contado na gaveta**: essa
+escolha não representa numerário disponível.
 
-### P0-5 — Replay de webhook reativa assinatura inadimplente
+### P0-5 — Replay de webhook reativa assinatura inadimplente — corrigido
 `server/billing/webhook.ts`: no caminho `alreadyProcessed`, chama
 `applyGatewayPaymentEvent({ paid: false })` em vez de **retornar sem efeito**. Como
 `mapAsaasEventToStatus("PAYMENT_RECEIVED")` → `"active"`, o reenvio de um evento
@@ -51,11 +52,59 @@ antigo (o Asaas reentrega com backoff por dias) **reativa** assinatura `past_due
 colapsa todos os eventos do mesmo tipo/tenant num único id e faz renovações serem
 ignoradas.
 
-### P0-6 — Autoativação de plano pago
+O processamento recusa evento sem identificador, registra o evento antes de aplicá-lo
+e, em replay, retorna sem mutar a assinatura. O endpoint devolve 400 se faltar o ID.
+Teste regressivo confirma que um webhook antigo não reativa a assinatura.
+
+### P0-6 — Autoativação de plano pago — corrigido
 `server/billing/subscriptions.ts` (`convertTrialToPaid`) grava `status: "active"` +
 30 dias quando o gateway **não** está configurado, e `POST /api/billing/subscribe`
 (`billing/routes.ts`) fica liberado para qualquer tenant em trial. Um tenant em trial
 vira "active" sem pagar, quantas vezes quiser.
+
+Agora a conversão falha explicitamente com 503 se o Asaas não estiver configurado.
+Com gateway, o tenant mantém o status atual até a confirmação pelo webhook; somente o
+evento confirmado ativa a assinatura.
+
+> **Validação:** `npm test` — 160/160 testes; `npm run lint` e `npm run build` aprovados.
+> Os P1 abaixo permanecem pendentes; estes P0 corrigidos não tornam o deploy público
+> seguro por si só.
+
+## ✅ P0 corrigido em 13/10/2026
+
+### P0-7 — Startup de produção aceitava falhas de migration — corrigido
+
+`server.ts` ignorava falhas gerais de `runMigrations()` e podia abrir o listener. Além disso,
+`server/migrate.ts` devolvia erros de migrations como resultados sem impedir o startup, e uma
+lista vazia não distinguia ambiente sem banco de migrations ausentes.
+
+Em produção, o boot agora exige banco configurado, ao menos uma migration encontrada e sucesso de
+todas as migrations; qualquer violação aborta a inicialização com log explícito e código de saída
+não zero. O modo best-effort sem banco em desenvolvimento foi preservado. Testes unitários cobrem
+banco ausente, migrations ausentes, falha parcial, migrations concluídas/puladas e comportamento
+de desenvolvimento.
+
+> **Validação local:** `npm test` — 170/170 testes; `npm run lint` e `npm run build` aprovados.
+> Build ainda reporta avisos preexistentes de `NODE_ENV` no `.env` e bundle frontend acima de
+> 500 kB. Sem staging, não houve validação de integração nem teste ativo. Os P1 permanecem
+> pendentes e o advisory de `source-map-js` ainda não foi remediado.
+
+## ✅ P1 corrigido em 13/10/2026
+
+### P1-6 — Escalada por `role-overrides` — corrigido
+
+As rotas de escrita e remoção de overrides estavam protegidas por `manage_accounts`, permissão
+concedida a `saas_cs`; a rota PUT também gravava o objeto enviado sem sanitização. Um membro de
+Customer Success podia conceder `company_data: full` ao próprio papel.
+
+Agora somente `super_admin` sem impersonação pode modificar/remover overrides globais, e cada
+gravação passa por `sanitizeCustomOverrides`, descartando recursos e níveis desconhecidos.
+Tentativas negadas geram evento de auditoria anômalo. Testes de regressão cobrem o bloqueio de
+PUT/DELETE para `saas_cs` e a sanitização de gravações autorizadas.
+
+> **Validação:** testes focados do endpoint — 2/2; suíte completa — 170/170; `npm run lint`
+> e `npm run build` aprovados.
+> Restam nove achados P1 históricos; eles ainda não foram revalidados nesta retomada.
 
 ---
 
@@ -68,7 +117,6 @@ vira "active" sem pagar, quantas vezes quiser.
 | 3 | **Frota sem `tenant_id`**: `FleetVehicle` não tem o campo e nenhuma rota filtra. Qualquer autenticado lê/edita/exclui veículos de todos, sem auditoria. *(Verificado: `GET /api/vehicles` devolvia 20 veículos.)* **Atenção:** o super_admin perdeu `catalog_reference` hoje — quem enxerga isso agora são os papéis de tenant. | `server.ts:1049-1058` |
 | 4 | **LGPD vaza PII cross-tenant**: `/api/rbac/lgpd/requests` devolve `LGPD_REQUESTS_DATA` inteiro, sem filtro de tenant. *(Verificado: `tenant_admin` do MGN recebeu solicitações de 2 tenants, com `subjectName` sem máscara.)* O `subjectDocument` é mascarado, o nome não. | `server/rbacRoutes.ts:890-895` |
 | 5 | **Elevação por senha master é cosmética**: devolve `expiresInMinutes: 30` mas nada é gravado no servidor; nenhum middleware valida. O "desbloqueio" vive só no `sessionStorage` do navegador. | `server/authRoutes.ts:415-420`, `src/utils/accessControl.ts:36-63` |
-| 6 | **Auto-escalada via role-overrides**: grava `ROLE_OVERRIDES[code] = permissions` **sem sanitizar** (existe `sanitizeCustomOverrides`, não usado aqui). `saas_cs` tem `manage_accounts: 'full'` e se concede `company_data: 'full'`, atravessando tenants. | `server/rbacRoutes.ts:1002-1018` |
 | 7 | **MFA obrigatório declarado e nunca aplicado**: `requiresMfa: true` para toda a equipe SaaS, mas o login emite token só com senha. `ipAllowlist` idem. | `server/rbacEngine.ts:86`, `server/authRoutes.ts:124` |
 | 8 | **Broadcast de mensagem para todos os tenants**: `tenantId: tenantId \|\| "all"` — omitir o campo faz a mensagem chegar à caixa de entrada de todos. | `server/rbacRoutes.ts:823` |
 | 9 | **Sem CSP/helmet**; token acessível por JS. Revogação de sessão é volátil (restart ressuscita token) e **trocar a senha não derruba a sessão do atacante** (não há `tokenVersion`). | `server.ts:59-73`, `server/auth.ts:242-259` |

@@ -218,7 +218,7 @@ const buildReportHtml = ({ company, register, movements }: ReportInput): string 
     ${totalRow('Devoluções', refunds)}
     ${totalRow('Sangrias', withdrawals)}
     ${totalRow('Suprimentos', deposits)}
-    ${totalRow('ESPERADO EM DINHEIRO', expected)}
+    ${totalRow('ESPERADO TOTAL (inclui dinheiro, cartão, PIX e boleto)', expected)}
   </table>
   <div style="margin-top:10px">${closingBlock}</div>
 
@@ -779,7 +779,7 @@ export const CaixaView: React.FC<CaixaViewProps> = ({ companyProfile, onShowNoti
                   Fechar Caixa
                 </h2>
                 <div className="px-3.5 py-2.5 rounded-xl bg-slate-950/60 border border-slate-700/60 text-xs">
-                  <span className="text-slate-400 font-semibold">Valor esperado em gaveta:</span>{' '}
+                  <span className="text-slate-400 font-semibold">Valor esperado total (inclui cartão, PIX e boleto):</span>{' '}
                   <span className="text-emerald-400 font-black tabular-nums">{brl(totals?.expected ?? 0)}</span>
                 </div>
                 <div>
@@ -822,7 +822,6 @@ export const CaixaView: React.FC<CaixaViewProps> = ({ companyProfile, onShowNoti
     </div>
   );
 };
-
 
 
 

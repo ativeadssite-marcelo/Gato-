@@ -13,6 +13,7 @@ import type { AuditLogRecord, RbacRoleCode } from "../src/types/rbac";
 import {
   CashRegister,
   CashMovement,
+  CashMovementType,
   Receipt,
   ReceiptItem,
   BoletoIssuance,
@@ -650,7 +651,13 @@ export async function issueReceipt(
     // Um único id por movimento: antes havia duas chamadas a id("mov") (chave
     // do Map e campo `id` saíam diferentes), o que quebrava o vínculo entre
     // memória, espelho e o próprio recibo.
-    const movementType = input.type === "credit_note" ? "refund_card" : "sale_cash";
+    const movementType: CashMovementType = input.type === "credit_note"
+      ? input.paymentMethod === "dinheiro" ? "refund_cash" : "refund_card"
+      : input.paymentMethod === "cartao_credito" || input.paymentMethod === "cartao_debito" ? "sale_card"
+      : input.paymentMethod === "pix" ? "sale_pix"
+      : input.paymentMethod === "boleto" ? "sale_boleto"
+      : input.paymentMethod === "vale_alimentacao" || input.paymentMethod === "vale_refeicao" || input.paymentMethod === "voucher" ? "sale_vale"
+      : "sale_cash";
     const movement: CashMovement = {
       id: id("mov"),
       tenantId,

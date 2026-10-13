@@ -8,7 +8,7 @@
 
 import crypto from "node:crypto";
 import type { Request } from "express";
-import { hasProcessedWebhookEvent, recordWebhookEvent } from "../store";
+import { recordWebhookEvent } from "../store";
 import { applyGatewayPaymentEvent } from "./subscriptions";
 
 function safeEqual(a: string, b: string): boolean {
@@ -32,7 +32,7 @@ export function verifyAsaasWebhook(req: Request): { ok: boolean; error?: string 
 
 export interface AsaasEventInput {
   event: string;
-  eventId?: string;
+  eventId: string;
   tenantId: string;
   paid: boolean;
   paymentMethod?: "pix" | "boleto" | "credit_card" | null;
@@ -48,15 +48,18 @@ export async function handleAsaasEvent(input: AsaasEventInput): Promise<{
   subscription: Awaited<ReturnType<typeof applyGatewayPaymentEvent>>;
 }> {
   const gateway = "asaas";
-  const eventId = input.eventId || `${input.event}:${input.tenantId}:${input.event}`;
-  if (await hasProcessedWebhookEvent(gateway, eventId)) {
+  const eventId = input.eventId.trim();
+  if (!eventId) {
+    throw new Error("Evento Asaas sem identificador; processamento recusado para preservar idempotência.");
+  }
+  const recorded = await recordWebhookEvent(gateway, input.event, eventId, input);
+  if (recorded.alreadyProcessed) {
     return {
       alreadyProcessed: true,
       status: "ignored",
-      subscription: await applyGatewayPaymentEvent({ tenantId: input.tenantId, event: input.event, paid: false, paymentMethod: null }),
+      subscription: null,
     };
   }
-  await recordWebhookEvent(gateway, input.event, eventId, input);
   const subscription = await applyGatewayPaymentEvent({
     tenantId: input.tenantId,
     event: input.event,

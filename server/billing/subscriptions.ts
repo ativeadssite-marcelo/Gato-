@@ -23,6 +23,7 @@ import {
   cancelAsaasSubscription,
   createAsaasSubscription,
   ensureAsaasCustomer,
+  getAsaasPaymentInvoiceUrl,
   isAsaasConfigured,
 } from "./asaas";
 
@@ -46,12 +47,13 @@ export function computeProRata(
 
 /**
  * Mapeia eventos do Asaas para o status da assinatura.
- * Referência: PAYMENT_RECEIVED/CONFIRMED -> active; PAYMENT_OVERDUE -> past_due;
- * SUBSCRIPTION_INACTIVE -> canceled.
+ * Referência: confirmação de pagamento -> active; PAYMENT_OVERDUE -> past_due;
+ * SUBSCRIPTION_INACTIVE -> canceled. Eventos de assinatura sem pagamento não
+ * concedem acesso por si só.
  */
 export function mapAsaasEventToStatus(event: string): SubscriptionStatus | null {
   const e = (event || "").toUpperCase();
-  if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "SUBSCRIPTION_ACTIVE", "SUBSCRIPTION_UPDATE"].includes(e)) return "active";
+  if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(e)) return "active";
   if (["PAYMENT_OVERDUE", "PAYMENT_DELETED"].includes(e)) return "past_due";
   if (["SUBSCRIPTION_INACTIVE"].includes(e)) return "canceled";
   if (["SUBSCRIPTION_EXPIRED"].includes(e)) return "expired";
@@ -162,10 +164,16 @@ export interface ConvertTrialResult {
   pendingExternalSetup: boolean;
 }
 
+export class BillingGatewayNotConfiguredError extends Error {
+  constructor() {
+    super("Não é possível converter o trial sem o gateway Asaas configurado.");
+    this.name = "BillingGatewayNotConfiguredError";
+  }
+}
+
 /**
- * Converte trial -> pago. Se o gateway estiver configurado, cria customer +
- * assinatura recorrente reais. Caso contrário, registra a assinatura como
- * ativa em modo "aguardando setup do gateway" (sem falso positivo de cobrança).
+ * Solicita a conversão do trial criando a assinatura no gateway. O tenant só
+ * fica ativo após a confirmação do pagamento pelo webhook.
  */
 export async function convertTrialToPaid(input: ConvertTrialInput): Promise<ConvertTrialResult> {
   const current = await getSubscriptionByTenant(input.tenantId);
@@ -176,38 +184,44 @@ export async function convertTrialToPaid(input: ConvertTrialInput): Promise<Conv
   let gatewayCustomerId: string | null = null;
   let gatewaySubscriptionId: string | null = null;
   let paymentLink: string | null = null;
-  let pendingExternalSetup = false;
 
-  if (isAsaasConfigured()) {
-    gateway = "asaas";
-    gatewayCustomerId = await ensureAsaasCustomer({
-      tenantId: input.tenantId,
-      name: input.tenantName,
-      email: input.contactEmail,
-      cpfCnpj: input.cnpj,
-    });
-    const created = await createAsaasSubscription({
-      customerId: gatewayCustomerId,
-      billingType: input.billingType || "PIX",
-      value: plan.priceMonthly,
-      nextDueDate: nextDue,
-      cycle: "MONTHLY",
-    });
-    gatewaySubscriptionId = created.id;
-    paymentLink = "https://sandbox.asaas.com"; // substituído pelo link real da fatura no webhook
-  } else {
-    // Sem gateway: o operador cadastra manualmente; assinatura fica ativa e o
-    // financeiro gera a fatura. Evita afirmar que houve cobrança que não houve.
-    pendingExternalSetup = true;
+  if (!isAsaasConfigured()) {
+    throw new BillingGatewayNotConfiguredError();
+  }
+
+  gateway = "asaas";
+  gatewayCustomerId = await ensureAsaasCustomer({
+    tenantId: input.tenantId,
+    name: input.tenantName,
+    email: input.contactEmail,
+    cpfCnpj: input.cnpj,
+  });
+  const created = await createAsaasSubscription({
+    customerId: gatewayCustomerId,
+    billingType: input.billingType || "PIX",
+    value: plan.priceMonthly,
+    nextDueDate: nextDue,
+    cycle: "MONTHLY",
+  });
+  gatewaySubscriptionId = created.id;
+  if (created.invoiceId) {
+    try {
+      paymentLink = await getAsaasPaymentInvoiceUrl(created.invoiceId);
+    } catch (err) {
+      console.warn(
+        "[GATO Billing] Assinatura criada, mas não foi possível obter o link da cobrança:",
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   const subscription = await upsertSubscription({
     tenantId: input.tenantId,
     planId: plan.id,
     planName: plan.name,
-    status: "active",
+    status: current?.status ?? "trial",
     trialEndsAt: current?.trialEndsAt ?? null,
-    currentPeriodEndsAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+    currentPeriodEndsAt: current?.currentPeriodEndsAt ?? null,
     gateway,
     gatewayCustomerId,
     gatewaySubscriptionId,
@@ -219,11 +233,17 @@ export async function convertTrialToPaid(input: ConvertTrialInput): Promise<Conv
     subscriptionId: subscription.id,
     amount: plan.priceMonthly,
     dueDate: nextDue,
-    paymentMethod: input.billingType === "CREDIT_CARD" ? "credit_card" : "pix",
+    paymentMethod:
+      input.billingType === "CREDIT_CARD"
+        ? "credit_card"
+        : input.billingType === "BOLETO"
+          ? "boleto"
+          : "pix",
     paymentLink,
+    gatewayInvoiceId: created.invoiceId ?? null,
   });
 
-  return { subscription, gateway, paymentLink, pendingExternalSetup };
+  return { subscription, gateway, paymentLink, pendingExternalSetup: !paymentLink };
 }
 
 /** Suspende/cancela uma assinatura (cancelamento local + gateway). */
@@ -250,7 +270,7 @@ export async function applyGatewayPaymentEvent(params: {
 
   const status: SubscriptionStatus = params.paid
     ? "active"
-    : mapAsaasEventToStatus(params.event) ?? "past_due";
+    : mapAsaasEventToStatus(params.event) ?? sub.status;
 
   // Marca faturas abertas do tenant como pagas quando o pagamento é confirmado.
   if (params.paid) {

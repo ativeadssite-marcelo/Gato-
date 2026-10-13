@@ -42,6 +42,7 @@ import {
   getMakesBySegment,
   getModelsBySegmentAndMake,
   getModelsByFleetMake,
+  getIndividualFleetVehicleModels,
   getAvailableYearsForSelection,
   getEnginesForSelection,
   queryPartsByVehicleApplication
@@ -210,10 +211,12 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
   // carro?" antes de "qual montadora?"). Os segmentos vêm do DADO.
   const [quickSegment, setQuickSegment] = useState<VehicleFleetSegment | 'todos'>('todos');
   const [quickMake, setQuickMake] = useState<string>('');
+  const [quickVehicleName, setQuickVehicleName] = useState<string>('');
   const [quickModelId, setQuickModelId] = useState<string>('');
   const [quickYear, setQuickYear] = useState<string>('');
   const [quickEngine, setQuickEngine] = useState<string>('');
   const [quickSearchTerm, setQuickSearchTerm] = useState<string>('');
+  const [showVehicleApplicationFilters, setShowVehicleApplicationFilters] = useState(true);
 
   const quickSegmentsList = useMemo(() => getDistinctFleetSegments(), []);
   const quickMakesList = useMemo(() => getMakesBySegment(quickSegment), [quickSegment]);
@@ -221,26 +224,92 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
     if (!quickMake) return [];
     return getModelsBySegmentAndMake(quickSegment, quickMake);
   }, [quickSegment, quickMake]);
+  const quickVehicleOptions = useMemo(
+    () => quickModelsList.flatMap((model) =>
+      getIndividualFleetVehicleModels(model).map((vehicleName) => ({
+        key: `${model.id}::${vehicleName}`,
+        vehicleName,
+        model,
+      }))
+    ),
+    [quickModelsList]
+  );
+  const quickVehiclesList = useMemo(
+    () => [...new Set(quickVehicleOptions.map((option) => option.vehicleName))]
+      .sort((a, b) => a.localeCompare(b)),
+    [quickVehicleOptions]
+  );
+  const quickVehicleModelOptions = useMemo(
+    () => [...new Map(
+      quickVehicleOptions
+        .filter((option) => option.vehicleName === quickVehicleName)
+        .map((option) => [option.model.id, option.model])
+    ).values()],
+    [quickVehicleOptions, quickVehicleName]
+  );
   const quickYearsList = useMemo(() => {
     return getAvailableYearsForSelection(quickModelId);
   }, [quickModelId]);
   const quickEnginesList = useMemo(() => {
     return getEnginesForSelection(quickModelId);
   }, [quickModelId]);
+  const vehicleApplicationFilterActive = Boolean(
+    quickMake || quickVehicleName || quickModelId || quickYear || quickEngine || quickSegment !== 'todos'
+  );
+  const vehicleApplicationProductIds = useMemo(() => {
+    if (!vehicleApplicationFilterActive) return null;
+
+    const makesToSearch = quickMake
+      ? [quickMake]
+      : getMakesBySegment(quickSegment);
+    const matches = makesToSearch.flatMap((montadora) =>
+      queryPartsByVehicleApplication(products, {
+        montadora,
+        modeloId: quickModelId,
+        modeloTexto: quickVehicleName,
+        ano: quickYear ? parseInt(quickYear, 10) : undefined,
+        motor: quickEngine,
+        sistema: 'todos',
+      })
+    );
+    return new Set(matches.map((match) => match.product.id));
+  }, [products, quickMake, quickVehicleName, quickModelId, quickYear, quickEngine, quickSegment, vehicleApplicationFilterActive]);
   const quickCompatibleParts = useMemo(() => {
-    if (!quickMake && !quickSearchTerm.trim()) {
+    if (!vehicleApplicationFilterActive && !quickSearchTerm.trim()) {
       return products.slice(0, 10);
     }
-    const matches = queryPartsByVehicleApplication(products, {
-      montadora: quickMake,
-      modeloId: quickModelId,
-      ano: quickYear ? parseInt(quickYear, 10) : undefined,
-      motor: quickEngine,
-      sistema: 'todos',
-      termoBusca: quickSearchTerm,
-    });
-    return matches.map(m => m.product).slice(0, 20);
-  }, [products, quickMake, quickModelId, quickYear, quickEngine, quickSearchTerm]);
+    const makesToSearch = quickMake
+      ? [quickMake]
+      : quickSegment !== 'todos'
+        ? getMakesBySegment(quickSegment)
+        : [''];
+    const matches = makesToSearch.flatMap((montadora) =>
+      queryPartsByVehicleApplication(products, {
+        montadora,
+        modeloId: quickModelId,
+        modeloTexto: quickVehicleName,
+        ano: quickYear ? parseInt(quickYear, 10) : undefined,
+        motor: quickEngine,
+        sistema: 'todos',
+        termoBusca: quickSearchTerm,
+      })
+    );
+    const uniqueMatches = new Map(matches.map((match) => [match.product.id, match]));
+    return [...uniqueMatches.values()]
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .map((match) => match.product)
+      .slice(0, 20);
+  }, [products, quickMake, quickVehicleName, quickModelId, quickYear, quickEngine, quickSegment, quickSearchTerm, vehicleApplicationFilterActive]);
+
+  const clearVehicleApplicationFilters = () => {
+    setQuickSegment('todos');
+    setQuickMake('');
+    setQuickVehicleName('');
+    setQuickModelId('');
+    setQuickYear('');
+    setQuickEngine('');
+    setQuickSearchTerm('');
+  };
 
   // Pending DAV mock list
   const [pendingDavs, setPendingDavs] = useState<{ id: string; number: string; client: string; items: number; total: number; time: string }[]>([
@@ -363,6 +432,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
     return products.filter(p => {
       // Produto inativado não se vende: sai do balcão (segue no histórico).
       if (p.active === false) return false;
+      if (vehicleApplicationProductIds && !vehicleApplicationProductIds.has(p.id)) return false;
       const term = searchTerm.trim().toLowerCase();
       const matchesTerm = !term || (
         p.name.toLowerCase().includes(term) ||
@@ -389,7 +459,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
 
       return matchesTerm && matchesGroup && matchesPlate;
     });
-  }, [products, searchTerm, selectedGroup, plateFilter, vehicleData.model]);
+  }, [products, searchTerm, selectedGroup, plateFilter, vehicleData.model, vehicleApplicationProductIds]);
 
   // Cart Calculations
   const quoteSubtotal = quoteItems.reduce((acc, it) => acc + it.total, 0);
@@ -869,6 +939,22 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
             <SlidersHorizontal className="w-4 h-4" />
           </button>
 
+          <button
+            type="button"
+            id="btn-toggle-vehicle-filter"
+            onClick={() => setShowVehicleApplicationFilters((visible) => !visible)}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center border transition cursor-pointer ${
+              showVehicleApplicationFilters
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+            }`}
+            title="Mostrar ou ocultar filtros por veículo"
+            aria-label="Mostrar ou ocultar filtros por veículo"
+            aria-expanded={showVehicleApplicationFilters}
+          >
+            <Car className="w-4 h-4" />
+          </button>
+
           {/* Vehicle / Clear button (Red) */}
           <button
             type="button"
@@ -877,6 +963,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
               setSearchTerm('');
               setSelectedGroup('Todos os grupos');
               setPlateFilter('');
+              clearVehicleApplicationFilters();
             }}
             className="w-8 h-8 rounded-lg bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition cursor-pointer"
             title="Limpar filtros"
@@ -930,6 +1017,146 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
           </button>
         </div>
       </div>
+
+      {showVehicleApplicationFilters && (
+        <div
+          className="bg-white rounded-xl px-3.5 py-3 border border-slate-200 shadow-xs"
+          aria-label="Pesquisa por aplicação veicular"
+        >
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-2.5 items-end">
+            <div>
+              <label htmlFor="venda-filtro-montadora" className="block text-[11px] font-semibold text-slate-800 mb-1.5">
+                Montadora
+              </label>
+              <select
+                id="venda-filtro-montadora"
+                value={quickMake}
+                onChange={(e) => {
+                  setQuickMake(e.target.value);
+                  setQuickVehicleName('');
+                  setQuickModelId('');
+                  setQuickYear('');
+                  setQuickEngine('');
+                }}
+                className="w-full h-[42px] bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3.5 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              >
+                <option value="">Selecione</option>
+                {quickMakesList.map((make) => (
+                  <option key={make} value={make}>{make}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="venda-filtro-veiculo" className="block text-[11px] font-semibold text-slate-800 mb-1.5">
+                Veículo
+              </label>
+              <select
+                id="venda-filtro-veiculo"
+                value={quickVehicleName}
+                onChange={(e) => {
+                  const vehicleName = e.target.value;
+                  const vehicleModels = quickVehicleOptions
+                    .filter((option) => option.vehicleName === vehicleName)
+                    .map((option) => option.model);
+                  setQuickVehicleName(vehicleName);
+                  setQuickModelId(vehicleModels.length === 1 ? vehicleModels[0].id : '');
+                  setQuickYear('');
+                  setQuickEngine('');
+                }}
+                disabled={!quickMake}
+                className="w-full h-[42px] bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3.5 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              >
+                <option value="">Selecione</option>
+                {quickVehiclesList.map((vehicle) => (
+                  <option key={vehicle} value={vehicle}>{vehicle}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="venda-filtro-ano" className="block text-[11px] font-semibold text-slate-800 mb-1.5">
+                Ano
+              </label>
+              <select
+                id="venda-filtro-ano"
+                value={quickYear}
+                onChange={(e) => setQuickYear(e.target.value)}
+                disabled={!quickModelId}
+                className="w-full h-[42px] bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3.5 disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              >
+                <option value="">Selecione</option>
+                {quickYearsList.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="venda-filtro-motor" className="block text-[11px] font-semibold text-slate-800 mb-1.5">
+                Motor
+              </label>
+              <select
+                id="venda-filtro-motor"
+                value={quickEngine}
+                onChange={(e) => setQuickEngine(e.target.value)}
+                disabled={!quickModelId}
+                className="w-full h-[42px] bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3.5 disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              >
+                <option value="">Selecione</option>
+                {quickEnginesList.map((engine) => (
+                  <option key={engine} value={engine}>{engine}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="venda-filtro-modelo" className="block text-[11px] font-semibold text-slate-800 mb-1.5">
+                Modelo
+              </label>
+              <select
+                id="venda-filtro-modelo"
+                value={quickModelId}
+                onChange={(e) => {
+                  setQuickModelId(e.target.value);
+                  setQuickYear('');
+                  setQuickEngine('');
+                }}
+                disabled={!quickVehicleName}
+                className="w-full h-[42px] bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3.5 disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              >
+                <option value="">Selecione</option>
+                {quickVehicleModelOptions.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.geracaoFase}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-1 pb-0.5">
+              <button
+                type="button"
+                onClick={clearVehicleApplicationFilters}
+                className="w-9 h-9 rounded-lg text-slate-700 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                title="Limpar filtros de aplicação"
+                aria-label="Limpar filtros de aplicação"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowVehicleApplicationFilters(false)}
+                className="w-9 h-9 rounded-lg text-slate-700 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                title="Fechar filtros de aplicação"
+                aria-label="Fechar filtros de aplicação"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Veículo Selecionado da Frota Banner */}
       {initialFleetVehicle && (
@@ -2063,6 +2290,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
                     // pode não existir no segmento novo.
                     setQuickSegment(e.target.value as VehicleFleetSegment | 'todos');
                     setQuickMake('');
+                    setQuickVehicleName('');
                     setQuickModelId('');
                     setQuickYear('');
                     setQuickEngine('');
@@ -2082,6 +2310,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
                   value={quickMake}
                   onChange={(e) => {
                     setQuickMake(e.target.value);
+                    setQuickVehicleName('');
                     setQuickModelId('');
                     setQuickYear('');
                     setQuickEngine('');
@@ -2098,9 +2327,13 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Modelo:</label>
                 <select
-                  value={quickModelId}
+                  value={quickVehicleOptions.find(
+                    (option) => option.model.id === quickModelId && option.vehicleName === quickVehicleName
+                  )?.key || ''}
                   onChange={(e) => {
-                    setQuickModelId(e.target.value);
+                    const selectedOption = quickVehicleOptions.find((option) => option.key === e.target.value);
+                    setQuickModelId(selectedOption?.model.id || '');
+                    setQuickVehicleName(selectedOption?.vehicleName || '');
                     setQuickYear('');
                     setQuickEngine('');
                   }}
@@ -2108,8 +2341,8 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
                   className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 disabled:bg-slate-100 disabled:text-slate-400 focus:outline-sky-500"
                 >
                   <option value="">Todos os Modelos</option>
-                  {quickModelsList.map(m => (
-                    <option key={m.id} value={m.id}>{m.modelo} ({m.geracaoFase})</option>
+                  {quickVehicleOptions.map(({ key, model, vehicleName }) => (
+                    <option key={key} value={key}>{vehicleName} ({model.geracaoFase})</option>
                   ))}
                 </select>
               </div>

@@ -38,7 +38,11 @@ import { caixaRouter } from "./server/caixaRoutes";
 import { billingRouter } from "./server/billing/routes";
 import { adminDatabaseRouter } from "./server/adminDatabaseRoutes";
 import { checkQuota, incrementUsage } from "./server/quotas";
-import { runMigrations } from "./server/migrate";
+import {
+  assertProductionMigrationsReady,
+  runMigrations,
+  type MigrationResult,
+} from "./server/migrate";
 import { hydrateIdentityStore } from "./server/identityStore";
 import { hydrateAuditStore } from "./server/auditStore";
 import { seedBillingStore } from "./server/store";
@@ -2525,9 +2529,23 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 async function startServer() {
   // Domínio de cobrança: seed de demonstração, migrações versionadas e cron de vencimentos.
   seedBillingStore();
-  await runMigrations().catch((err) =>
-    console.error("[GATO Migrate] Falha geral ao aplicar migrações:", err?.message || err),
-  );
+  const isProduction = process.env.NODE_ENV === "production";
+  const databaseConfigured = isDatabaseConfigured();
+  if (isProduction && !databaseConfigured) {
+    throw new Error("[GATO Startup] Banco de dados obrigatório em produção.");
+  }
+
+  let migrationResults: MigrationResult[] = [];
+  try {
+    migrationResults = await runMigrations();
+  } catch (err) {
+    if (isProduction) throw err;
+    console.error(
+      "[GATO Migrate] Falha geral ao aplicar migrações:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+  assertProductionMigrationsReady(isProduction, databaseConfigured, migrationResults);
 
   // Hidratação do domínio de identidade e da trilha, a partir do banco.
   //
@@ -2561,4 +2579,8 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  const message = String(err?.message || err).replace(/:[^:@]+@/, ":****@").slice(0, 500);
+  console.error("[GATO Startup] Inicialização abortada:", message);
+  process.exit(1);
+});

@@ -36,6 +36,7 @@ import {
   getDistinctFleetSegments,
   getMakesBySegment,
   getModelsByFleetMake,
+  getIndividualFleetVehicleModels,
   getAvailableYearsForSelection,
   getEnginesForSelection,
   queryPartsByVehicleApplication,
@@ -72,6 +73,7 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
   // Filtros de Aplicação
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModelId, setSelectedModelId] = useState<string>('');
+  const [selectedModelName, setSelectedModelName] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [selectedEngine, setSelectedEngine] = useState<string>('');
   const [selectedSystem, setSelectedSystem] = useState<string>('todos');
@@ -102,6 +104,17 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
     return getModelsByFleetMake(selectedMake);
   }, [selectedMake]);
 
+  const individualModelOptions = useMemo(
+    () => modelsList.flatMap((model) =>
+      getIndividualFleetVehicleModels(model).map((modelName) => ({
+        key: `${model.id}::${modelName}`,
+        model,
+        modelName,
+      }))
+    ),
+    [modelsList]
+  );
+
   const yearsList = useMemo(() => {
     return getAvailableYearsForSelection(selectedMake, selectedModelId);
   }, [selectedMake, selectedModelId]);
@@ -124,6 +137,13 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
         );
         if (match) {
           setSelectedModelId(match.id);
+          const modelNames = getIndividualFleetVehicleModels(match);
+          const initialName = initialVehicle.modelo?.toLowerCase() || initialVehicle.veiculo?.toLowerCase() || '';
+          setSelectedModelName(
+            modelNames.find((name) => name.toLowerCase() === initialName) ||
+            modelNames.find((name) => initialName.includes(name.toLowerCase()) || name.toLowerCase().includes(initialName)) ||
+            (modelNames.length === 1 ? modelNames[0] : '')
+          );
         }
       }
       if (initialVehicle.ano) {
@@ -149,6 +169,7 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
         const firstMake = makesInSegment[0] || '';
         setSelectedMake(firstMake);
         setSelectedModelId('');
+        setSelectedModelName('');
         setSelectedYear('');
         setSelectedEngine('');
       }
@@ -161,13 +182,16 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
   const handleMakeChange = (make: string) => {
     setSelectedMake(make);
     setSelectedModelId('');
+    setSelectedModelName('');
     setSelectedYear('');
     setSelectedEngine('');
   };
 
   // Limpa campos dependentes ao mudar modelo
-  const handleModelChange = (modelId: string) => {
-    setSelectedModelId(modelId);
+  const handleModelChange = (optionKey: string) => {
+    const selectedOption = individualModelOptions.find((option) => option.key === optionKey);
+    setSelectedModelId(selectedOption?.model.id || '');
+    setSelectedModelName(selectedOption?.modelName || '');
     setSelectedYear('');
     setSelectedEngine('');
   };
@@ -176,6 +200,7 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
   const handleResetFilters = () => {
     setSelectedMake('');
     setSelectedModelId('');
+    setSelectedModelName('');
     setSelectedYear('');
     setSelectedEngine('');
     setSelectedSystem('todos');
@@ -187,12 +212,13 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
     return queryPartsByVehicleApplication(products, {
       montadora: selectedMake,
       modeloId: selectedModelId,
+      modeloTexto: selectedModelName,
       ano: selectedYear ? parseInt(selectedYear, 10) : undefined,
       motor: selectedEngine,
       sistema: selectedSystem,
       termoBusca: freeSearch
     });
-  }, [products, selectedMake, selectedModelId, selectedYear, selectedEngine, selectedSystem, freeSearch]);
+  }, [products, selectedMake, selectedModelId, selectedModelName, selectedYear, selectedEngine, selectedSystem, freeSearch]);
 
   // Consulta Reversa (Peça -> Frota)
   const reverseLookupResult = useMemo(() => {
@@ -228,7 +254,14 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
       );
     }
 
-    return list;
+    return list.flatMap((model) =>
+      getIndividualFleetVehicleModels(model).map((modelName) => ({
+        ...model,
+        id: `${model.id}::${modelName}`,
+        sourceModelId: model.id,
+        modelo: modelName,
+      }))
+    );
   }, [fleetSelectedMakeFilter, fleetSegmentFilter, fleetYearFilter, fleetSearchTerm]);
 
   // Manipulador de Lançamento na Cotação
@@ -236,7 +269,7 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
     const selectedModelObj = BRAZILIAN_FLEET_DATABASE.find(m => m.id === selectedModelId);
     const vehicleContext = {
       montadora: selectedMake || (selectedModelObj ? selectedModelObj.montadora : 'Diversos'),
-      modelo: selectedModelObj ? selectedModelObj.modelo : 'Veículo Selecionado',
+      modelo: selectedModelName || (selectedModelObj ? selectedModelObj.modelo : 'Veículo Selecionado'),
       ano: selectedYear || 'Todos',
       motor: selectedEngine || 'Padrão'
     };
@@ -574,7 +607,7 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                   <span>Montadora</span>
-                  {selectedMake && <span className="text-[10px] text-sky-600 font-semibold">{modelsList.length} modelos</span>}
+                  {selectedMake && <span className="text-[10px] text-sky-600 font-semibold">{individualModelOptions.length} modelos</span>}
                 </label>
                 <select
                   value={selectedMake}
@@ -594,15 +627,17 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
                   Modelo do Veículo
                 </label>
                 <select
-                  value={selectedModelId}
+                  value={individualModelOptions.find(
+                    (option) => option.model.id === selectedModelId && option.modelName === selectedModelName
+                  )?.key || ''}
                   onChange={(e) => handleModelChange(e.target.value)}
                   disabled={!selectedMake && modelsList.length > 30}
                   className="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <option value="">{selectedMake ? "Todos os Modelos da Marca" : "Selecione a Montadora Primeiro"}</option>
-                  {modelsList.map(model => (
-                    <option key={model.id} value={model.id}>
-                      {model.modelo} ({model.anoInicio}-{model.anoFim})
+                  {individualModelOptions.map(({ key, model, modelName }) => (
+                    <option key={key} value={key}>
+                      {modelName} ({model.anoInicio}-{model.anoFim})
                     </option>
                   ))}
                 </select>
@@ -1245,7 +1280,8 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
                           type="button"
                           onClick={() => {
                             setSelectedMake(item.montadora);
-                            setSelectedModelId(item.id);
+                            setSelectedModelId(item.sourceModelId);
+                            setSelectedModelName(item.modelo);
                             setActiveTab('filtro-aplicacao');
                           }}
                           className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg text-xs font-bold transition flex items-center gap-1 ml-auto cursor-pointer"
@@ -1261,7 +1297,12 @@ export const ConsultaAplicacaoPecas: React.FC<ConsultaAplicacaoPecasProps> = ({
             </div>
 
             <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Mostrando {filteredFleetList.length} de {BRAZILIAN_FLEET_DATABASE.length} modelos cadastrados (1995 a 2027)</span>
+              <span>
+                Mostrando {filteredFleetList.length} de {BRAZILIAN_FLEET_DATABASE.reduce(
+                  (total, model) => total + getIndividualFleetVehicleModels(model).length,
+                  0
+                )} modelos cadastrados (1995 a 2027)
+              </span>
               <span className="font-semibold text-slate-700">Abrangência de Mercado: Brasil Nacional</span>
             </div>
           </div>

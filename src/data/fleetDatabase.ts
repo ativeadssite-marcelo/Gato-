@@ -1,5 +1,61 @@
 import { FleetVehicleModel, Product, PartApplicationMatch, PartSystemCategory, VehicleFleetSegment } from '../types';
 
+const INDIVIDUAL_VEHICLE_MODELS: Record<string, readonly string[]> = {
+  'vw-gol-g2-g3-g4': ['Gol G2', 'Gol G3', 'Gol G4'],
+  'vw-gol-g5-g6-g7-g8': ['Gol G5', 'Gol G6', 'Gol G7', 'Gol G8'],
+  'vw-voyage-g5-g8': ['Voyage G5', 'Voyage G6', 'Voyage G7', 'Voyage G8'],
+  'vw-saveiro-g2-g4': ['Saveiro G2', 'Saveiro G3', 'Saveiro G4'],
+  'vw-polo-hatch-sedan-9n': ['Polo Hatch', 'Polo Sedan'],
+  'gm-corsa-celta-prisma-classic': ['Corsa', 'Celta', 'Classic', 'Prisma'],
+  'gm-onix-prisma-geracao-1': ['Onix', 'Prisma'],
+  'gm-onix-onix-plus-turbo-g2': ['Onix', 'Onix Plus'],
+  'gm-s10-blazer-todas-geracoes': ['S10', 'Blazer'],
+  'gm-cruze-sedan-sport6': ['Cruze Sedan', 'Cruze Sport6 Hatch'],
+  'gm-astra-vectra-zafira': ['Astra', 'Vectra', 'Zafira'],
+  'fiat-uno-mille-vivace': ['Uno', 'Mille'],
+  'fiat-palio-siena-weekend-strada-g1': ['Palio', 'Siena', 'Weekend', 'Strada'],
+  'fiat-argo-cronos-firefly': ['Argo', 'Cronos'],
+  'fiat-pulse-fastback-turbo': ['Pulse', 'Fastback'],
+  'toyota-hilux-sw4-todas-geracoes': ['Hilux', 'SW4'],
+  'toyota-etios-yaris': ['Etios Hatch', 'Etios Sedan', 'Yaris Hatch', 'Yaris Sedan'],
+  'ford-ka-todas-geracoes': ['Ka Hatch', 'Ka+ Sedan'],
+  'ford-fiesta-todas-geracoes': ['Fiesta Hatch', 'Fiesta Sedan', 'Fiesta Street', 'Fiesta Rocam', 'New Fiesta'],
+  'honda-civic-todas-geracoes': ['Civic Sedan', 'Civic Type R'],
+  'honda-fit-city-wrv': ['Fit', 'City', 'WR-V', 'City Hatch', 'City Sedan'],
+  'hyundai-hb20-hb20s-hb20x': ['HB20', 'HB20S', 'HB20X'],
+  'hyundai-tucson-ix35': ['Tucson', 'ix35'],
+  'jeep-renegade-compass-commander': ['Renegade', 'Compass', 'Commander'],
+  'renault-clio-sandero-logan': ['Clio', 'Sandero', 'Logan'],
+  'renault-duster-oroch': ['Duster', 'Duster Oroch'],
+  'renault-kwid-kardian': ['Kwid', 'Kardian'],
+  'nissan-kicks-march-versa': ['Kicks', 'March', 'Versa', 'V-Drive'],
+  'nissan-frontier-todas-geracoes': ['Frontier D22', 'Frontier D40', 'Frontier D23'],
+  'psa-206-207-208-c3': ['Peugeot 206', 'Peugeot 207', 'Peugeot 208', 'Citroën C3', 'Citroën Aircross', 'Citroën Basalt'],
+  'mitsubishi-l200-triton-pajero': ['L200', 'L200 Triton', 'Pajero TR4', 'Pajero Sport', 'Pajero Dakar', 'Pajero Full'],
+  'byd-dolphin-seal-song-plus': ['Dolphin', 'Dolphin Mini', 'Seal', 'Song Plus', 'Yuan Plus', 'Shark'],
+  'gwm-haval-h6-ora-03': ['Haval H6', 'Ora 03'],
+  'scania-serie-4-pr-g-s': ['Scania Série 4', 'Scania P', 'Scania G', 'Scania R', 'Scania S'],
+  'volvo-fh-fm-vm': ['Volvo FH12', 'Volvo FH13', 'Volvo FM', 'Volvo VM'],
+  'mercedes-benz-caminhoes-atego-axor-actros-accelo': ['Mercedes-Benz 1113', 'Mercedes-Benz 1620', 'Mercedes-Benz Accelo', 'Mercedes-Benz Atego', 'Mercedes-Benz Axor', 'Mercedes-Benz Actros'],
+  'vw-caminhoes-delivery-constellation-meteor': ['VW Delivery', 'VW Constellation', 'VW Meteor'],
+  'iveco-daily-tector-stralis-sway': ['Iveco Daily', 'Iveco Tector', 'Iveco Stralis', 'Iveco S-Way'],
+  'motos-honda-cg-titan-fan-bros': [
+    'CG 125 Titan', 'CG 125 Fan', 'CG 125 Start', 'CG 125 Cargo',
+    'CG 150 Titan', 'CG 150 Fan', 'CG 150 Start', 'CG 150 Cargo',
+    'CG 160 Titan', 'CG 160 Fan', 'CG 160 Start', 'CG 160 Cargo',
+    'NXR Bros 125', 'NXR Bros 150', 'NXR Bros 160',
+  ],
+  'motos-yamaha-factor-fazer-crosser': [
+    'YBR 125', 'Factor 125', 'Factor 150', 'Fazer 150', 'Fazer 250', 'Crosser 150', 'Lander 250',
+  ],
+  'agricola-john-deere-5e-6j-7j': ['John Deere 5078E', 'John Deere 6100J', 'John Deere 6115J', 'John Deere 6125J', 'John Deere 7200J', 'John Deere S680'],
+  'agricola-massey-ferguson-200-4200': ['MF 275', 'MF 290', 'MF 4292', 'MF 7700 Dyna-6'],
+};
+
+export function getIndividualFleetVehicleModels(model: FleetVehicleModel): string[] {
+  return [...(INDIVIDUAL_VEHICLE_MODELS[model.id] ?? [model.modelo])];
+}
+
 /**
  * BANCO DE DADOS DA FROTA COMERCIALIZADA NO BRASIL (1995 A 2027)
  * Mapeamento completo com montadoras, modelos, gerações, anos de fabricação,
@@ -1250,9 +1306,9 @@ export function queryPartsByVehicleApplication(
     ? BRAZILIAN_FLEET_DATABASE.find(v => v.id === filter.modeloId)
     : null;
 
-  const modelKeyword = selectedFleetVehicle 
-    ? selectedFleetVehicle.modelo.toLowerCase() 
-    : (filter.modeloTexto?.toLowerCase().trim() || '');
+  const modelKeyword = filter.modeloTexto?.toLowerCase().trim() ||
+    selectedFleetVehicle?.modelo.toLowerCase() ||
+    '';
 
   // Itera sobre todos os produtos da base
   for (const prod of products) {
@@ -1322,8 +1378,8 @@ export function queryPartsByVehicleApplication(
             .split(/[\s/,]+/)
             .map(w => w.trim().toLowerCase())
             .filter(w => w.length >= 2);
-          const hasCommonWord = cleanKeywords.some(w => appVeh.includes(w) || appBrand.includes(w));
-          if (!hasCommonWord && !appVeh.includes(modelKeyword) && !modelKeyword.includes(appVeh)) {
+          const hasAllModelWords = cleanKeywords.every(w => appVeh.includes(w) || appBrand.includes(w));
+          if (!hasAllModelWords && !appVeh.includes(modelKeyword)) {
             appMatch = false;
           }
         }
@@ -1375,8 +1431,8 @@ export function queryPartsByVehicleApplication(
           .replace(/[()]/g, ' ')
           .split(/[\s/,]+/)
           .map(w => w.trim().toLowerCase())
-          .filter(w => w.length >= 3 && !['com', 'para', 'linha', 'fase', 'todas', 'novo'].includes(w));
-        if (cleanKeywords.some(kw => prodText.includes(kw))) {
+          .filter(w => w.length >= 3 && !['com', 'para', 'linha', 'fase', 'todas'].includes(w));
+        if (cleanKeywords.every(kw => prodText.includes(kw))) {
           matchModelInTitle = true;
           matchScore += 50;
         }
@@ -1397,16 +1453,14 @@ export function queryPartsByVehicleApplication(
         matchScore += 30;
       }
 
-      // Se filtrou por montadora e modelo, e não bateu no título nem nas aplicações, descarta
-      if ((targetMake || modelKeyword) && !matchModelInTitle && !matchMakeInTitle) {
-        // Se o usuário selecionou montadora/modelo, não exibe produtos não relacionados
-        if (targetMake || modelKeyword) {
-          continue;
-        }
-      } else {
-        technicalNotes = `Compatível por referência cruzada no catálogo técnico para a linha ${targetMake || ''} ${modelKeyword || ''}.`;
-        compatibilityType = matchModelInTitle ? 'Multi-aplicação' : 'Universal / Adaptável';
+      // Quando há modelo selecionado, a montadora no título não deve substituir
+      // a correspondência do modelo (e vice-versa).
+      if ((targetMake && !matchMakeInTitle) || (modelKeyword && !matchModelInTitle)) {
+        continue;
       }
+
+      technicalNotes = `Compatível por referência cruzada no catálogo técnico para a linha ${targetMake || ''} ${modelKeyword || ''}.`;
+      compatibilityType = matchModelInTitle ? 'Multi-aplicação' : 'Universal / Adaptável';
     }
 
     results.push({

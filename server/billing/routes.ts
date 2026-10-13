@@ -15,6 +15,7 @@ import {
   sendScopeDenied,
 } from "../auth";
 import {
+  BillingGatewayNotConfiguredError,
   cancelSubscription,
   convertTrialToPaid,
   tenantExists,
@@ -40,11 +41,19 @@ billingRouter.post("/webhooks/asaas", async (req: Request, res: Response) => {
     // Não divulgar se o tenant existe; apenas aceita e registra o evento.
     return res.json({ success: true, status: "ignored", reason: "tenant_invalid_or_missing" });
   }
+  const eventId = String(body.id || body.eventId || "").trim();
+  if (!eventId) {
+    return res.status(400).json({
+      success: false,
+      error: "Evento Asaas sem identificador.",
+      code: "GATO_WEBHOOK_EVENT_ID",
+    });
+  }
 
   const paid = ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event);
   const result = await handleAsaasEvent({
     event,
-    eventId: String(body.id || body.eventId || ""),
+    eventId,
     tenantId,
     paid,
     paymentMethod: body.payment?.billingType === "CREDIT_CARD" ? "credit_card" : body.payment?.billingType === "BOLETO" ? "boleto" : "pix",
@@ -106,11 +115,18 @@ billingRouter.post("/subscribe", requireAuth, requirePermission("billing_contrac
       paymentLink: result.paymentLink,
       pendingExternalSetup: result.pendingExternalSetup,
       message: result.pendingExternalSetup
-        ? "Assinatura ativada; gateway não configurado — financeiro gera a cobrança manualmente."
-        : "Assinatura recorrente criada no gateway com sucesso.",
+        ? "Assinatura criada, mas o gateway não devolveu um link de pagamento. O acesso pago só será liberado após confirmação."
+        : "Cobrança criada no gateway; o acesso pago será liberado após a confirmação do pagamento.",
     });
   } catch (err: any) {
     console.error("[GATO Billing] Falha na conversão:", err?.message || err);
+    if (err instanceof BillingGatewayNotConfiguredError) {
+      return res.status(503).json({
+        success: false,
+        error: err.message,
+        code: "GATO_BILLING_GATEWAY_UNAVAILABLE",
+      });
+    }
     res.status(502).json({ success: false, error: "Falha ao criar assinatura no gateway. Tente novamente." });
   }
 });

@@ -113,6 +113,26 @@ export function resolveAuthUser(req: Request): RbacUser {
   throw err;
 }
 
+function requireSuperAdminForRoleOverrides(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const caller = resolveAuthUser(req);
+  if (caller.roleCode !== "super_admin" || req.auth?.impersonating) {
+    recordAudit(req, caller, "BLOCKED_ROLE_OVERRIDE_UPDATE", "security_compliance", req.params.code, "blocked", {
+      anomalous: true,
+      details: "Somente o Super Admin, sem impersonação, pode alterar overrides globais de papéis.",
+    });
+    return res.status(403).json({
+      success: false,
+      error: "Somente o Super Admin pode alterar os overrides globais de papéis.",
+      code: "RBAC_ROLE_OVERRIDE_ADMIN_REQUIRED",
+    });
+  }
+  return next();
+}
+
 // Middleware de autorização por recurso
 export function requireRbacPermission(resource: PermissionResource) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -998,30 +1018,43 @@ rbacRouter.get("/role-overrides", requireSaasScope, (req, res) => {
   });
 });
 
-// Define os acessos de um papel (camada). Restrito ao escopo SaaS com manage_accounts.
-rbacRouter.put("/role-overrides/:code", requireSaasScope, requirePermission("manage_accounts", { write: true }), (req, res) => {
-  const { code } = req.params;
-  const { permissions } = req.body || {};
+// Define os acessos de um papel. Overrides globais podem conceder dados entre
+// tenants, então só o Super Admin pode alterá-los.
+rbacRouter.put(
+  "/role-overrides/:code",
+  requireSaasScope,
+  requireSuperAdminForRoleOverrides,
+  requirePermission("manage_accounts", { write: true }),
+  (req, res) => {
+    const { code } = req.params;
+    const { permissions } = req.body || {};
 
-  if (!ROLE_DEFINITIONS[code as RbacRoleCode]) {
-    return res.status(404).json({ success: false, error: "Papel não encontrado." });
-  }
-  if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
-    return res.status(400).json({ success: false, error: "Informe um objeto de permissões válido." });
-  }
+    if (!ROLE_DEFINITIONS[code as RbacRoleCode]) {
+      return res.status(404).json({ success: false, error: "Papel não encontrado." });
+    }
+    if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
+      return res.status(400).json({ success: false, error: "Informe um objeto de permissões válido." });
+    }
 
-  ROLE_OVERRIDES[code as RbacRoleCode] = permissions;
-  recordAudit(req, req.auth!.user, "UPDATE_ROLE_OVERRIDES", "security_compliance", code, "success", {
-    justification: `Acessos do papel '${code}' redefinidos pelo Super Admin.`,
-  });
+    ROLE_OVERRIDES[code as RbacRoleCode] = sanitizeCustomOverrides(permissions) ?? {};
+    recordAudit(req, req.auth!.user, "UPDATE_ROLE_OVERRIDES", "security_compliance", code, "success", {
+      justification: `Acessos do papel '${code}' redefinidos pelo Super Admin.`,
+    });
 
-  res.json({ success: true, overrides: ROLE_OVERRIDES, message: `Acessos do papel '${code}' atualizados.` });
-});
+    res.json({ success: true, overrides: ROLE_OVERRIDES, message: `Acessos do papel '${code}' atualizados.` });
+  },
+);
 
 // Remove os overrides de um papel (volta à matriz padrão).
-rbacRouter.delete("/role-overrides/:code", requireSaasScope, requirePermission("manage_accounts", { write: true }), (req, res) => {
-  const { code } = req.params;
-  delete ROLE_OVERRIDES[code as RbacRoleCode];
-  recordAudit(req, req.auth!.user, "RESET_ROLE_OVERRIDES", "security_compliance", code, "success");
-  res.json({ success: true, overrides: ROLE_OVERRIDES, message: `Overrides do papel '${code}' removidos (voltou ao padrão).` });
-});
+rbacRouter.delete(
+  "/role-overrides/:code",
+  requireSaasScope,
+  requireSuperAdminForRoleOverrides,
+  requirePermission("manage_accounts", { write: true }),
+  (req, res) => {
+    const { code } = req.params;
+    delete ROLE_OVERRIDES[code as RbacRoleCode];
+    recordAudit(req, req.auth!.user, "RESET_ROLE_OVERRIDES", "security_compliance", code, "success");
+    res.json({ success: true, overrides: ROLE_OVERRIDES, message: `Overrides do papel '${code}' removidos (voltou ao padrão).` });
+  },
+);

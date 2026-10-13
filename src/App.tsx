@@ -154,6 +154,7 @@ export default function App() {
     return 'consulta-pecas';
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // ===== Controle de acesso a telas administrativas restritas =====
   const [pendingRestrictedView, setPendingRestrictedView] = useState<string | null>(null);
@@ -945,6 +946,8 @@ export default function App() {
           onSelectView={handleSelectView}
           isOpenMobile={mobileMenuOpen}
           onCloseMobile={() => setMobileMenuOpen(false)}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((collapsed) => !collapsed)}
           lowStockCount={lowStockCount}
           userSession={userSession}
           companyProfile={companyProfile}
@@ -1387,7 +1390,6 @@ export default function App() {
     </div>
   );
 }
-
 
 
 

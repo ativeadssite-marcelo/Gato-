@@ -234,6 +234,59 @@ test("recibo vincula o movimento e persiste os itens", async () => {
   assert.equal(auditFor(tenantId, "ISSUE_RECEIPT").length, 1);
 });
 
+test("recibos classificam a venda pela forma de pagamento sem alterar o esperado total", async () => {
+  const tenantId = "t_caixa_recibos_forma_pagamento";
+  const register = await openCashRegister(tenantId, { openingAmount: 10 }, actor());
+  const payments = [
+    { paymentMethod: "dinheiro" as const, movementType: "sale_cash" },
+    { paymentMethod: "cartao_credito" as const, movementType: "sale_card" },
+    { paymentMethod: "pix" as const, movementType: "sale_pix" },
+    { paymentMethod: "boleto" as const, movementType: "sale_boleto" },
+  ];
+
+  for (const payment of payments) {
+    const receipt = await issueReceipt(
+      tenantId,
+      {
+        cashRegisterId: register.id,
+        type: "receipt",
+        items: [
+          {
+            productId: null,
+            sku: null,
+            name: "Peça",
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+            total: 10,
+            ncm: null,
+            cest: null,
+            cfop: null,
+            taxIcms: 0,
+            taxIpi: 0,
+            taxPis: 0,
+            taxCofins: 0,
+          },
+        ],
+        subtotal: 10,
+        discount: 0,
+        total: 10,
+        paymentMethod: payment.paymentMethod,
+      },
+      actor(),
+    );
+    const movements = await listCashMovements(register.id, tenantId);
+    assert.equal(movements.find((movement) => movement.id === receipt.movementId)?.type, payment.movementType);
+  }
+
+  const summary = await getCaixaSummary(tenantId);
+  assert.equal(summary.totals.expected, 50);
+  assert.equal(summary.totals.salesCash, 10);
+  assert.equal(summary.totals.salesCard, 10);
+  assert.equal(summary.totals.salesPix, 10);
+  assert.equal(summary.totals.salesBoleto, 10);
+});
+
 test("cancelamento de recibo entra na trilha como warning", async () => {
   const tenantId = "t_caixa_cancelamento";
   await openCashRegister(tenantId, { openingAmount: 0 }, actor());

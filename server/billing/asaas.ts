@@ -119,6 +119,15 @@ export async function createAsaasSubscription(input: CreateSubscriptionInput): P
   return { id: data.id, invoiceId: data.invoiceId ?? undefined };
 }
 
+/** Busca o link real da primeira cobrança criada para a assinatura. */
+export async function getAsaasPaymentInvoiceUrl(paymentId: string): Promise<string | null> {
+  const payment = await request<{ invoiceUrl?: string }>(
+    "GET",
+    `/payments/${encodeURIComponent(paymentId)}`,
+  );
+  return payment.invoiceUrl ?? null;
+}
+
 /** Cancela a assinatura no Asaas. */
 export async function cancelAsaasSubscription(subscriptionId: string): Promise<void> {
   await request("DELETE", `/subscriptions/${subscriptionId}`);

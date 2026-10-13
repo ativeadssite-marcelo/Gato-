@@ -6,7 +6,8 @@
 > funcionalidades completas e pontos de atenção**. Atualize-o quando o estado do
 > projeto mudar (é fonte de verdade viva, não um relatório morto).
 >
-> Estado desta handoff: **08/10/2026** — branch `feat/billing-saas`, tudo commitado e no `origin`.
+> Estado desta handoff: **13/10/2026** — branch `feat/billing-saas`; as alterações listadas
+> nesta atualização permanecem locais e não foram commitadas.
 > Entregue em 08/10: modo base limpa (`VITE_USE_SEED=false`), provisionamento do contratante
 > (`scripts/provisionar-tenant.mjs`), **leitura e escrita do banco** (produto, cliente e
 > orçamento gravam; §3.19), **inativar produto** e **cancelar/alterar orçamento** com
@@ -15,6 +16,71 @@
 > cancelar), **reset de operação** com Zona de Risco, **entrada de nota por arquivo XML** — e a
 > migration 0007, que conserta a atualização de saldo do `sync-catalog`. **Resta o item 6a/6b/6c**
 > (locação, aplicação e lote: exigem tabela nova). Leia §4.
+
+**Atualização 09/10/2026 — preparação de produção:** corrigidos os três P0 de caixa/billing
+registrados em [`auditoria-2026-10-02.md`](auditoria-2026-10-02.md). Validação: `npm test`
+160/160, `npm run lint` e `npm run build` aprovados. Decisão do dono: manter cartão, PIX e
+boleto no total esperado do caixa; a tela e o relatório deixam claro que esse número não é
+dinheiro físico de gaveta. O usuário inicial
+da plataforma confirmado pelo dono é `contato.ativeads@gmail.com` (`usr_super_admin`); a senha
+deve ser criada no provisionamento de produção, nunca usar a senha demo. **Não publicar ainda:**
+os achados P1, a configuração do ambiente, gateway/domínio/infra e o fluxo de cobrança Asaas
+precisam ser resolvidos e validados em sandbox.
+
+**Retomada para o próximo dia:** o dono autorizou corrigir os 10 achados P1 antes do deploy
+público e escolheu **MFA TOTP por aplicativo autenticador**, com recuperação por códigos de uso
+único. Em 13/10, o P1-6 (escalada por `role-overrides`) foi corrigido; restam nove P1, inclusive
+implementar o fluxo TOTP com armazenamento persistente e testes. Não solicitar nem registrar a
+senha do dono; não fazer deploy sem infraestrutura, domínio e segredos configurados.
+
+**Atualização 13/10/2026 — pesquisa por aplicação em Vendas:** o balcão tem filtros
+encadeados de montadora, veículo da frota, ano, motor e geração/modelo; a seleção de veículo
+lista modelos reais da montadora (não categorias como "Passeio") e os resultados compatíveis
+alimentam a lista de produtos. Os filtros podem ser limpos, ocultados e reabertos sem sair da
+tela, usando o catálogo e a consulta de aplicação já existentes.
+
+**Atualização 13/10/2026 — modelos individuais da frota:** os registros que agrupavam modelos
+distintos são expandidos como opções individuais nas cascatas de Vendas e Consulta de Aplicação
+de Peças e na tabela do Banco da Frota. O mapeamento explícito fica em
+`src/data/fleetDatabase.ts` (`INDIVIDUAL_VEHICLE_MODELS` /
+`getIndividualFleetVehicleModels`); não se divide texto por `/` ou `&` às cegas, pois esses
+separadores também aparecem em versões, motorizações e gerações. As opções individuais mantêm
+o vínculo ao registro original, herdando o intervalo de anos e a lista de motores cadastrados.
+A consulta recebe também o nome selecionado para não confundir dois modelos do mesmo registro.
+Validação desta alteração: testes focados da frota **10/10**, `npm run lint` e `npm run build`
+passaram; Honda/Fit foi conferido na interface com lista de modelos, anos, motores e geração.
+
+**Atualização 13/10/2026 — bloqueio de startup em produção:** o servidor agora exige banco
+configurado e migrations encontradas, e aborta com saída não zero se qualquer migration falhar;
+o listener só é aberto depois da validação. Em desenvolvimento, continua valendo o fluxo
+best-effort sem banco. Validação local: `npm test` **170/170**, `npm run lint` e `npm run build`
+passaram. Não há staging disponível; o fix ainda precisa de validação no ambiente de teste.
+Isso não libera o deploy público: os P1 da auditoria, o advisory de dependência e a configuração
+de segredos/infraestrutura seguem pendentes.
+
+**Atualização 13/10/2026 — overrides RBAC:** somente `super_admin` sem impersonação pode
+alterar/remover overrides globais; gravações são filtradas por recursos/níveis conhecidos e
+tentativas negadas são auditadas. Testes de regressão focados **2/2**, suíte completa **170/170**,
+lint e build aprovados. Um dos dez P1 foi resolvido; os outros nove não foram revalidados nesta
+retomada.
+
+**Retomada imediata:** o pedido anterior de substituir as fotos dos produtos pela imagem
+anexada do mascote não foi implementado; o anexo era uma imagem de referência e deve permanecer
+intacto. Retomar apenas se o usuário confirmar que essa alteração ainda está no escopo, definindo
+quais imagens de produto devem ser substituídas e qual comportamento deve ocorrer nos produtos
+sem imagem. O servidor de prévia foi iniciado em `http://localhost:3000` nesta sessão e respondeu
+`/api/health` com HTTP 200; ele pode não sobreviver ao encerramento da sessão.
+
+**Atualização 13/10/2026 — identidade visual:** o novo logo aprovado foi adicionado em
+`src/assets/images/gato_logo_2026.png`; uma versão quadrada de ícone foi derivada para uso
+compacto em `src/assets/images/gato_logo_2026_icon.jpg`. A marca central (`GatoBrand`) usa o
+ícone no cabeçalho e menu lateral, e o logo completo em apresentações; a tela de login e os
+ícones/metadados de compartilhamento também usam os novos assets. Cabeçalho e menu lateral
+mantêm a marca fixa enquanto o conteúdo do menu rola. Os originais antigos não foram removidos.
+
+O menu lateral também pode ser recolhido no desktop para uma faixa de ícones, com tooltips e
+indicadores de itens. No celular, o menu mantém o drawer expandido e o controle de recolhimento
+fica oculto.
 
 ---
 
@@ -219,7 +285,8 @@ npm run migrate    # migrations   |  npm run validate-db
 
 - `.env` obrigatório (validado fail-fast por `server/env.ts` com Zod): `GATO_SESSION_SECRET` (≥48 chars),
   `GATO_MASTER_PASSWORD` (≥8), `SUPABASE_DB_*`. Sem DB configurado o servidor roda **em memória**
-  (dados somem no restart). Chaves opcionais: `GEMINI_API_KEY`, `ASAAS_API_KEY`, `SENDGRID_API_KEY`.
+  somente em desenvolvimento (dados somem no restart); em produção, o startup aborta antes de
+  abrir a porta. Chaves opcionais: `GEMINI_API_KEY`, `ASAAS_API_KEY`, `SENDGRID_API_KEY`.
 - Login demo: `GATO_ALLOW_DEMO_LOGIN=true` + senha em `GATO_DEMO_PASSWORD` (fallback `senha123456`);
   ex.: `admin@mgnautopecas.com.br` (tenant_admin) · `vendedor@mgnautopecas.com.br` (tenant_user).
   **Vale só em desenvolvimento**: em `NODE_ENV=production` o seed não roda e, com a flag
@@ -252,7 +319,7 @@ npm run migrate    # migrations   |  npm run validate-db
 2. Token de sessão é HMAC-SHA256 — não troque por JWT ingênuo sem revisão; `GATO_SESSION_SECRET` ≥48 chars.
 3. Toda rota de negócio passa por `requireAuth` → `requirePermission`/`requireTenantPermission` → `resolveDataScope`. **Não crie rota sem esses 3** e sempre com `tenantId` no filtro (testes de isolamento: `GET /api/rbac/test-isolation`).
 4. Webhook Asaas: valide assinatura/token **e** idempotência (`recordWebhookEvent`); `ASAAS_WEBHOOK_TOKEN` vazio = endpoint fechado.
-5. Auditoria é obrigatória em ação sensível (`recordAudit`, PII mascarada). Achados em `PROJETO_SEGURANCA_AUDIT.md`. **O gap do `server/caixa.ts` foi fechado em 02/10/2026**: o `appendAuditLog` era importado e nunca chamado — hoje toda operação do PDV audita, com destaque (`warning`/anômalo) para diferença de fechamento, ajuste manual e baixa de boleto divergente. Seguem abertos os P0-4/P0-5/P0-6 — ver §4.
+5. Auditoria é obrigatória em ação sensível (`recordAudit`, PII mascarada). Achados em `PROJETO_SEGURANCA_AUDIT.md`. **O gap do `server/caixa.ts` foi fechado em 02/10/2026**: o `appendAuditLog` era importado e nunca chamado — hoje toda operação do PDV audita, com destaque (`warning`/anômalo) para diferença de fechamento, ajuste manual e baixa de boleto divergente. Os P0-4/P0-5/P0-6 foram corrigidos em 09/10 e cobertos por testes; não reabri-los sem evidência de regressão (ver §4).
 6. Rate limit só por IP (250/min) — **não há por tenant** (gap P0 conhecido).
 
 ### 🏗️ Multi-tenancy & dados
@@ -359,20 +426,38 @@ npm run migrate    # migrations   |  npm run validate-db
    ligue a flag e cada tela vazia mostra exatamente o que ainda falta ligar. Roteiro:
    parar o `npm run dev`, pôr a variável no `.env`, subir de novo, percorrer Estoque →
    Clientes → Vendas → Caixa e anotar o que não tem caminho de cadastro.
-2. **Fechar os 3 P0 que restam** (todos com caminho de exploração definido em
-   `auditoria-2026-10-02.md`; os P0-1/P0-2/P0-3 já foram):
-   - **P0-4 — cartão/PIX contado como dinheiro** no caixa (`issueReceipt` grava sempre
-     `sale_cash`). É o mais visível: o fechamento acusa falta que não existe.
-     ⚠️ Antes de codar, alinhar com o dono **o que** deve compor o "esperado em dinheiro"
-     — a fórmula aparece em três lugares (servidor, `CaixaView`, relatório).
-   - **P0-5 — replay de webhook** reativa assinatura inadimplente (`billing/webhook.ts`).
-   - **P0-6 — autoativação de plano pago** sem gateway (`billing/subscriptions.ts`).
+2. ~~**Fechar P0-4/P0-5/P0-6**~~ — corrigidos em 09/10 e cobertos por testes focados.
+   A decisão explícita do dono mantém cartão/PIX/boleto no total esperado; esse valor não
+   deve ser tratado como numerário físico para conferência da gaveta.
 3. **Preparar o deploy de teste**: `.env.production` (raiz, fora do git) está comentado e
    esperando `GATO_SESSION_SECRET` (48+ aleatórios), `GATO_MASTER_PASSWORD`,
    `SUPABASE_DB_PASSWORD` e `ASAAS_*`. **Não esqueça o `SUPABASE_DB_SSL_CA`**: o caminho é
    da máquina local e **não existe no container** — copie o `prod-ca-2021.crt` para a imagem
-   ou monte como volume. Decidir também `ASAAS_ENV` (sandbox no teste) e `GATO_TRUST_PROXY`
-   (depende de haver proxy na frente).
+   ou monte como volume. Use `ASAAS_ENV=sandbox` no teste e defina `GATO_TRUST_PROXY` conforme
+   a infraestrutura. O link da primeira cobrança agora é consultado no Asaas pelo ID da fatura;
+   validar o fluxo em sandbox antes de produção. Não publicar até corrigir os P1 da
+   [`auditoria-2026-10-02.md`](auditoria-2026-10-02.md) e validar segredos, domínio e infra.
+3a. **Fechar os 9 P1 restantes antes do deploy público** (detalhes/evidências em
+    [`auditoria-2026-10-02.md`](auditoria-2026-10-02.md)):
+    1. Ingestão webhook/conectores: remover fallback de sessão comum e exigir autenticação
+       server-to-server escopada, com assinatura validada.
+    2. Matriz tributária global: separar por tenant e persistir com isolamento.
+    3. Frota/veículos: definir catálogo compartilhado somente leitura ou particionar por tenant;
+       bloquear escrita global e auditar.
+    4. LGPD: filtrar solicitações por tenant, com acesso de plataforma estritamente autorizado.
+    5. Elevação por senha master: autorização e expiração verificadas pelo servidor, não só
+       `sessionStorage`.
+    6. ~~Overrides RBAC~~ **feito em 13/10**: somente `super_admin` sem impersonação modifica
+       overrides globais; payload é sanitizado e negações são auditadas.
+    7. MFA/IP allowlist: implementar MFA TOTP escolhido pelo dono e aplicar políticas no login.
+    8. Mensagens: impedir broadcast implícito quando `tenantId` não for informado.
+    9. Sessões/headers: CSP, proteção do token, revogação persistente e invalidar sessões após
+       troca de senha.
+    10. Quotas/body: tornar consumo de quota atômico e limitar captura de `rawBody` aos webhooks
+        que exigem assinatura.
+    Para cada item, adicionar teste e preservar isolamento `tenant_id`/auditoria. A implementação
+    deve começar pelo TOTP, persistindo o segredo e hashes dos códigos de recuperação; não
+    armazenar segredos/códigos em texto puro.
 4. **Fase B — PDV venda**: carrinho no `BalcaoCotacao` com leitor de código de barras (HID),
    totalização, troco no fechamento e **vínculo automático venda → `POST /api/caixa/movements`**.
 5. **Fase C — NFC-e**: emissão/cancelamento/reimpressão (homologação SEFAZ).
@@ -381,5 +466,3 @@ npm run migrate    # migrations   |  npm run validate-db
 
 > **Regra de ouro deste projeto:** primeiro o plano, depois o código; tenant, auditoria
 > e teste em toda mudança de servidor; cobrança sempre pelo gateway; português em tudo.
-
-

@@ -20,7 +20,12 @@ import {
   getDistinctFleetMakes,
   getMakesBySegment,
   getModelsBySegmentAndMake,
+  getIndividualFleetVehicleModels,
+  getAvailableYearsForSelection,
+  getEnginesForSelection,
+  queryPartsByVehicleApplication,
 } from "../../src/data/fleetDatabase";
+import { Product } from "../../src/types";
 
 test("todo segmento oferecido na tela tem veículo de verdade na base", () => {
   const segmentos = getDistinctFleetSegments();
@@ -81,4 +86,108 @@ test("modelos respeitam segmento E montadora ao mesmo tempo", () => {
 test("montadora que não tem o segmento devolve lista vazia, não a base inteira", () => {
   // Yamaha é moto; em "Caminhão / Pesado" não pode sobrar nada.
   assert.deepStrictEqual(getModelsBySegmentAndMake("Caminhão / Pesado", "Yamaha"), []);
+});
+
+test("modelos agrupados aparecem como opções individuais em todas as montadoras", () => {
+  const allNames = BRAZILIAN_FLEET_DATABASE.flatMap(getIndividualFleetVehicleModels);
+  assert.ok(allNames.includes("Fit"));
+  assert.ok(allNames.includes("City"));
+  assert.ok(allNames.includes("WR-V"));
+  assert.ok(allNames.includes("NXR Bros 160"));
+  assert.ok(allNames.includes("Citroën Basalt"));
+
+  for (const model of BRAZILIAN_FLEET_DATABASE) {
+    const names = getIndividualFleetVehicleModels(model);
+    assert.ok(names.length > 0, `${model.id} não oferece nenhuma opção`);
+    assert.strictEqual(new Set(names).size, names.length, `${model.id} tem nomes duplicados`);
+    if (names.length > 1) {
+      assert.ok(
+        names.every((name) => !/[/&]/.test(name)),
+        `${model.id} ainda tem opções agrupadas: ${names.join(", ")}`
+      );
+    }
+  }
+});
+
+test("opções individuais mantêm os anos e motores do registro original", () => {
+  const model = BRAZILIAN_FLEET_DATABASE.find((vehicle) => vehicle.id === "honda-fit-city-wrv");
+  assert.ok(model);
+  assert.ok(getIndividualFleetVehicleModels(model).includes("Fit"));
+  const years = getAvailableYearsForSelection(model.montadora, model.id);
+  assert.strictEqual(years[0], model.anoFim);
+  assert.strictEqual(years.at(-1), model.anoInicio);
+  assert.deepStrictEqual(getEnginesForSelection(model.id), model.motores);
+});
+
+test("consulta de peças aplica o nome individual, não o nome agregado do registro", () => {
+  const product: Product = {
+    id: "part-fit",
+    code: "FIT-001",
+    oemCode: "",
+    similarCodes: [],
+    barcode: "",
+    name: "Filtro Honda Fit",
+    brand: "GATO",
+    category: "auto",
+    supplier: "Fornecedor",
+    location: { corridor: "A", shelf: "1", box: "1" },
+    stock: 1,
+    minStock: 0,
+    unitCost: 1,
+    transportCost: 0,
+    markupPercent: 0,
+    sellingPrice: 1,
+    ncm: "",
+    cst: "",
+    cfop: "",
+    taxBaseIcms: 0,
+    applications: [{
+      id: "fit-app",
+      brand: "Honda",
+      vehicle: "Fit",
+      yearRange: "2014-2020",
+      engine: "1.5",
+      transmission: "Manual",
+      traction: "4x2",
+      airConditioning: true,
+    }],
+    updatedAt: "",
+  };
+
+  const modelId = "honda-fit-city-wrv";
+  assert.strictEqual(
+    queryPartsByVehicleApplication([product], {
+      montadora: "Honda",
+      modeloId: modelId,
+      modeloTexto: "Fit",
+    }).length,
+    1
+  );
+  assert.strictEqual(
+    queryPartsByVehicleApplication([product], {
+      montadora: "Honda",
+      modeloId: modelId,
+      modeloTexto: "City",
+    }).length,
+    0
+  );
+
+  const citySedanProduct: Product = {
+    ...product,
+    id: "part-city-sedan",
+    name: "Filtro Honda City Sedan",
+    applications: [{
+      ...product.applications[0],
+      id: "city-sedan-app",
+      vehicle: "City Sedan",
+    }],
+  };
+  assert.strictEqual(
+    queryPartsByVehicleApplication([citySedanProduct], {
+      montadora: "Honda",
+      modeloId: modelId,
+      modeloTexto: "City Hatch",
+    }).length,
+    0
+  );
 });

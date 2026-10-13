@@ -257,8 +257,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         } ${isCollapsed ? 'lg:w-[76px]' : 'lg:w-64'}`}
       >
         {/* Sidebar Brand Header */}
-        <div className={`p-4 flex items-center border-b border-slate-800/70 bg-gradient-to-b from-slate-900 to-slate-900/50 transition-all rounded-t-3xl ${
-          isCollapsed ? 'justify-center' : 'justify-between'
+        <div className={`p-3 flex items-center shrink-0 border-b border-slate-800/70 bg-gradient-to-b from-slate-900 to-slate-900/50 transition-all rounded-t-3xl ${
+          isCollapsed ? 'flex-col justify-center gap-2' : 'justify-between'
         }`}>
           <div 
             className="cursor-pointer overflow-hidden flex items-center transition-transform hover:scale-[1.02]" 
@@ -276,6 +276,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {externalOnToggleCollapse && (
+              <button
+                type="button"
+                onClick={externalOnToggleCollapse}
+                className="hidden lg:flex p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 border border-slate-700/40 cursor-pointer transition-colors"
+                title={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+                aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+                aria-expanded={!isCollapsed}
+              >
+                {isCollapsed
+                  ? <ChevronRight className="w-4 h-4" />
+                  : <ChevronLeft className="w-4 h-4" />}
+              </button>
+            )}
             {/* Mobile close button */}
             <button
               type="button"
@@ -300,20 +314,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleSelect(item.id)}
                 title={isCollapsed ? item.label : undefined}
                 className={`w-full text-left flex items-center rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer relative ${
-                  isCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'
+                  isCollapsed ? 'lg:justify-center lg:p-3' : 'justify-between px-3.5 py-2.5'
                 } ${
                   isActive 
                     ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-lg shadow-orange-600/25 font-semibold ring-1 ring-orange-400/30' 
                     : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
                 }`}
               >
-                <div className={`flex items-center min-w-0 ${isCollapsed ? 'justify-center' : 'gap-3.5'}`}>
+                <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-3.5'}`}>
                   <Icon className={`w-5 h-5 shrink-0 transition-transform ${isActive ? 'text-white scale-110' : 'text-slate-400'}`} />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+                  <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                 </div>
 
-                {!isCollapsed && item.badge && (
-                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs ${
+                {item.badge && (
+                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs ${
                     isActive ? 'bg-white text-[#EA580C]' : 'bg-[#EA580C] text-white'
                   }`}>
                     {item.badge}
@@ -322,7 +336,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Collapsed dot badge indicator */}
                 {isCollapsed && item.badge && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#EA580C] ring-2 ring-slate-900 shadow-xs" />
+                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#EA580C] ring-2 ring-slate-900 shadow-xs" />
                 )}
               </button>
             );
@@ -343,24 +357,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleSelect(item.id)}
                 title={isCollapsed ? item.label : undefined}
                 className={`w-full text-left flex items-center rounded-2xl text-xs font-medium transition-all duration-200 cursor-pointer relative ${
-                  isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3.5 py-2.5'
+                  isCollapsed ? 'lg:justify-center lg:p-2.5' : 'justify-between px-3.5 py-2.5'
                 } ${
                   isActive 
                     ? 'bg-slate-800 text-white font-semibold ring-1 ring-slate-700/60 shadow-xs' 
                     : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                 }`}
               >
-                <div className={`flex items-center min-w-0 ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+                <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-3'}`}>
                   <Icon className="w-4 h-4 text-slate-400 shrink-0" />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+                  <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                 </div>
-                {!isCollapsed && item.badge && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 shadow-xs">
+                {item.badge && (
+                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 shadow-xs`}>
                     {item.badge}
                   </span>
                 )}
                 {isCollapsed && item.badge && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-slate-900 shadow-xs" />
+                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-slate-900 shadow-xs" />
                 )}
               </button>
             );
@@ -416,4 +430,3 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
-

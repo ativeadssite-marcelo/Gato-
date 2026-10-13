@@ -7,7 +7,7 @@ import {
   AlertCircle, 
   ArrowRight 
 } from 'lucide-react';
-import gatoLogoNova from '../assets/images/gato_logo_nova.jpg';
+import gatoLogoNova from '../assets/images/gato_logo_2026.png';
 import { BranchUnit, UserSession, CompanyProfile } from '../types';
 import { INITIAL_BRANCHES, AVAILABLE_USERS, AppUser } from '../data/initialData';
 import { loginWithCredentials } from '../utils/sessionService';
@@ -175,5 +175,4 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     </div>
   );
 };
-
 
