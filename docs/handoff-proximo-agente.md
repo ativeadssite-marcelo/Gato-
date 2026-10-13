@@ -6,9 +6,9 @@
 > funcionalidades completas e pontos de atenção**. Atualize-o quando o estado do
 > projeto mudar (é fonte de verdade viva, não um relatório morto).
 >
-> Estado desta handoff: **13/10/2026** — branch `feat/billing-saas`; commit `4b2a3b2`
-> enviado para `ativeadssite-marcelo/Gato-` em `main` e para o remoto anterior
-> `ativeadssite-marcelo/gato-final` em `feat/billing-saas`.
+> Estado desta handoff: **13/10/2026** — remoto canônico `ativeadssite-marcelo/Gato-`,
+> branch `main`, sincronizada com o commit local `5b06feb`; repositórios remotos antigos
+> foram removidos. A pasta local `.olli/` é ambiente auxiliar e não faz parte do projeto enviado.
 > Entregue em 08/10: modo base limpa (`VITE_USE_SEED=false`), provisionamento do contratante
 > (`scripts/provisionar-tenant.mjs`), **leitura e escrita do banco** (produto, cliente e
 > orçamento gravam; §3.19), **inativar produto** e **cancelar/alterar orçamento** com
