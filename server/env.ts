@@ -29,16 +29,17 @@ const envSchema = z.object({
     .string()
     .min(32, "GATO_SESSION_SECRET deve ter no mínimo 32 caracteres")
     .refine((v) => !v.includes("YOUR_"), "GATO_SESSION_SECRET não deve conter 'YOUR_'")
-    .refine((v) => v.length >= 48, "GATO_SESSION_SECRET recomendado 48+ caracteres aleatórios"),
+    .refine((v) => v.length >= 48, "GATO_SESSION_SECRET recomendado 48+ caracteres aleatórios")
+    .optional(),
 
-  GATO_MASTER_PASSWORD: z.string().min(8, "GATO_MASTER_PASSWORD deve ter no mínimo 8 caracteres"),
+  GATO_MASTER_PASSWORD: z.string().min(8, "GATO_MASTER_PASSWORD deve ter no mínimo 8 caracteres").optional(),
 
   GATO_INGEST_API_KEY: z
     .string()
     .optional()
     .refine((v) => !v || v.length >= 16, "GATO_INGEST_API_KEY mínimo 16 caracteres quando fornecido"),
 
-  SUPABASE_DB_PASSWORD: z.string(),
+  SUPABASE_DB_PASSWORD: z.string().optional(),
 
   SUPABASE_DB_HOST: z.string().optional(),
 
@@ -100,6 +101,19 @@ function getEnv(): z.infer<typeof envSchema> {
       `Solução: verifique as variáveis no arquivo .env e reinicie o servidor.`,
     );
   }
+
+  if (IS_PRODUCTION) {
+    if (!parsed.data.GATO_SESSION_SECRET) {
+      throw new Error("[GATO ENV] GATO_SESSION_SECRET é obrigatório em produção.");
+    }
+    if (!parsed.data.GATO_MASTER_PASSWORD) {
+      throw new Error("[GATO ENV] GATO_MASTER_PASSWORD é obrigatório em produção.");
+    }
+    if (!parsed.data.SUPABASE_DB_PASSWORD) {
+      throw new Error("[GATO ENV] SUPABASE_DB_PASSWORD é obrigatório em produção.");
+    }
+  }
+
   return parsed.data;
 }
 
