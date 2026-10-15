@@ -50,7 +50,7 @@ import { listQuotes } from "./server/quotes/quotes";
 import { confirmacaoValida, resetStatements } from "./server/tenantReset/tenantReset";
 import { startBillingCron } from "./server/notifications/cron";
 
-dotenv.config();
+dotenv.config({ override: true });
 
 // Fail-fast: validar ambiente antes de iniciar qualquer componente
 validateEnv();

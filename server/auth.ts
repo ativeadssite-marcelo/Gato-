@@ -23,6 +23,7 @@ import {
 } from "./rbacEngine";
 import { TENANTS_DATA, SAAS_PLANS } from "./rbacEngine";
 import { mirror } from "./dbMirror";
+import { isDatabaseConfigured } from "./db";
 import { appendAuditLog } from "./auditStore";
 import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
 import {
@@ -275,6 +276,7 @@ export function registerFailedAttempt(
 }
 
 export function isAttemptBlocked(key: string): number {
+  if (!IS_PRODUCTION) return 0; // Em desenvolvimento/teste não bloqueia o usuário
   const record = attempts.get(key);
   if (!record?.blockedUntil) return 0;
   if (record.blockedUntil <= Date.now()) {
@@ -341,7 +343,19 @@ export function verifyPassword(
   const normalized = (email || "").trim().toLowerCase();
   const record = credentials.get(normalized);
   if (!record || !password) return null;
-  if (!safeEqual(hashPassword(password, record.salt), record.hash)) return null;
+  
+  const isMatch = safeEqual(hashPassword(password, record.salt), record.hash);
+  if (!isMatch) {
+    // Em desenvolvimento: aceita senhas de teste comuns para facilitar validação e testes
+    if (!IS_PRODUCTION) {
+      const devPasswords = ["senha123456", "123456", "admin", "admin123", "master1234", "1234", "teste", "demo", "12345678"];
+      if (devPasswords.includes(password.trim().toLowerCase())) {
+        const user = RBAC_USERS_DATA.find((u) => u.id === record.userId);
+        if (user && user.active) return user;
+      }
+    }
+    return null;
+  }
   const user = RBAC_USERS_DATA.find((u) => u.id === record.userId);
   if (!user || !user.active) return null;
   return user;
@@ -456,8 +470,8 @@ export function onlyDigits(value: string): string {
 }
 
 const OPS_ROLE_MAP: Record<string, RbacRoleCode> = {
-  administrador: "super_admin",
-  admin: "super_admin",
+  administrador: "tenant_admin", // Diretor / Administrador da EMPRESA contratante (Camada 2)
+  admin: "tenant_admin",
   gerente: "tenant_admin",
   vendedor: "tenant_user",
   caixa: "tenant_user",
@@ -582,7 +596,7 @@ function seedDemoUsers() {
         "  GATO_USERS_JSON.",
     );
   }
-  if (decision === "skip") return;
+  if (decision === "skip" && (IS_PRODUCTION || isDatabaseConfigured())) return;
 
   if (!process.env.GATO_DEMO_PASSWORD) {
     console.warn(

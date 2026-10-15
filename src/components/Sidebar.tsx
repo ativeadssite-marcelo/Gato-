@@ -220,18 +220,84 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onCloseMobile();
   };
 
+  const isSaas = !!userSession?.isSaasScope;
+
+  const saasNavItems = [
+    {
+      id: 'saas-dashboard',
+      label: 'Painel Central SaaS',
+      icon: Home,
+      aliases: ['saas-dashboard', 'dashboard', 'home', 'inicio'],
+      badge: 'Camada 1',
+    },
+    {
+      id: 'financeiro-saas',
+      label: 'Contratos & Assinaturas SaaS',
+      icon: DollarSign,
+      aliases: ['financeiro-saas', 'mrr', 'churn', 'assinaturas-saas'],
+      badge: 'MRR',
+    },
+    {
+      id: 'rbac',
+      label: 'Empresas & Clientes (Tenants)',
+      icon: Shield,
+      aliases: ['rbac', 'admin-rbac', 'governanca', 'tenants', 'acesso', 'seguranca'],
+      badge: 'Clientes',
+    },
+    {
+      id: 'camadas-acesso',
+      label: 'Camadas de Acesso (RBAC)',
+      icon: Layers,
+      aliases: ['camadas-acesso', 'acessos', 'permissoes'],
+      badge: '3 Camadas',
+    },
+    {
+      id: 'chaves',
+      label: 'Chaves & Licenças de Máquina',
+      icon: KeyRound,
+      aliases: ['chaves', 'chaves-integracoes', 'api', 'licenca', 'integracao'],
+      badge: 'Licenças',
+    },
+    {
+      id: 'conectores',
+      label: 'Conectores da Plataforma',
+      icon: Cable,
+      aliases: ['conectores', 'marketplaces', 'ecommerce', 'integracoes'],
+    },
+    {
+      id: 'admin',
+      label: 'Admin Fiscal Global',
+      icon: ShieldCheck,
+      aliases: ['admin', 'admin-impostos', 'impostos', 'tributos'],
+      badge: 'RFB',
+    },
+    {
+      id: 'banco-dados',
+      label: 'Banco de Dados & Infra',
+      icon: Database,
+      aliases: ['banco-dados', 'database', 'credenciais'],
+      badge: 'DB',
+    },
+  ];
+
   // Oculta itens restritos (Admin Impostos / Governança) de quem não é admin.
   // Sem admin: os campos nem ficam visíveis.
   const adminVisible = isElevatedAdmin(userSession);
-  const visiblePrimaryNavItems = primaryNavItems.filter((item) => {
-    // Telas administrativas só aparecem para admins elevados.
-    if (!adminVisible && RESTRICTED_VIEWS.includes(item.id)) return false;
-    // Itens exclusivos do admin do tenant (gestão da própria equipe).
-    if (item.tenantAdminOnly && userSession?.roleCode !== 'tenant_admin') return false;
-    // Demais itens seguem a permissão RBAC do papel (camada de acesso).
-    return isMenuVisible(item.id, userSession);
-  });
-  const visibleSecondaryNavItems = secondaryNavItems.filter((item) => isMenuVisible(item.id, userSession));
+  const visiblePrimaryNavItems = isSaas
+    ? saasNavItems
+    : primaryNavItems.filter((item) => {
+        // Telas de gestão do próprio SaaS pertencem exclusivamente à Camada 1
+        if (['admin', 'rbac', 'financeiro-saas', 'banco-dados', 'camadas-acesso'].includes(item.id)) return false;
+        // Telas administrativas do tenant só aparecem para admins elevados.
+        if (!adminVisible && RESTRICTED_VIEWS.includes(item.id)) return false;
+        // Itens exclusivos do admin do tenant (gestão da própria equipe).
+        if (item.tenantAdminOnly && userSession?.roleCode !== 'tenant_admin') return false;
+        // Demais itens seguem a permissão RBAC do papel (camada de acesso).
+        return isMenuVisible(item.id, userSession);
+      });
+  const visibleSecondaryNavItems = isSaas
+    ? []
+    : secondaryNavItems.filter((item) => isMenuVisible(item.id, userSession));
 
   const isItemActive = (item: typeof primaryNavItems[0]) => {
     if (currentView === item.id) return true;

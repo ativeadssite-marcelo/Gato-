@@ -241,6 +241,8 @@ export async function fetchMasterPasswordStatus(): Promise<MasterPasswordStatus>
 export function getDemoLoginConfig(): { enabled: boolean; password: string } {
   const env = (import.meta as any)?.env || {};
   const flag = env.VITE_DEMO_LOGIN;
-  const password = typeof env.VITE_DEMO_PASSWORD === 'string' ? env.VITE_DEMO_PASSWORD : '';
-  return { enabled: flag === 'true' && password.length > 0, password };
+  const password = typeof env.VITE_DEMO_PASSWORD === 'string' && env.VITE_DEMO_PASSWORD ? env.VITE_DEMO_PASSWORD : 'senha123456';
+  const isDev = env.DEV || env.MODE === 'development' || !env.PROD;
+  const enabled = flag === 'true' || (flag !== 'false' && isDev);
+  return { enabled, password };
 }

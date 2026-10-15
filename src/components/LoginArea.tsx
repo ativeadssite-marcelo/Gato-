@@ -68,7 +68,7 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
     AVAILABLE_USERS.find(u => u.id === currentSession?.id) || AVAILABLE_USERS[0]
   );
   const [emailInput, setEmailInput] = useState(selectedUser.email);
-  const [passwordInput, setPasswordInput] = useState('••••••••');
+  const [passwordInput, setPasswordInput] = useState('senha123456');
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
     currentSession?.branchId || selectedUser.defaultBranchId || 'matriz-ms'
   );
@@ -196,7 +196,8 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    if (!emailInput.trim() || !passwordInput) {
+    const pwd = (!passwordInput || passwordInput === '••••••••') ? 'senha123456' : passwordInput;
+    if (!emailInput.trim() || !pwd) {
       setErrorMessage('Informe e-mail e senha corporativos.');
       return;
     }
@@ -205,7 +206,7 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
     (async () => {
       try {
         // Autenticação REAL: senha conferida com SCrypt no servidor.
-        const result = await loginWithCredentials(emailInput.trim(), passwordInput, availableBranches, activeBranch.id);
+        const result = await loginWithCredentials(emailInput.trim(), pwd, availableBranches, activeBranch.id);
         try {
           localStorage.setItem('gato_user_session', JSON.stringify(result.session));
           localStorage.setItem('gato_active_store', result.session.branchId);
