@@ -1,16 +1,32 @@
-node_modules/
-build/
-dist/
-coverage/
-.DS_Store
+# Logs
+logs
 *.log
-.env*
-!.env.example
-.gato-db-config.json
-.claude/settings.local.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Supabase CLI: estado local do `supabase link` (project-ref, pooler-url, versões
-# de serviço). São arquivos de trabalho da máquina, não configuração do projeto —
-# não devem ir para o repositório nem divergir entre ambientes.
-supabase/.temp/
-supabase/.branches/
+node_modules
+dist
+dist-ssr
+.output
+.vinxi
+.tanstack/**
+.nitro
+*.local
+
+# Wrangler / Cloudflare
+.wrangler/
+.dev.vars
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
