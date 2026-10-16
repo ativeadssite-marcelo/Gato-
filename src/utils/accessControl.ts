@@ -16,6 +16,7 @@ export const RESTRICTED_VIEWS = ['admin', 'admin-impostos', 'rbac', 'admin-rbac'
 /** Somente administradores podem tentar elevar acesso. */
 export function isElevatedAdmin(user?: UserSession | null): boolean {
   if (!user) return false;
+  if (user.isSaasScope) return true;
   return ADMIN_ROLES.includes(user.role);
 }
 
@@ -50,12 +51,14 @@ export function grantAdminUnlock(user?: UserSession | null): void {
 
 /** Verifica se existe elevação válida e não expirada. */
 export function hasValidAdminUnlock(user?: UserSession | null): boolean {
+  if (!user) return false;
+  if (user.isSaasScope) return true; // Dono do SaaS já é autenticado no topo da hierarquia
   if (!isElevatedAdmin(user)) return false;
   try {
     const raw = sessionStorage.getItem(UNLOCK_KEY);
     if (!raw) return false;
     const parsed = JSON.parse(raw);
-    if (parsed.userId !== user!.id) return false;
+    if (parsed.userId !== user.id) return false;
     return Date.now() - parsed.at < UNLOCK_TTL_MS;
   } catch {
     return false;

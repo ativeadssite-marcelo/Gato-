@@ -29,6 +29,9 @@ import { AssinaturaFaturas } from './components/AssinaturaFaturas';
 import { DashboardFinanceiroSaaS } from './components/DashboardFinanceiroSaaS';
 import { ConfiguracaoBancoDados } from './components/ConfiguracaoBancoDados';
 import { CamadasAcesso } from './components/CamadasAcesso';
+import { SaasAdminDashboard } from './components/SaasAdminDashboard';
+import { SaasConnectorsManager } from './components/SaasConnectorsManager';
+import { CatalogIsolationNotice } from './components/CatalogIsolationNotice';
 import { EquipeAcessos } from './components/EquipeAcessos';
 import { ChavesIntegracoes } from './components/ChavesIntegracoes';
 import { MasterPasswordModal } from './components/MasterPasswordModal';
@@ -99,6 +102,31 @@ import { seedList, loadEntityState, persistEntityState } from './utils/seedMode'
 import { fetchServerSession, logoutSession, buildUserSession } from './utils/sessionService';
 import type { SubscriptionStatus, TenantSubscription } from './types/billing';
 
+const TENANT_CATALOG_VIEWS = [
+  'consulta-pecas',
+  'consulta-aplicacao',
+  'caminhao',
+  'caminhoes',
+  'estoque',
+  'catalogo-web',
+  'cotacao',
+  'caixa',
+  'frota',
+  'xml-import',
+  'nfe-venda',
+  'ordem-servico',
+  'fornecedores',
+  'orcamentos',
+  'clientes',
+  'clientes-orcamentos',
+  'leads-marketing',
+  'marketing',
+  'leads',
+  'financeiro',
+  'relatorios',
+  'empresa-filiais',
+];
+
 export default function App() {
   // Company Profile & Nome Fantasia State
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(() => {
@@ -149,7 +177,16 @@ export default function App() {
   // Global Application State
   const [currentView, setCurrentView] = useState<string>(() => {
     if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/superadmin') || window.location.hash === '#superadmin')) {
-      return 'admin';
+      return 'saas-dashboard';
+    }
+    try {
+      const saved = localStorage.getItem('gato_user_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.isSaasScope) return 'saas-dashboard';
+      }
+    } catch {
+      /* noop */
     }
     return 'consulta-pecas';
   });
@@ -262,8 +299,35 @@ export default function App() {
     return dispose;
   }, []);
 
-  // Toda navegação de view passa por aqui — aplica a política de acesso.
+  // Toda navegação de view passa por aqui — aplica a política de acesso e isolamento das Camadas.
   const handleSelectView = (view: string) => {
+    // Isolamento da CAMADA 1: O catálogo do cliente NUNCA fica visível ao Super Admin.
+    // Cada contrato gera dados 100% separados para cada cliente.
+    if (userSession?.isSaasScope) {
+      const clientCatalogAndOperationalViews = [
+        'consulta-pecas', 'catalogo-web', 'catalogo-digital', 'consulta-aplicacao',
+        'caminhao', 'caminhoes', 'estoque', 'xml-import', 'nfe-venda', 'cotacao',
+        'balcao', 'caixa', 'frota', 'ordem-servico', 'financeiro', 'relatorios',
+        'orcamentos', 'clientes-orcamentos', 'clientes', 'leads-marketing', 'marketing',
+        'leads', 'fornecedores', 'empresa-filiais', 'configuracoes'
+      ];
+      if (clientCatalogAndOperationalViews.includes(view)) {
+        showNotification(
+          'Catálogo Blindado por Contrato (LGPD)',
+          'O catálogo do cliente nunca fica visível ao Super Admin. Os produtos, estoques e dados operacionais pertencem exclusivamente à Empresa Contratante (Camada 2).',
+          'info'
+        );
+        setCurrentView('saas-dashboard');
+        return;
+      }
+      if (view === 'dashboard') {
+        setCurrentView('saas-dashboard');
+        return;
+      }
+      setCurrentView(view);
+      return;
+    }
+
     // Se o usuário saiu da área admin, derruba a elevação
     if (!isRestrictedView(view)) {
       if (pendingRestrictedView) setPendingRestrictedView(null);
@@ -474,6 +538,15 @@ export default function App() {
 
   useEffect(() => {
     if (!userSession?.id) return;
+    if (userSession.isSaasScope) {
+      // O catálogo do cliente NUNCA fica visível ao Super Admin
+      setProducts([]);
+      setCustomers([]);
+      setSuppliers([]);
+      setQuotes([]);
+      setOrders([]);
+      return;
+    }
     let cancelled = false;
     (async () => {
       const result = await loadTenantEntities();
@@ -483,7 +556,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [userSession?.id]);
+  }, [userSession?.id, userSession?.isSaasScope]);
 
   // Handlers for products
   const handleAddNewProduct = (newProd: Product) => {
@@ -743,7 +816,6 @@ export default function App() {
   const handleLoginSuccess = (session: UserSession, newCompany?: CompanyProfile) => {
     // Nova sessão: revoga qualquer elevação anterior (senha master vale só por sessão)
     revokeAdminUnlock();
-    setAdminUnlocked(false);
     setPendingRestrictedView(null);
     setUserSession(session);
     setActiveStore(session.branchId);
@@ -751,12 +823,30 @@ export default function App() {
     if (newCompany) {
       setCompanyProfile(newCompany);
     }
-    setCurrentView('dashboard');
-    showNotification(
-      newCompany ? `Empresa Cadastrada: ${newCompany.tradeName}!` : `Sessão Autenticada: ${session.name}`,
-      `Bem-vindo ao GATO SaaS! Filial ativa: ${session.cdCode} • ${session.branchName} (${session.branchUf})`,
-      'success'
-    );
+    if (session.isSaasScope) {
+      grantAdminUnlock(session);
+      setAdminUnlocked(true);
+      // O catálogo do cliente nunca fica visível ao superadmin
+      setProducts([]);
+      setCustomers([]);
+      setSuppliers([]);
+      setQuotes([]);
+      setOrders([]);
+      setCurrentView('saas-dashboard');
+      showNotification(
+        `Super Admin SaaS Autenticado: ${session.name}`,
+        'Camada 1 — Dono do SaaS: Gestão de clientes, planos e contratos de assinatura. Catálogo de clientes isolado.',
+        'success'
+      );
+    } else {
+      setAdminUnlocked(false);
+      setCurrentView('dashboard');
+      showNotification(
+        newCompany ? `Empresa Cadastrada: ${newCompany.tradeName}!` : `Sessão Autenticada: ${session.name}`,
+        `Bem-vindo ao GATO SaaS! Filial ativa: ${session.cdCode} • ${session.branchName} (${session.branchUf})`,
+        'success'
+      );
+    }
   };
 
   const handleLogout = () => {
@@ -958,7 +1048,15 @@ export default function App() {
 
         {/* Dynamic Main Workspace View */}
         <main className="flex-1 min-w-0 pb-12">
-          {currentView === 'consulta-pecas' && (
+          {/* Bloqueio LGPD & Isolamento Multi-Tenant: Catálogo e Dados Comerciais do Cliente NUNCA visíveis ao Super Admin */}
+          {userSession?.isSaasScope && TENANT_CATALOG_VIEWS.includes(currentView) && (
+            <CatalogIsolationNotice
+              viewName={currentView}
+              onNavigate={(view) => setCurrentView(view)}
+            />
+          )}
+
+          {!userSession?.isSaasScope && currentView === 'consulta-pecas' && (
             <ConsultaPecasView
               products={products}
               activeBranch={activeBranch}
@@ -1019,11 +1117,19 @@ export default function App() {
             />
           )}
 
-          {currentView === 'dashboard' && (
+          {(currentView === 'saas-dashboard' || (userSession?.isSaasScope && currentView === 'dashboard')) && (
+            <SaasAdminDashboard
+              onNavigate={(v) => setCurrentView(v)}
+              onShowNotification={showNotification}
+            />
+          )}
+
+          {(!userSession?.isSaasScope && currentView === 'dashboard') && (
             <DashboardOverview
               products={products}
               orders={orders}
               invoices={invoices}
+              branches={branches}
               onNavigate={(v) => setCurrentView(v)}
               onSelectProductForQuote={(p) => {
                 setSelectedProductForQuote(p);
@@ -1032,7 +1138,7 @@ export default function App() {
             />
           )}
 
-          {currentView === 'cotacao' && (
+          {!userSession?.isSaasScope && currentView === 'cotacao' && (
             <BalcaoCotacao
               products={products}
               customers={customers}
@@ -1056,11 +1162,11 @@ export default function App() {
             />
           )}
 
-          {currentView === 'caixa' && (
+          {!userSession?.isSaasScope && currentView === 'caixa' && (
             <CaixaView companyProfile={companyProfile} onShowNotification={showNotification} />
           )}
 
-          {currentView === 'frota' && (
+          {!userSession?.isSaasScope && currentView === 'frota' && (
             <GestaoFrotaVeiculos
               onSelectVehicleForQuote={(veh) => {
                 setSelectedVehicleForQuote(veh);
@@ -1076,7 +1182,7 @@ export default function App() {
             />
           )}
 
-          {(currentView === 'consulta-aplicacao' || currentView === 'caminhao' || currentView === 'caminhoes') && (
+          {!userSession?.isSaasScope && (currentView === 'consulta-aplicacao' || currentView === 'caminhao' || currentView === 'caminhoes') && (
             <ConsultaAplicacaoPecas
               products={products}
               initialVehicle={selectedVehicleForQuote}
@@ -1100,8 +1206,9 @@ export default function App() {
               onShowNotification={showNotification}
               onNavigateToFleet={() => setCurrentView('frota')}
             />
-)}
-          {currentView === 'xml-import' && (
+          )}
+
+          {!userSession?.isSaasScope && currentView === 'xml-import' && (
             <XmlNfeImport
               products={products}
               existingProducts={products}
@@ -1116,7 +1223,7 @@ export default function App() {
             />
           )}
 
-          {currentView === 'estoque' && (
+          {!userSession?.isSaasScope && currentView === 'estoque' && (
             <EstoqueManager
               products={products}
               userSession={userSession}
@@ -1128,10 +1235,11 @@ export default function App() {
                 setSelectedProductForQuote(p);
                 setCurrentView('cotacao');
               }}
+              customers={customers}
             />
           )}
 
-          {currentView === 'catalogo-web' && (
+          {!userSession?.isSaasScope && currentView === 'catalogo-web' && (
             <CatalogoDigitalWeb
               products={products}
               companyProfile={companyProfile}
@@ -1140,7 +1248,7 @@ export default function App() {
             />
           )}
 
-          {currentView === 'nfe-venda' && (
+          {!userSession?.isSaasScope && currentView === 'nfe-venda' && (
             <EmissaoNfe
               invoices={invoices}
               products={products}
@@ -1159,7 +1267,7 @@ export default function App() {
             />
           )}
 
-          {currentView === 'ordem-servico' && (
+          {!userSession?.isSaasScope && currentView === 'ordem-servico' && (
             <OrdemServicoManager
               serviceOrders={serviceOrders}
               onUpdateServiceOrders={handleUpdateServiceOrders}
@@ -1170,7 +1278,7 @@ export default function App() {
             />
           )}
 
-          {(currentView === 'financeiro' || currentView === 'relatorios') && (
+          {!userSession?.isSaasScope && (currentView === 'financeiro' || currentView === 'relatorios') && (
             <FinanceiroCompleto
               payables={payables}
               receivables={receivables}
@@ -1188,7 +1296,7 @@ export default function App() {
             />
           )}
 
-          {currentView === 'empresa-filiais' && (
+          {!userSession?.isSaasScope && currentView === 'empresa-filiais' && (
             <EmpresaFiliaisManager
               companyProfile={companyProfile}
               branches={branches}
@@ -1200,7 +1308,7 @@ export default function App() {
             />
           )}
 
-          {(currentView === 'orcamentos' || currentView === 'clientes-orcamentos' || currentView === 'clientes' || currentView === 'leads-marketing' || currentView === 'marketing' || currentView === 'leads') && (
+          {!userSession?.isSaasScope && (currentView === 'orcamentos' || currentView === 'clientes-orcamentos' || currentView === 'clientes' || currentView === 'leads-marketing' || currentView === 'marketing' || currentView === 'leads') && (
             <ClientesOrcamentos
               initialTab={
                 currentView === 'clientes' 
@@ -1233,7 +1341,7 @@ export default function App() {
             />
           )}
 
-          {currentView === 'fornecedores' && (
+          {!userSession?.isSaasScope && currentView === 'fornecedores' && (
             <FornecedoresManager
               suppliers={suppliers}
               products={products}
@@ -1244,27 +1352,34 @@ export default function App() {
           )}
 
           {(currentView === 'conectores' || currentView === 'marketplaces') && (
-            <ConnectorsManager
-              products={products}
-              orders={orders}
-              marketplaces={marketplaces}
-              onUpdateProducts={setProducts}
-              onUpdateMarketplaces={setMarketplaces}
-              onShowNotification={(notif: any) => {
-                if (typeof notif === 'string') {
-                  showNotification(notif, '');
-                } else if (notif && notif.title) {
-                  showNotification(notif.title, notif.message || '', notif.type === 'error' ? 'warning' : notif.type);
-                }
-              }}
-            />
+            userSession?.isSaasScope ? (
+              <SaasConnectorsManager
+                onNavigate={(v) => setCurrentView(v)}
+                onShowNotification={showNotification}
+              />
+            ) : (
+              <ConnectorsManager
+                products={products}
+                orders={orders}
+                marketplaces={marketplaces}
+                onUpdateProducts={setProducts}
+                onUpdateMarketplaces={setMarketplaces}
+                onShowNotification={(notif: any) => {
+                  if (typeof notif === 'string') {
+                    showNotification(notif, '');
+                  } else if (notif && notif.title) {
+                    showNotification(notif.title, notif.message || '', notif.type === 'error' ? 'warning' : notif.type);
+                  }
+                }}
+              />
+            )
           )}
 
           {currentView === 'suporte-chat' && (
             <SuporteChatIA />
           )}
 
-          {(adminUnlocked && (currentView === 'admin' || currentView === 'admin-impostos')) && (
+          {((adminUnlocked || userSession?.isSaasScope) && (currentView === 'admin' || currentView === 'admin-impostos')) && (
             <AdminImpostosFiscal
               companyProfile={companyProfile}
               branches={branches}
@@ -1273,7 +1388,7 @@ export default function App() {
             />
           )}
 
-          {(adminUnlocked && (currentView === 'rbac' || currentView === 'admin-rbac' || currentView === 'governanca' || currentView === 'tenants' || currentView === 'seguranca')) && (
+          {((adminUnlocked || userSession?.isSaasScope) && (currentView === 'rbac' || currentView === 'admin-rbac' || currentView === 'governanca' || currentView === 'tenants' || currentView === 'seguranca')) && (
             <AdminRbacMultiTenant
               onNotify={(msg, type) => showNotification(msg, '', type === 'error' ? 'warning' : (type || 'info'))}
             />
@@ -1316,15 +1431,15 @@ export default function App() {
             <AssinaturaFaturas onShowNotification={showNotification} />
           )}
 
-          {(adminUnlocked && currentView === 'financeiro-saas') && (
+          {((adminUnlocked || userSession?.isSaasScope) && currentView === 'financeiro-saas') && (
             <DashboardFinanceiroSaaS />
           )}
 
-          {(adminUnlocked && currentView === 'banco-dados') && (
+          {((adminUnlocked || userSession?.isSaasScope) && currentView === 'banco-dados') && (
             <ConfiguracaoBancoDados onShowNotification={showNotification} />
           )}
 
-          {(adminUnlocked && currentView === 'camadas-acesso') && (
+          {((adminUnlocked || userSession?.isSaasScope) && currentView === 'camadas-acesso') && (
             <CamadasAcesso onShowNotification={showNotification} />
           )}
         </main>

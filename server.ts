@@ -37,6 +37,7 @@ import { authRouter } from "./server/authRoutes";
 import { caixaRouter } from "./server/caixaRoutes";
 import { billingRouter } from "./server/billing/routes";
 import { adminDatabaseRouter } from "./server/adminDatabaseRoutes";
+import { saasContractsRouter } from "./server/saasContractsRoutes";
 import { checkQuota, incrementUsage } from "./server/quotas";
 import {
   assertProductionMigrationsReady,
@@ -171,6 +172,9 @@ app.use("/api/rbac", rbacRouter);
 
 // Billing & Assinaturas (webhooks do gateway + autosserviço do tenant)
 app.use("/api/billing", billingRouter);
+
+// Governança SaaS Camada 1: Conectores globais da plataforma, Configurações Fiscais e Contratos LGPD
+app.use("/api/saas", saasContractsRouter);
 
 // Caixa (PDV): abertura/fechamento, recebimentos, emissão de boleto, NF, dados fiscais
 app.use("/api/caixa", caixaRouter);

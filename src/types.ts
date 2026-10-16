@@ -439,6 +439,11 @@ export interface Quote {
   vehicleModel?: string;
   vehiclePlate?: string;
   sellerName?: string;
+  sellerCommissionPercent?: number; // ex: 2.5%
+  sellerCommissionAmount?: number;  // R$ calculado
+  workshopName?: string;            // Oficina parceira / indicador
+  workshopCommissionPercent?: number; // % comissão oficina
+  workshopCommissionAmount?: number;  // R$ calculado oficina
   paymentCondition?: string;
   items: QuoteItem[];
   subtotalAmount: number;
@@ -692,6 +697,14 @@ export interface ServiceOrder {
   vehicleKm: number;
   vehicleMotor?: string;
   mechanicAssigned: string;
+  mechanicCommissionPercent?: number; // % comissão sobre mão de obra (ex: 40%)
+  mechanicCommissionAmount?: number;  // R$ calculado
+  sellerAssigned?: string;            // Vendedor balcão / consultor
+  sellerCommissionPercent?: number;   // % comissão vendedor sobre peças da OS (ex: 2.5%)
+  sellerCommissionAmount?: number;    // R$ calculado
+  workshopName?: string;              // Oficina parceira / terceirizada
+  workshopPartsCommissionPercent?: number; // % comissão oficina parceira sobre peças aplicadas
+  workshopPartsCommissionAmount?: number;  // R$ calculado
   problemReported: string; // Defeito relatado pelo cliente
   technicalDiagnosis?: string; // Diagnóstico do mecânico
   parts: ServiceOrderItem[];
@@ -706,6 +719,46 @@ export interface ServiceOrder {
   branchId: string;
   convertedInvoiceId?: string;
   notes?: string;
+}
+
+// ==========================================
+// TERMO / CERTIFICADO DE GARANTIA DE PEÇAS (ESTOQUE & NORMAS BRASILEIRAS - CDC ART. 26/50)
+// ==========================================
+export type WarrantyLegalBasis = 'cdc_90_dias' | 'fabricante_12_meses' | 'fabricante_6_meses' | 'contratual_estendida';
+
+export interface PartWarrantyCertificate {
+  id: string;
+  protocolNumber: string; // ex: GAR-2026-0042
+  productId: string;
+  productCode: string;
+  productName: string;
+  productBrand: string;
+  ncm?: string;
+  batchNumber?: string; // Lote de fabricação / número de série rastreável
+  imageUrl?: string; // Imagem cadastrada ou foto real da peça
+  evidenceImages?: string[]; // Fotos adicionais / etiqueta / estado físico
+  invoiceNumber?: string; // NF-e de venda ou compra
+  orderId?: string; // Pedido ou OS associada
+  customerId?: string;
+  customerName: string;
+  customerDocument: string;
+  customerPhone?: string;
+  vehiclePlate?: string;
+  vehicleModel?: string;
+  vehicleKmAtInstall?: number;
+  installerWorkshop?: string; // Oficina instaladora responsável
+  issueDate: string; // Data de emissão (ex: 2026-10-16)
+  legalWarrantyDays: number; // 90 dias obrigatórios (CDC Art. 26, II)
+  contractualWarrantyDays: number; // Garantia contratual adicional (CDC Art. 50, ex: 275 dias = total 365 dias)
+  totalWarrantyDays: number; // Prazo total de vigência
+  expirationDate: string; // Data limite de cobertura
+  status: 'ativa' | 'expirada' | 'acionada' | 'laudo_aprovado' | 'laudo_recusado';
+  termsAccepted: boolean;
+  notes?: string;
+  technicalObservations?: string;
+  branchId: string;
+  issuedByUserName: string;
+  createdAt: string;
 }
 
 // ==========================================

@@ -52,19 +52,24 @@ export interface OsTotais {
   partsTotal: number;
   laborTotal: number;
   totalAmount: number;
+  sellerCommissionAmount: number;
+  mechanicCommissionAmount: number;
+  workshopPartsCommissionAmount: number;
 }
 
 const arredondar = (valor: number) => Math.round(valor * 100) / 100;
 
 /**
- * Totais da OS a partir das peças, da mão de obra e do desconto.
+ * Totais da OS a partir das peças, da mão de obra, do desconto e dos percentuais de comissão.
  *
- * O total é SEMPRE recalculado aqui — nunca lido do que veio salvo. Foi assim
- * que os seeds da OS ficaram com número que não fecha: quando a peça ou a hora
- * muda, um total guardado à parte vira mentira.
+ * O total é SEMPRE recalculado aqui — garantindo transparência para a oficina e vendedor.
  */
 export function calcularTotaisOs(
-  os: Pick<ServiceOrder, 'parts' | 'labor' | 'discount'>
+  os: Pick<ServiceOrder, 'parts' | 'labor' | 'discount'> & {
+    sellerCommissionPercent?: number;
+    mechanicCommissionPercent?: number;
+    workshopPartsCommissionPercent?: number;
+  }
 ): OsTotais {
   const partsTotal = (os.parts || []).reduce(
     (acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
@@ -73,10 +78,21 @@ export function calcularTotaisOs(
   const laborTotal = (os.labor || []).reduce((acc, item) => acc + (Number(item.price) || 0), 0);
   const discount = Number(os.discount) || 0;
 
+  const sellerPercent = Number(os.sellerCommissionPercent) || 0;
+  const mechanicPercent = Number(os.mechanicCommissionPercent) || 0;
+  const workshopPartsPercent = Number(os.workshopPartsCommissionPercent) || 0;
+
+  const sellerCommissionAmount = arredondar((partsTotal * sellerPercent) / 100);
+  const mechanicCommissionAmount = arredondar((laborTotal * mechanicPercent) / 100);
+  const workshopPartsCommissionAmount = arredondar((partsTotal * workshopPartsPercent) / 100);
+
   return {
     partsTotal: arredondar(partsTotal),
     laborTotal: arredondar(laborTotal),
     totalAmount: arredondar(Math.max(0, partsTotal + laborTotal - discount)),
+    sellerCommissionAmount,
+    mechanicCommissionAmount,
+    workshopPartsCommissionAmount,
   };
 }
 

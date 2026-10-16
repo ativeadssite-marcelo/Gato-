@@ -260,9 +260,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'conectores',
-      label: 'Conectores da Plataforma',
+      label: 'Conectores do SaaS (Infra & Billing)',
       icon: Cable,
       aliases: ['conectores', 'marketplaces', 'ecommerce', 'integracoes'],
+      badge: 'Camada 1',
     },
     {
       id: 'admin',

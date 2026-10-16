@@ -22,13 +22,15 @@ import {
   Line, 
   Tooltip 
 } from 'recharts';
-import { Product, Order, InvoiceRecord } from '../types';
+import { Product, Order, InvoiceRecord, BranchUnit } from '../types';
 import { demoAddon, USE_SEED_DATA } from '../utils/seedMode';
+import { VisualReportsOverview } from './VisualReportsOverview';
 
 interface DashboardOverviewProps {
   products: Product[];
   orders: Order[];
   invoices: InvoiceRecord[];
+  branches?: BranchUnit[];
   onNavigate: (view: any) => void;
   onSelectProductForQuote: (product: Product) => void;
 }
@@ -37,6 +39,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   products,
   orders,
   invoices,
+  branches,
   onNavigate,
   onSelectProductForQuote,
 }) => {
@@ -122,11 +125,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   return (
     <div className="space-y-6" id="view-dashboard-overview">
-      {/* Hero Welcome Banner - Clean Minimalism Deep Blue with Amber Accent */}
-      <div className="bg-[#0C4A6E] text-white rounded-2xl p-6 sm:p-7 border border-[#0C4A6E] shadow-sm relative overflow-hidden">
+      {/* Hero Welcome Banner - Clean Balanced Rounded Style */}
+      <div className="bg-[#0C4A6E] text-white rounded-lg p-6 sm:p-7 border border-[#0C4A6E] border-l-4 border-l-[#F59E0B] shadow-xs relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 bg-white/10 text-sky-200 border border-white/10 px-3 py-1 rounded-full text-[11px] font-bold">
+            <div className="inline-flex items-center gap-2 bg-white/10 text-sky-200 border border-white/20 px-3 py-1 rounded-md text-[11px] font-bold">
               <Sparkles className="w-3.5 h-3.5 text-[#F59E0B]" />
               <span>GATO • Gestão Avançada de Autopeças & Balcão</span>
             </div>
@@ -138,13 +141,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </p>
           </div>
 
-          {/* Quick Action Buttons */}
+          {/* Quick Action Buttons Estilo Equilibrado */}
           <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0">
             <button
               type="button"
               id="dash-btn-import-xml"
               onClick={() => onNavigate('xml-import')}
-              className="flex items-center justify-center gap-2 bg-[#F59E0B] hover:bg-amber-400 text-slate-950 font-bold text-xs px-5 py-3 rounded-lg shadow-sm transition active:scale-95 cursor-pointer"
+              className="flex items-center justify-center gap-2 bg-[#F59E0B] hover:bg-amber-400 text-slate-950 font-bold text-xs px-5 py-3 rounded-md shadow-xs transition active:scale-95 cursor-pointer"
             >
               <FileCode2 className="w-4 h-4 fill-slate-950" />
               <span>Importar XML de Compra</span>
@@ -154,7 +157,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               type="button"
               id="dash-btn-open-quote"
               onClick={() => onNavigate('cotacao')}
-              className="flex items-center justify-center gap-2 bg-[#0284C7] hover:bg-[#0284C7]/90 text-white font-bold text-xs px-5 py-3 rounded-lg shadow-sm transition active:scale-95 cursor-pointer"
+              className="flex items-center justify-center gap-2 bg-[#0284C7] hover:bg-[#0284C7]/90 text-white font-bold text-xs px-5 py-3 rounded-md shadow-xs transition active:scale-95 cursor-pointer"
             >
               <Calculator className="w-4 h-4 text-white" />
               <span>Nova Cotação de Balcão</span>
@@ -164,7 +167,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               type="button"
               id="dash-btn-open-os"
               onClick={() => onNavigate('ordem-servico')}
-              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-3 rounded-lg shadow-sm transition active:scale-95 cursor-pointer"
+              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-3 rounded-md shadow-xs transition active:scale-95 cursor-pointer"
             >
               <Wrench className="w-4 h-4 text-white" />
               <span>Ordem de Serviço (Oficina)</span>
@@ -173,7 +176,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
-      {/* KPI METRICS STRIP COM GRÁFICOS RECHARTS */}
+      {/* KPI METRICS STRIP COM GRÁFICOS RECHARTS (ESTILO EQUILIBRADO SUAVIZADO) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
@@ -189,13 +192,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {/* KPI 1: Faturamento do Dia (com AreaChart Recharts) */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 border-b-4 border-b-[#0284C7] flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="bg-white p-5 rounded-lg shadow-xs border border-slate-200 border-l-4 border-l-[#0284C7] flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
                   <DollarSign className="w-3.5 h-3.5 text-[#0284C7]" /> Faturamento do Dia
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60 flex items-center gap-0.5">
+                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60 flex items-center gap-0.5">
                   <TrendingUp className="w-3 h-3" /> +14.8%
                 </span>
               </div>
@@ -221,7 +224,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     contentStyle={{ 
                       backgroundColor: '#0F172A', 
                       borderColor: '#1E293B', 
-                      borderRadius: '8px', 
+                      borderRadius: '5px', 
                       color: '#F8FAFC', 
                       fontSize: '10px',
                       padding: '4px 8px' 
@@ -250,13 +253,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
 
           {/* KPI 2: Quantidade de Peças Vendidas (com BarChart Recharts) */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 border-b-4 border-b-[#F59E0B] flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="bg-white p-5 rounded-lg shadow-xs border border-slate-200 border-l-4 border-l-[#F59E0B] flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
                   <ShoppingBag className="w-3.5 h-3.5 text-[#F59E0B]" /> Peças Vendidas
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200/60 flex items-center gap-0.5">
+                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200/60 flex items-center gap-0.5">
                   <Boxes className="w-3 h-3" /> Hoje
                 </span>
               </div>
@@ -276,7 +279,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     contentStyle={{ 
                       backgroundColor: '#0F172A', 
                       borderColor: '#1E293B', 
-                      borderRadius: '8px', 
+                      borderRadius: '5px', 
                       color: '#F8FAFC', 
                       fontSize: '10px',
                       padding: '4px 8px' 
@@ -287,7 +290,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   <Bar 
                     dataKey="qtd" 
                     fill="#F59E0B" 
-                    radius={[4, 4, 0, 0]} 
+                    radius={[3, 3, 0, 0]} 
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -300,13 +303,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
 
           {/* KPI 3: Ticket Médio de Vendas (com LineChart Recharts) */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 border-b-4 border-b-indigo-600 flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="bg-white p-5 rounded-lg shadow-xs border border-slate-200 border-l-4 border-l-indigo-600 flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
                   <Receipt className="w-3.5 h-3.5 text-indigo-600" /> Ticket Médio
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-200/60 flex items-center gap-0.5">
+                <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-200/60 flex items-center gap-0.5">
                   <TrendingUp className="w-3 h-3" /> +6.4%
                 </span>
               </div>
@@ -326,7 +329,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     contentStyle={{ 
                       backgroundColor: '#0F172A', 
                       borderColor: '#1E293B', 
-                      borderRadius: '8px', 
+                      borderRadius: '5px', 
                       color: '#F8FAFC', 
                       fontSize: '10px',
                       padding: '4px 8px' 
@@ -353,13 +356,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
 
           {/* KPI 4: Margem Média & Valor em Estoque */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 border-b-4 border-b-emerald-500 flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="bg-white p-5 rounded-lg shadow-xs border border-slate-200 border-l-4 border-l-emerald-500 flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
                   <Percent className="w-3.5 h-3.5 text-emerald-600" /> Margem Média
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60">
+                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60">
                   Markup Ativo
                 </span>
               </div>
@@ -387,7 +390,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     contentStyle={{ 
                       backgroundColor: '#0F172A', 
                       borderColor: '#1E293B', 
-                      borderRadius: '8px', 
+                      borderRadius: '5px', 
                       color: '#F8FAFC', 
                       fontSize: '10px',
                       padding: '4px 8px' 
@@ -414,18 +417,26 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
-      {/* Main Grid: Low Stock Alert & Recent Orders with Clean Minimalist Table Styling */}
+      {/* RELATÓRIO VISUAL: VOLUME DE VENDAS POR FILIAL & CRESCIMENTO DE ESTOQUE (30 DIAS) */}
+      <VisualReportsOverview
+        products={products}
+        orders={orders}
+        branches={branches}
+        onNavigate={onNavigate}
+      />
+
+      {/* Main Grid: Low Stock Alert & Recent Orders with Balanced Modern Corners */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Low Stock Items & Picking Locations (6 Cols) */}
-        <div className="lg:col-span-6 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex flex-col space-y-4">
+        <div className="lg:col-span-6 bg-white rounded-lg p-5 shadow-xs border border-slate-200 border-t-2 border-t-[#F59E0B] flex flex-col space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center">
-              <span className="w-2 h-4 bg-[#F59E0B] rounded mr-2 inline-block" />
+              <span className="w-2 h-4 bg-[#F59E0B] rounded-sm mr-2 inline-block" />
               <h2 className="text-sm font-bold text-slate-800">
                 Alerta de Reposição & Locação de Estoque
               </h2>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase">
+            <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">
               {lowStockProducts.length} itens críticos
             </span>
           </div>
@@ -434,11 +445,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {lowStockProducts.map((prod) => (
               <div 
                 key={prod.id} 
-                className="p-3 bg-slate-50/70 hover:bg-sky-50/50 border border-slate-100 rounded-xl flex items-center justify-between gap-3 text-xs transition-colors"
+                className="p-3 bg-slate-50/80 hover:bg-sky-50/50 border border-slate-200 rounded-md flex items-center justify-between gap-3 text-xs transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[10px] font-bold bg-white text-slate-900 px-1.5 py-0.5 rounded border border-slate-200">
+                    <span className="font-mono text-[10px] font-bold bg-white text-slate-900 px-1.5 py-0.5 rounded-sm border border-slate-300">
                       {prod.code}
                     </span>
                     <span className="text-[10px] font-bold text-[#0C4A6E]">{prod.brand}</span>
@@ -453,7 +464,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </div>
 
                 <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                  <span className="font-mono text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                  <span className="font-mono text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-sm border border-rose-300">
                     {prod.stock} un (mín: {prod.minStock})
                   </span>
                   <button
@@ -473,10 +484,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
 
         {/* Right: Recent Multi-Channel Orders (6 Cols) */}
-        <div className="lg:col-span-6 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex flex-col space-y-4">
+        <div className="lg:col-span-6 bg-white rounded-lg p-5 shadow-xs border border-slate-200 border-t-2 border-t-[#0284C7] flex flex-col space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center">
-              <span className="w-2 h-4 bg-[#0284C7] rounded mr-2 inline-block" />
+              <span className="w-2 h-4 bg-[#0284C7] rounded-sm mr-2 inline-block" />
               <h2 className="text-sm font-bold text-slate-800">
                 Últimos Pedidos dos Canais Integrados
               </h2>
@@ -485,14 +496,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('cotacao')}
-                className="px-2.5 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded uppercase hover:bg-emerald-600 transition cursor-pointer"
+                className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-md uppercase hover:bg-emerald-700 transition cursor-pointer"
               >
                 Nova Venda
               </button>
               <button
                 type="button"
                 onClick={() => onNavigate('pedidos')}
-                className="px-2.5 py-1 bg-sky-50 text-[#0284C7] text-[10px] font-bold rounded uppercase hover:bg-sky-100 transition cursor-pointer"
+                className="px-2.5 py-1 bg-sky-50 text-[#0284C7] text-[10px] font-bold rounded-md uppercase hover:bg-sky-100 border border-sky-200 transition cursor-pointer"
               >
                 Ver todos ({orders.length})
               </button>
@@ -503,12 +514,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {recentOrders.map((ord) => (
               <div 
                 key={ord.id} 
-                className="p-3 bg-slate-50/70 hover:bg-sky-50/50 border border-slate-100 rounded-xl flex items-center justify-between gap-2 transition-colors"
+                className="p-3 bg-slate-50/80 hover:bg-sky-50/50 border border-slate-200 rounded-md flex items-center justify-between gap-2 transition-colors"
               >
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-bold text-slate-900">#{ord.id}</span>
-                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.2 rounded bg-white border border-slate-200 text-slate-700">
+                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.2 rounded-sm bg-white border border-slate-300 text-slate-700">
                       {ord.channel}
                     </span>
                   </div>
@@ -522,7 +533,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   <span className="font-mono font-black text-slate-900 block">
                     R$ {(ord.totalAmount || ord.total || 0).toFixed(2)}
                   </span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-0.5 border border-emerald-100">
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-sm inline-block mt-0.5 border border-emerald-200">
                     {(ord.status || 'Pago').toUpperCase()}
                   </span>
                 </div>

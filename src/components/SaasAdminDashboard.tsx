@@ -21,11 +21,15 @@ import {
   Search,
   UserCheck,
   UserX,
-  FileText
+  FileText,
+  Scale,
+  Fingerprint
 } from 'lucide-react';
 import { apiJson } from '../services/apiClient';
 import type { TenantAccount } from '../types/rbac';
 import type { Invoice, TenantSubscription } from '../types/billing';
+import { ConfiguracaoFiscalContratoModal } from './ConfiguracaoFiscalContratoModal';
+import { ContratoLgpdModal } from './ContratoLgpdModal';
 
 interface Props {
   onNavigate: (view: string) => void;
@@ -45,6 +49,8 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
   const [plans, setPlans] = useState<PlanInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchFilter, setSearchFilter] = useState('');
+  const [selectedFiscalTenant, setSelectedFiscalTenant] = useState<TenantAccount | null>(null);
+  const [selectedLgpdTenant, setSelectedLgpdTenant] = useState<TenantAccount | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -155,6 +161,14 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
+              onClick={() => onNavigate('conectores')}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/40 border border-purple-500/40 text-purple-200 font-extrabold text-xs transition cursor-pointer"
+            >
+              <Cable className="w-4 h-4 text-purple-400" />
+              Conectores do SaaS
+            </button>
+            <button
+              type="button"
               onClick={() => onNavigate('financeiro-saas')}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-lg shadow-purple-600/30 transition cursor-pointer"
             >
@@ -186,10 +200,10 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
           <Lock className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
           <div className="leading-snug">
             <span className="font-extrabold text-emerald-300 mr-1">
-              Garantia de Isolamento & Sigilo de Dados (LGPD):
+              Isolamento Total do Catálogo por Contrato (LGPD & Multi-Tenant):
             </span>
             <span className="text-purple-200/90">
-              O Super Admin não recebe nem visualiza informações operacionais confidenciais dos clientes (faturamento das lojas de autopeças, senhas corporativas, estoque interno, dados financeiros ou movimentações internas). Os dados de negócio ficam 100% restritos à Camada 2 (Empresa Contratante).
+              O catálogo de produtos, estoques, custos, preços de venda e faturamento dos clientes <strong>NUNCA ficam visíveis ao Super Admin</strong>. Cada contrato gera dados 100% separados e isolados para cada empresa cliente. O Super Admin gerencia exclusivamente contratos, planos, infraestrutura e governança da plataforma.
             </span>
           </div>
         </div>
@@ -229,15 +243,18 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
             <p className="text-xs text-slate-300 mb-3 leading-relaxed">
               Gerencia a plataforma, contratos de assinaturas, planos, liberação e suspensão de contas e suporte ao sistema.
             </p>
-            <div className="p-2.5 rounded-xl bg-slate-950/60 border border-purple-500/20 text-[11px] text-purple-200 space-y-1">
+            <div className="p-2.5 rounded-xl bg-slate-950/60 border border-purple-500/20 text-[11px] text-purple-200 space-y-1.5">
               <div className="flex items-center gap-1.5 font-bold text-emerald-400">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Gestão de Planos & Assinaturas
               </div>
               <div className="flex items-center gap-1.5 font-bold text-emerald-400">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Suporte & Liberação de Clientes
               </div>
+              <div className="flex items-center gap-1.5 font-bold text-rose-300">
+                <Lock className="w-3.5 h-3.5 text-rose-400" /> Catálogo de Clientes 100% Oculto ao Admin
+              </div>
               <div className="flex items-center gap-1.5 font-medium text-slate-400">
-                <Lock className="w-3.5 h-3.5 text-purple-400" /> Sem acesso a faturamento/estoque dos clientes
+                <ShieldCheck className="w-3.5 h-3.5 text-purple-400" /> Dados 100% Segregados por Contrato (LGPD)
               </div>
             </div>
           </div>
@@ -251,12 +268,15 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
             <p className="text-xs text-slate-300 mb-3 leading-relaxed">
               Painel do cliente contratante: gerencia o próprio produto, colaboradores, permissões da equipe, filiais e faturamento da loja.
             </p>
-            <div className="p-2.5 rounded-xl bg-slate-950/60 border border-sky-500/20 text-[11px] text-sky-200 space-y-1">
+            <div className="p-2.5 rounded-xl bg-slate-950/60 border border-sky-500/20 text-[11px] text-sky-200 space-y-1.5">
               <div className="flex items-center gap-1.5 font-bold text-sky-300">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Gestão da Equipe & Acessos
+                <CheckCircle2 className="w-3.5 h-3.5" /> Catálogo Próprio & Gestão de Estoque
               </div>
               <div className="flex items-center gap-1.5 font-bold text-sky-300">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Estoque, Catálogo & Faturamento Próprio
+                <CheckCircle2 className="w-3.5 h-3.5" /> Faturamento, Vendas & Contas Privadas
+              </div>
+              <div className="flex items-center gap-1.5 font-medium text-slate-400">
+                <Lock className="w-3.5 h-3.5 text-emerald-400" /> Banco de Dados Isolado e Exclusivo do Contrato
               </div>
               <div className="flex items-center gap-1.5 font-bold text-sky-300">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Gestão de Faturas da Assinatura
@@ -392,22 +412,24 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
           </div>
         </div>
 
-        {/* Tabela de Empresas */}
+        {/* Tabela de Empresas & Contratos */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950/60 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-800">
               <tr>
                 <th className="px-5 py-3.5">Empresa / Cliente Contratante</th>
-                <th className="px-5 py-3.5">Documento / Cidade</th>
+                <th className="px-5 py-3.5">Documento / UF</th>
                 <th className="px-5 py-3.5">Plano Contratado</th>
+                <th className="px-5 py-3.5">Config. Fiscal (SaaS)</th>
+                <th className="px-5 py-3.5">Contrato LGPD</th>
                 <th className="px-5 py-3.5">Status de Acesso</th>
-                <th className="px-5 py-3.5 text-right">Ações de Suporte</th>
+                <th className="px-5 py-3.5 text-right">Ações de Governança</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {filteredTenants.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-5 py-8 text-center text-slate-500">
                     Nenhuma empresa encontrada com o filtro informado.
                   </td>
                 </tr>
@@ -429,6 +451,28 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                       </span>
                     </td>
                     <td className="px-5 py-4">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFiscalTenant(tenant)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 transition cursor-pointer"
+                        title="Ver ou editar configuração fiscal deste contrato"
+                      >
+                        <Scale className="w-3 h-3 text-sky-400" />
+                        <span>Homologar Fiscal</span>
+                      </button>
+                    </td>
+                    <td className="px-5 py-4">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLgpdTenant(tenant)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition cursor-pointer"
+                        title="Visualizar ou assinar contrato de concessão e DPA LGPD"
+                      >
+                        <Fingerprint className="w-3 h-3 text-emerald-400" />
+                        <span>Contrato LGPD</span>
+                      </button>
+                    </td>
+                    <td className="px-5 py-4">
                       {tenant.status === 'active' ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                           <CheckCircle2 className="w-3 h-3" /> Acesso Liberado
@@ -440,24 +484,25 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                       )}
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <div className="inline-flex items-center gap-2">
+                      <div className="inline-flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => handleToggleTenantStatus(tenant)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                             tenant.status === 'active'
                               ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'
                               : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                           }`}
                         >
-                          {tenant.status === 'active' ? 'Suspender Acesso' : 'Liberar Acesso'}
+                          {tenant.status === 'active' ? 'Suspender' : 'Liberar'}
                         </button>
                         <button
                           type="button"
-                          onClick={() => onNavigate('financeiro-saas')}
-                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition cursor-pointer"
+                          onClick={() => setSelectedLgpdTenant(tenant)}
+                          className="px-2.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-200 border border-purple-500/40 text-xs font-bold transition cursor-pointer"
+                          title="Abrir Contrato LGPD"
                         >
-                          Ver Contrato
+                          Contrato
                         </button>
                       </div>
                     </td>
@@ -470,55 +515,93 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
       </div>
 
       {/* ATALHOS RÁPIDOS DE GOVERNANÇA DO SAAS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+        <button
+          type="button"
+          onClick={() => onNavigate('conectores')}
+          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+        >
+          <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <Cable className="w-4 h-4 text-purple-400" />
+          </div>
+          <h3 className="font-bold text-white text-xs">Conectores do SaaS</h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">Gateways de MRR, SEFAZ infra e catálogo.</p>
+        </button>
+
         <button
           type="button"
           onClick={() => onNavigate('financeiro-saas')}
-          className="p-5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
         >
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-3 group-hover:scale-105 transition">
-            <DollarSign className="w-5 h-5 text-emerald-400" />
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
-          <h3 className="font-bold text-white text-sm">Contratos & Assinaturas</h3>
-          <p className="text-xs text-slate-400 mt-1">Gerencie planos, mensalidades, faturas e MRR da plataforma.</p>
+          <h3 className="font-bold text-white text-xs">Contratos & MRR</h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">Assinaturas, faturas e cobrança recorrente.</p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('camadas-acesso')}
-          className="p-5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
         >
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-3 group-hover:scale-105 transition">
-            <Layers className="w-5 h-5 text-purple-400" />
+          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <Layers className="w-4 h-4 text-indigo-400" />
           </div>
-          <h3 className="font-bold text-white text-sm">Matriz das 3 Camadas</h3>
-          <p className="text-xs text-slate-400 mt-1">Configure o que cada camada (SaaS, Empresa e Usuários) vê e opera.</p>
+          <h3 className="font-bold text-white text-xs">Matriz das 3 Camadas</h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">Isolamento de privilégios e permissões.</p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('chaves')}
-          className="p-5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
         >
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-3 group-hover:scale-105 transition">
-            <KeyRound className="w-5 h-5 text-amber-400" />
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <KeyRound className="w-4 h-4 text-amber-400" />
           </div>
-          <h3 className="font-bold text-white text-sm">Chaves & Licenças</h3>
-          <p className="text-xs text-slate-400 mt-1">Emissão e controle de licenças de máquina e tokens de API dos clientes.</p>
+          <h3 className="font-bold text-white text-xs">Chaves & Licenças</h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">Licenças de máquina e tokens de API.</p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('banco-dados')}
-          className="p-5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
         >
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-3 group-hover:scale-105 transition">
-            <Database className="w-5 h-5 text-blue-400" />
+          <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <Database className="w-4 h-4 text-blue-400" />
           </div>
-          <h3 className="font-bold text-white text-sm">Banco de Dados & Infra</h3>
-          <p className="text-xs text-slate-400 mt-1">Conexões, pool de banco, integridade e diagnóstico de infraestrutura.</p>
+          <h3 className="font-bold text-white text-xs">Banco de Dados & Infra</h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">Conexões Postgres e diagnóstico.</p>
         </button>
       </div>
+
+      {/* MODAL DE CONFIGURAÇÃO FISCAL DO CONTRATO */}
+      {selectedFiscalTenant && (
+        <ConfiguracaoFiscalContratoModal
+          isOpen={!!selectedFiscalTenant}
+          onClose={() => setSelectedFiscalTenant(null)}
+          tenantId={selectedFiscalTenant.id}
+          tenantName={selectedFiscalTenant.tradeName || selectedFiscalTenant.name}
+          tenantCnpj={selectedFiscalTenant.cnpj}
+          tenantUf={selectedFiscalTenant.uf}
+          onSaved={() => {
+            void loadData();
+          }}
+          onShowNotification={onShowNotification}
+        />
+      )}
+
+      {/* MODAL DE CONTRATO LGPD & DPA */}
+      {selectedLgpdTenant && (
+        <ContratoLgpdModal
+          isOpen={!!selectedLgpdTenant}
+          onClose={() => setSelectedLgpdTenant(null)}
+          tenantId={selectedLgpdTenant.id}
+          onShowNotification={onShowNotification}
+        />
+      )}
     </div>
   );
 };

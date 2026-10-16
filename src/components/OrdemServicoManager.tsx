@@ -15,9 +15,26 @@
 // =========================================================================
 
 import React, { useMemo, useState } from 'react';
-import { Wrench, Plus, Search, Ban, CheckCircle2, RotateCcw, Play, Package, Pencil } from 'lucide-react';
+import {
+  Wrench,
+  Plus,
+  Search,
+  Ban,
+  CheckCircle2,
+  RotateCcw,
+  Play,
+  Package,
+  Pencil,
+  ShieldCheck,
+  DollarSign,
+  Percent,
+  User,
+  Building2,
+  Scale
+} from 'lucide-react';
 import type { Customer, Product, ServiceOrder, ServiceOrderStatus } from '../types';
 import { OrdemServicoModal } from './OrdemServicoModal';
+import { GarantiaPecaModal } from './GarantiaPecaModal';
 import { calcularTotaisOs, OS_STATUS_LABEL, podeTransicionarOs, proximoNumeroOs } from '../utils/serviceOrder';
 
 interface OrdemServicoManagerProps {
@@ -53,8 +70,38 @@ export const OrdemServicoManager: React.FC<OrdemServicoManagerProps> = ({
   const [osEmEdicao, setOsEmEdicao] = useState<ServiceOrder | null>(null);
   const [cancelarAlvo, setCancelarAlvo] = useState<ServiceOrder | null>(null);
   const [cancelarConfirmacao, setCancelarConfirmacao] = useState('');
+  const [garantiaAlvo, setGarantiaAlvo] = useState<{ os: ServiceOrder; product: Product | null } | null>(null);
 
   const proximoId = useMemo(() => proximoNumeroOs(serviceOrders), [serviceOrders]);
+
+  // Resumo Financeiro & Comissões para o Contratante
+  const resumoFinanceiro = useMemo(() => {
+    return serviceOrders.reduce(
+      (acc, os) => {
+        if (os.status === 'Cancelada') return acc;
+        const totais = calcularTotaisOs(os);
+        acc.totalGeral += totais.totalAmount;
+        acc.totalPecas += totais.partsTotal;
+        acc.totalMaoDeObra += totais.laborTotal;
+        acc.comissoesVendedores += totais.sellerCommissionAmount;
+        acc.comissoesMecanicos += totais.mechanicCommissionAmount;
+        acc.comissoesOficinas += totais.workshopPartsCommissionAmount;
+        if (os.status === 'Finalizada' || os.status === 'Faturada') {
+          acc.garantiasAtivas += 1;
+        }
+        return acc;
+      },
+      {
+        totalGeral: 0,
+        totalPecas: 0,
+        totalMaoDeObra: 0,
+        comissoesVendedores: 0,
+        comissoesMecanicos: 0,
+        comissoesOficinas: 0,
+        garantiasAtivas: 0,
+      }
+    );
+  }, [serviceOrders]);
 
   const lista = useMemo(() => {
     const termo = searchTerm.trim().toLowerCase();
@@ -124,6 +171,91 @@ export const OrdemServicoManager: React.FC<OrdemServicoManagerProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Painel do Contratante: Definição e Resumo de Comissões & Garantias CDC */}
+      <div className="bg-white rounded-2xl p-5 border border-sky-100 shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-[#0284C7] font-bold text-xs uppercase tracking-wider mb-1">
+              <Wrench className="w-4 h-4 text-[#0284C7]" />
+              <span>Gestão de Oficina &amp; Venda de Peças em OS</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 font-['Outfit'] tracking-tight">
+              Ordens de Serviço, Comissões &amp; Garantia de Peças
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Definição de comissão para vendedor e oficina parceira na venda de peças, mão de obra mecânica e emissão de laudo de garantia (CDC Brasil).
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={abrirNova}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-[#0C4A6E] hover:bg-[#0C4A6E]/90 text-white font-bold text-xs rounded-xl shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap self-start md:self-auto"
+          >
+            <Plus className="w-4 h-4 text-emerald-400" />
+            <span>Nova Ordem de Serviço</span>
+          </button>
+        </div>
+
+        {/* KPIs de Comissões e Garantias para o Cliente Contratante */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-3 border-t border-slate-100">
+          <div className="bg-sky-50/70 border border-sky-100 p-3 rounded-xl">
+            <span className="text-[10px] font-bold text-sky-800 uppercase block flex items-center gap-1">
+              <User className="w-3 h-3 text-[#0284C7]" />
+              Comissão Vendedor (Peças)
+            </span>
+            <span className="text-base font-black text-sky-950 font-mono mt-0.5 block">
+              R$ {resumoFinanceiro.comissoesVendedores.toFixed(2)}
+            </span>
+            <span className="text-[10px] text-sky-700">Repasse sobre peças em OS</span>
+          </div>
+
+          <div className="bg-emerald-50/70 border border-emerald-100 p-3 rounded-xl">
+            <span className="text-[10px] font-bold text-emerald-800 uppercase block flex items-center gap-1">
+              <Building2 className="w-3 h-3 text-emerald-600" />
+              Comissão Oficina Parceira
+            </span>
+            <span className="text-base font-black text-emerald-950 font-mono mt-0.5 block">
+              R$ {resumoFinanceiro.comissoesOficinas.toFixed(2)}
+            </span>
+            <span className="text-[10px] text-emerald-700">Bonificação por venda de peças</span>
+          </div>
+
+          <div className="bg-amber-50/70 border border-amber-100 p-3 rounded-xl">
+            <span className="text-[10px] font-bold text-amber-800 uppercase block flex items-center gap-1">
+              <Wrench className="w-3 h-3 text-amber-600" />
+              Comissão Mecânico
+            </span>
+            <span className="text-base font-black text-amber-950 font-mono mt-0.5 block">
+              R$ {resumoFinanceiro.comissoesMecanicos.toFixed(2)}
+            </span>
+            <span className="text-[10px] text-amber-700">Sobre serviços prestados</span>
+          </div>
+
+          <div className="bg-indigo-50/70 border border-indigo-100 p-3 rounded-xl">
+            <span className="text-[10px] font-bold text-indigo-800 uppercase block flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-indigo-600" />
+              Garantias Ativas CDC
+            </span>
+            <span className="text-base font-black text-indigo-950 font-mono mt-0.5 block">
+              {resumoFinanceiro.garantiasAtivas} OS
+            </span>
+            <span className="text-[10px] text-indigo-700">Lei 8.078/90 (Art. 26 &amp; 50)</span>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl col-span-2 sm:col-span-1">
+            <span className="text-[10px] font-bold text-slate-500 uppercase block flex items-center gap-1">
+              <DollarSign className="w-3 h-3 text-slate-600" />
+              Faturamento Total OS
+            </span>
+            <span className="text-base font-black text-slate-900 font-mono mt-0.5 block">
+              R$ {resumoFinanceiro.totalGeral.toFixed(2)}
+            </span>
+            <span className="text-[10px] text-slate-500">Peças: R$ {resumoFinanceiro.totalPecas.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Barra de filtros e ações */}
       <div className="bg-white rounded-2xl p-4 border border-sky-50 shadow-sm flex flex-col sm:flex-row items-center gap-3">
         <div className="relative flex-1 w-full">
@@ -262,6 +394,20 @@ export const OrdemServicoManager: React.FC<OrdemServicoManagerProps> = ({
                         </button>
                       )}
 
+                      {/* Emissão de Garantia de Peças CDC */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const firstPart = os.parts[0];
+                          const matchedProduct = firstPart ? products.find((p) => p.id === firstPart.productId) || null : null;
+                          setGarantiaAlvo({ os, product: matchedProduct });
+                        }}
+                        className="p-1.5 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                        title="Emitir Certificado & Laudo de Garantia CDC das Peças"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                      </button>
+
                       {podeTransicionarOs(os.status, 'Cancelada') && (
                         <button
                           type="button"
@@ -358,6 +504,21 @@ export const OrdemServicoManager: React.FC<OrdemServicoManagerProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Emissão de Garantia de Peças (Normas CDC Brasil) */}
+      {garantiaAlvo && (
+        <GarantiaPecaModal
+          isOpen={Boolean(garantiaAlvo)}
+          onClose={() => setGarantiaAlvo(null)}
+          product={garantiaAlvo.product}
+          products={products}
+          customers={customers}
+          initialPlate={garantiaAlvo.os.vehiclePlate}
+          initialCustomerName={garantiaAlvo.os.customerName}
+          initialCustomerDoc={garantiaAlvo.os.customerDocument}
+          onShowNotification={onShowNotification}
+        />
       )}
     </div>
   );

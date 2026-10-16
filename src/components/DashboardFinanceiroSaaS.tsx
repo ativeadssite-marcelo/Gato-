@@ -15,9 +15,15 @@ import {
   Sparkles,
   Loader2,
   ShieldAlert,
+  Scale,
+  Fingerprint,
+  ShieldCheck,
+  Lock
 } from 'lucide-react';
 import { apiJson } from '../services/apiClient';
 import type { Invoice, TenantSubscription } from '../types/billing';
+import { ConfiguracaoFiscalContratoModal } from './ConfiguracaoFiscalContratoModal';
+import { ContratoLgpdModal } from './ContratoLgpdModal';
 
 interface PlanInfo {
   id: string;
@@ -44,6 +50,8 @@ export const DashboardFinanceiroSaaS: React.FC = () => {
   const [plans, setPlans] = useState<PlanInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFiscalTenantId, setSelectedFiscalTenantId] = useState<string | null>(null);
+  const [selectedLgpdTenantId, setSelectedLgpdTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -146,6 +154,7 @@ export const DashboardFinanceiroSaaS: React.FC = () => {
                 <th className="px-5 py-3 font-semibold">Plano</th>
                 <th className="px-5 py-3 font-semibold">Status</th>
                 <th className="px-5 py-3 font-semibold">Gateway</th>
+                <th className="px-5 py-3 font-semibold text-right">Governança do Contrato</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/70">
@@ -164,15 +173,57 @@ export const DashboardFinanceiroSaaS: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-slate-400">{s.gateway || '—'}</td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFiscalTenantId(s.tenantId)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 transition cursor-pointer"
+                        title="Configuração fiscal homologada deste contrato"
+                      >
+                        <Scale className="w-3.5 h-3.5 text-sky-400" />
+                        <span>Fiscal</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLgpdTenantId(s.tenantId)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition cursor-pointer"
+                        title="Contrato de Concessão SaaS & DPA LGPD"
+                      >
+                        <Fingerprint className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Contrato LGPD</span>
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {subscriptions.length === 0 && (
-                <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">Nenhuma assinatura registrada.</td></tr>
+                <tr><td colSpan={5} className="px-5 py-8 text-center text-slate-500">Nenhuma assinatura registrada.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* MODAL CONFIGURAÇÃO FISCAL DO CONTRATO */}
+      {selectedFiscalTenantId && (
+        <ConfiguracaoFiscalContratoModal
+          isOpen={!!selectedFiscalTenantId}
+          onClose={() => setSelectedFiscalTenantId(null)}
+          tenantId={selectedFiscalTenantId}
+          tenantName={selectedFiscalTenantId === 'cmtt58e6o0000ju346a0g6s32' ? 'MGN Autopeças Matriz' : selectedFiscalTenantId === 'cmtvk1ieq0000ju8c3kg5n85l' ? 'Pantanal Diesel Truck Center' : 'TransLog Autocenter'}
+        />
+      )}
+
+      {/* MODAL CONTRATO LGPD */}
+      {selectedLgpdTenantId && (
+        <ContratoLgpdModal
+          isOpen={!!selectedLgpdTenantId}
+          onClose={() => setSelectedLgpdTenantId(null)}
+          tenantId={selectedLgpdTenantId}
+        />
+      )}
     </div>
   );
 };

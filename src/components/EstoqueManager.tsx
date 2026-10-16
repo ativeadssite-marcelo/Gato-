@@ -27,10 +27,12 @@ import {
   Cable,
   Zap,
   Ban,
-  RotateCcw
+  RotateCcw,
+  ShieldCheck
 } from 'lucide-react';
-import { Product, VehicleCategory, UserSession, PhysicalInventoryItem } from '../types';
+import { Product, VehicleCategory, UserSession, PhysicalInventoryItem, Customer } from '../types';
 import { CadastroPecaModal } from './CadastroPecaModal';
+import { GarantiaPecaModal } from './GarantiaPecaModal';
 import { setProductActive, isDatabaseNotConfiguredError } from '../services/entityApi';
 
 // Shim para imageOptimizer removido
@@ -42,6 +44,7 @@ function formatImageSize(bytes: number): string {
 
 interface EstoqueManagerProps {
   products: Product[];
+  customers?: Customer[];
   userSession?: UserSession | null;
   onUpdateProducts: (products: Product[]) => void;
   onAddNewProduct?: (product: Product) => void;
@@ -53,6 +56,7 @@ interface EstoqueManagerProps {
 
 export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
   products,
+  customers = [],
   userSession,
   onUpdateProducts,
   onAddNewProduct,
@@ -78,6 +82,10 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
   const [selectedEtiquetaProduct, setSelectedEtiquetaProduct] = useState<Product | null>(products[0] || null);
   const [etiquetaTipo, setEtiquetaTipo] = useState<'gondola' | 'adesiva'>('gondola');
   const [etiquetaCopias, setEtiquetaCopias] = useState(4);
+
+  // Modal de Emissão de Garantia de Peças (Normas CDC Brasil)
+  const [isGarantiaModalOpen, setIsGarantiaModalOpen] = useState(false);
+  const [garantiaProduct, setGarantiaProduct] = useState<Product | null>(null);
 
   // Modal Inventário Físico & Balanço
   const [isInventarioModalOpen, setIsInventarioModalOpen] = useState(false);
@@ -477,6 +485,20 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
               <span>Inventário & Balanço</span>
             </button>
 
+            {/* Emitir Laudo de Garantia de Peça (Normas Brasil / CDC) */}
+            <button
+              type="button"
+              onClick={() => {
+                setGarantiaProduct(products[0] || null);
+                setIsGarantiaModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold rounded-lg text-xs transition active:scale-95 cursor-pointer whitespace-nowrap"
+              title="Emitir Certificado & Laudo de Garantia CDC para Peças do Estoque"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Emitir Garantia (CDC)</span>
+            </button>
+
             {/* Direct Cadastrar Peça Action */}
             <button
               type="button"
@@ -725,12 +747,25 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
                             <button
                               type="button"
                               onClick={() => onSelectForQuote(product)}
-                              className="p-1.5 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 transition font-bold"
+                              className="p-1.5 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 transition font-bold cursor-pointer"
                               title="Cotar no Balcão"
                             >
                               <Tag className="w-4 h-4" />
                             </button>
                           )}
+
+                          {/* Emissão de Garantia de Peça com Normas do Brasil CDC e Foto */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGarantiaProduct(product);
+                              setIsGarantiaModalOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition font-bold cursor-pointer"
+                            title="Emitir Certificado & Laudo de Garantia CDC (Normas do Brasil)"
+                          >
+                            <ShieldCheck className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1474,6 +1509,20 @@ export const EstoqueManager: React.FC<EstoqueManagerProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL: EMISSÃO DE GARANTIA DE PEÇAS (NORMAS BRASIL CDC) */}
+      <GarantiaPecaModal
+        isOpen={isGarantiaModalOpen}
+        onClose={() => {
+          setIsGarantiaModalOpen(false);
+          setGarantiaProduct(null);
+        }}
+        product={garantiaProduct}
+        products={products}
+        customers={customers}
+        userSession={userSession}
+        onShowNotification={onShowNotification}
+      />
     </div>
   );
 };

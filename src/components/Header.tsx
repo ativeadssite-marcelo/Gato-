@@ -334,32 +334,45 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 )}
 
-                {/* Active CD Details */}
-                <div className="px-2.5 py-2 bg-slate-900 text-white rounded-xl mb-2 text-xs space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-sky-400 font-bold uppercase">
-                    <span>CD de Venda Ativo:</span>
-                    <span className="bg-sky-700/80 text-white px-1 rounded">{activeBranch.uf}</span>
+                {userSession.isSaasScope ? (
+                  <div className="px-2.5 py-2 bg-gradient-to-r from-purple-900 to-indigo-900 text-white rounded-xl mb-2 text-xs space-y-1 border border-purple-500/30">
+                    <div className="flex items-center justify-between text-[10px] text-purple-300 font-bold uppercase">
+                      <span>Plataforma SaaS Central:</span>
+                      <span className="bg-purple-700/80 text-white px-1 rounded font-black">Camada 1</span>
+                    </div>
+                    <p className="font-bold text-white text-xs truncate">Super Admin — Gestão Global</p>
+                    <p className="text-[10px] text-purple-200/80 pt-0.5">Gerencia contratos, planos e clientes. Dados operacionais e senhas isolados.</p>
                   </div>
-                  <p className="font-bold text-white text-xs truncate">{activeBranch.name}</p>
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
-                    <span>SEFAZ-{activeBranch.uf}</span>
-                    <span className="text-emerald-400 font-bold">ICMS Interno: {activeBranch.icmsInterno}%</span>
+                ) : (
+                  /* Active CD Details */
+                  <div className="px-2.5 py-2 bg-slate-900 text-white rounded-xl mb-2 text-xs space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-sky-400 font-bold uppercase">
+                      <span>CD de Venda Ativo:</span>
+                      <span className="bg-sky-700/80 text-white px-1 rounded">{activeBranch.uf}</span>
+                    </div>
+                    <p className="font-bold text-white text-xs truncate">{activeBranch.name}</p>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                      <span>SEFAZ-{activeBranch.uf}</span>
+                      <span className="text-emerald-400 font-bold">ICMS Interno: {activeBranch.icmsInterno}%</span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Actions */}
                 <div className="space-y-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onOpenTrocaFilial();
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl text-slate-700 hover:bg-sky-50 hover:text-[#0C4A6E] font-bold flex items-center gap-2 transition cursor-pointer"
-                  >
-                    <Building2 className="w-4 h-4 text-[#0284C7]" />
-                    <span>Alternar Filial / Estado do CD</span>
-                  </button>
+                  {!userSession.isSaasScope && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenTrocaFilial();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-slate-700 hover:bg-sky-50 hover:text-[#0C4A6E] font-bold flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <Building2 className="w-4 h-4 text-[#0284C7]" />
+                      <span>Alternar Filial / Estado do CD</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"

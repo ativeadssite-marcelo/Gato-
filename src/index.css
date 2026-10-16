@@ -1,6 +1,33 @@
 @import "tailwindcss";
 
-/* Custom modern rounded scrollbars */
+@theme {
+  --radius-none: 0px;
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --radius-xl: 7px;
+  --radius-2xl: 8px;
+  --radius-3xl: 8px;
+  --radius-4xl: 10px;
+  --radius-full: 9999px;
+  --radius: 6px;
+}
+
+/* =========================================================================
+   DIRETIVA DE DESIGN EQUILIBRADA (MEIO TERMO):
+   Quinas sutilmente arredondadas (4px a 7px) - estilo moderno, limpo e profissional.
+   Um meio termo perfeito: menos arredondado que o visual inicial (16px - 24px),
+   e mais suave que as quinas retas de 90° (0px).
+   ========================================================================= */
+
+/* Modais e popovers com suavização refinada de meio termo */
+[role="dialog"],
+.modal-container {
+  border-radius: 8px;
+}
+
+/* Custom scrollbars suaves com leve curvatura */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -8,12 +35,12 @@
 
 ::-webkit-scrollbar-track {
   background: transparent;
-  border-radius: 9999px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.35);
-  border-radius: 9999px;
+  border-radius: 4px;
   transition: background-color 0.2s ease;
 }
 
@@ -21,7 +48,7 @@
   background: rgba(148, 163, 184, 0.65);
 }
 
-/* Accent rounded scrollbar for Sidebar and Dark Containers */
+/* Accent scrollbar for Sidebar and Dark Containers */
 #gato-sidebar nav::-webkit-scrollbar,
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
@@ -31,13 +58,13 @@
 #gato-sidebar nav::-webkit-scrollbar-track,
 .custom-scrollbar::-webkit-scrollbar-track {
   background: rgba(15, 23, 42, 0.3);
-  border-radius: 9999px;
+  border-radius: 4px;
 }
 
 #gato-sidebar nav::-webkit-scrollbar-thumb,
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(234, 88, 12, 0.45);
-  border-radius: 9999px;
+  border-radius: 4px;
 }
 
 #gato-sidebar nav::-webkit-scrollbar-thumb:hover,
@@ -55,4 +82,3 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(234, 88, 12, 0.5) rgba(15, 23, 42, 0.3);
 }
-

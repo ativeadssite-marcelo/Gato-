@@ -407,16 +407,28 @@ export const ConnectorsManager: React.FC<ConnectorsManagerProps> = ({
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-3">
-              <Cable className="w-3.5 h-3.5 text-indigo-400" />
-              Central de Conectores & Hub Integrador v2.6
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-300 text-xs font-black uppercase tracking-wider">
+                <Building2 className="w-3.5 h-3.5 text-sky-400" />
+                Camada 2 — Empresa / Cliente Contratante
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                Contas Bancárias & Vendas 100% Privadas (Sigilo LGPD)
+              </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Conectores E-commerce, Get Bancário & Marketplaces
+              Conectores Comerciais, Gateway Bancário & Marketplaces
             </h1>
             <p className="text-slate-300 text-sm mt-1 max-w-3xl leading-relaxed">
-              Gestão de estoque em tempo real com segregação inteligente entre <strong>Estoque Central (CD Matriz/Balcão)</strong> e <strong>Estoque Externo (Mercado Livre Full & Amazon FBA)</strong>, emissão de PIX dinâmico com conciliação automática e conectores prontos para Landing Page e Lojas Virtuais.
+              Gestão de estoque em tempo real com segregação inteligente entre <strong>Estoque Central (CD Matriz/Balcão)</strong> e <strong>Estoque Externo (Mercado Livre Full & Amazon FBA)</strong>, emissão de PIX dinâmico e conciliação bancária própria da sua empresa.
             </p>
+            <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-sky-500/20 text-xs text-sky-200/90 flex items-start gap-2">
+              <Lock className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>
+                <strong>Privacidade e Sigilo Garantidos pelo Contrato SaaS:</strong> Suas contas bancárias, credenciais de gateways (PIX, boletos) e tokens de vendedores em marketplaces são restritos à sua empresa. O Super Admin da plataforma não tem acesso nem visualização aos seus dados de faturamento ou senhas.
+              </span>
+            </div>
           </div>
 
           {/* Quick Action Buttons */}

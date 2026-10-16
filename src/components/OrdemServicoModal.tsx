@@ -11,7 +11,7 @@
 // =========================================================================
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Wrench, Package, X } from 'lucide-react';
+import { Plus, Trash2, Wrench, Package, X, DollarSign, Percent, User, Building2, ShieldCheck, Scale } from 'lucide-react';
 import type {
   Customer,
   Product,
@@ -50,6 +50,14 @@ function osEmBranco(proximoId: string, branchId: string): ServiceOrder {
     vehicleYear: new Date().getFullYear(),
     vehicleKm: 0,
     mechanicAssigned: '',
+    mechanicCommissionPercent: 40, // Padrão oficina: 40% sobre serviços
+    mechanicCommissionAmount: 0,
+    sellerAssigned: '',
+    sellerCommissionPercent: 2.5,  // Padrão balcão: 2.5% sobre peças
+    sellerCommissionAmount: 0,
+    workshopName: '',
+    workshopPartsCommissionPercent: 0,
+    workshopPartsCommissionAmount: 0,
     problemReported: '',
     parts: [],
     labor: [],
@@ -57,7 +65,7 @@ function osEmBranco(proximoId: string, branchId: string): ServiceOrder {
     laborTotal: 0,
     discount: 0,
     totalAmount: 0,
-    warrantyDays: 90,
+    warrantyDays: 90, // Padrão legal CDC
     branchId,
   };
 }
@@ -82,8 +90,23 @@ export const OrdemServicoModal: React.FC<OrdemServicoModalProps> = ({
   }, [isOpen, os?.id, proximoId, branchId]);
 
   const totais = useMemo(
-    () => calcularTotaisOs({ parts: draft.parts, labor: draft.labor, discount: draft.discount }),
-    [draft.parts, draft.labor, draft.discount]
+    () =>
+      calcularTotaisOs({
+        parts: draft.parts,
+        labor: draft.labor,
+        discount: draft.discount,
+        sellerCommissionPercent: draft.sellerCommissionPercent,
+        mechanicCommissionPercent: draft.mechanicCommissionPercent,
+        workshopPartsCommissionPercent: draft.workshopPartsCommissionPercent,
+      }),
+    [
+      draft.parts,
+      draft.labor,
+      draft.discount,
+      draft.sellerCommissionPercent,
+      draft.mechanicCommissionPercent,
+      draft.workshopPartsCommissionPercent,
+    ]
   );
 
   if (!isOpen) return null;
@@ -194,14 +217,14 @@ export const OrdemServicoModal: React.FC<OrdemServicoModalProps> = ({
         </div>
 
         <div className="p-5 space-y-5">
-          {/* Cliente e veículo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2">
+          {/* Cliente, Vendedor e Oficina */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold text-slate-600 mb-1">Cliente *</label>
               <select
                 value={draft.customerId}
                 onChange={(e) => selecionarCliente(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white font-medium"
               >
                 <option value="">Selecione o cliente…</option>
                 {customers.map((c) => (
@@ -210,15 +233,37 @@ export const OrdemServicoModal: React.FC<OrdemServicoModalProps> = ({
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Mecânico responsável</label>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                <span className="flex items-center gap-1">
+                  <User className="w-3 h-3 text-[#0284C7]" /> Vendedor (Peças)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={draft.sellerAssigned || ''}
+                onChange={(e) => alterar('sellerAssigned', e.target.value)}
+                placeholder="Nome do consultor/vendedor"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                <span className="flex items-center gap-1">
+                  <Wrench className="w-3 h-3 text-amber-600" /> Mecânico / Oficina
+                </span>
+              </label>
               <input
                 type="text"
                 value={draft.mechanicAssigned}
                 onChange={(e) => alterar('mechanicAssigned', e.target.value)}
-                placeholder="Nome do mecânico"
+                placeholder="Mecânico ou Oficina executora"
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs"
               />
             </div>
+          </div>
+
+          {/* Dados do Veículo */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <label className="block text-[11px] font-bold text-slate-600 mb-1">Placa *</label>
               <input
@@ -226,29 +271,29 @@ export const OrdemServicoModal: React.FC<OrdemServicoModalProps> = ({
                 value={draft.vehiclePlate}
                 onChange={(e) => alterar('vehiclePlate', e.target.value.toUpperCase())}
                 placeholder="ABC-1D23"
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold"
               />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold text-slate-600 mb-1">Marca / Modelo</label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={draft.vehicleBrand}
                   onChange={(e) => alterar('vehicleBrand', e.target.value)}
-                  placeholder="Marca"
+                  placeholder="Marca (ex: Scania / Toyota)"
                   className="w-1/3 px-3 py-2 border border-slate-300 rounded-xl text-xs"
                 />
                 <input
                   type="text"
                   value={draft.vehicleModel}
                   onChange={(e) => alterar('vehicleModel', e.target.value)}
-                  placeholder="Modelo"
+                  placeholder="Modelo (ex: R450 / Hilux)"
                   className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[11px] font-bold text-slate-600 mb-1">Ano</label>
                 <input
@@ -267,16 +312,16 @@ export const OrdemServicoModal: React.FC<OrdemServicoModalProps> = ({
                   className="w-full px-2 py-2 border border-slate-300 rounded-xl text-xs"
                 />
               </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">Motor</label>
-                <input
-                  type="text"
-                  value={draft.vehicleMotor || ''}
-                  onChange={(e) => alterar('vehicleMotor', e.target.value)}
-                  placeholder="1.0 / OM-352"
-                  className="w-full px-2 py-2 border border-slate-300 rounded-xl text-xs"
-                />
-              </div>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">Motor</label>
+              <input
+                type="text"
+                value={draft.vehicleMotor || ''}
+                onChange={(e) => alterar('vehicleMotor', e.target.value)}
+                placeholder="1.0 / OM-352"
+                className="w-full px-2 py-2 border border-slate-300 rounded-xl text-xs"
+              />
             </div>
           </div>
 
@@ -428,6 +473,96 @@ export const OrdemServicoModal: React.FC<OrdemServicoModalProps> = ({
             )}
           </div>
 
+          {/* Definição de Comissões (Vendedor de Peças & Oficina / Mecânico) */}
+          <div className="border border-indigo-200 bg-indigo-50/40 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-xs font-black text-indigo-950 uppercase tracking-tight">
+                <DollarSign className="w-4 h-4 text-indigo-600" />
+                Comissões Definidas pela Empresa Contratante
+              </span>
+              <span className="text-[10px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                Repasse Automático
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Comissão Vendedor */}
+              <div className="bg-white p-3 rounded-lg border border-indigo-100 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                    <User className="w-3.5 h-3.5 text-[#0284C7]" />
+                    Comissão Vendedor (Peças)
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-[#0284C7]">
+                    R$ {totais.sellerCommissionAmount.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    value={draft.sellerCommissionPercent ?? 2.5}
+                    onChange={(e) => alterar('sellerCommissionPercent', Number(e.target.value) || 0)}
+                    className="w-20 px-2 py-1 text-xs border border-slate-300 rounded font-bold text-center"
+                  />
+                  <span className="text-[11px] text-slate-500 font-semibold">% sobre R$ {totais.partsTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Comissão Mecânico / Executor */}
+              <div className="bg-white p-3 rounded-lg border border-indigo-100 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                    <Wrench className="w-3.5 h-3.5 text-amber-600" />
+                    Comissão Mecânico (Serviços)
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-amber-700">
+                    R$ {totais.mechanicCommissionAmount.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={draft.mechanicCommissionPercent ?? 40}
+                    onChange={(e) => alterar('mechanicCommissionPercent', Number(e.target.value) || 0)}
+                    className="w-20 px-2 py-1 text-xs border border-slate-300 rounded font-bold text-center"
+                  />
+                  <span className="text-[11px] text-slate-500 font-semibold">% sobre R$ {totais.laborTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Comissão Oficina Parceira (Peças) */}
+              <div className="bg-white p-3 rounded-lg border border-indigo-100 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Comissão Oficina Parceira
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-emerald-700">
+                    R$ {totais.workshopPartsCommissionAmount.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    value={draft.workshopPartsCommissionPercent ?? 0}
+                    onChange={(e) => alterar('workshopPartsCommissionPercent', Number(e.target.value) || 0)}
+                    className="w-20 px-2 py-1 text-xs border border-slate-300 rounded font-bold text-center"
+                  />
+                  <span className="text-[11px] text-slate-500 font-semibold">% sobre peças da OS</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Totais */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
             <div>
@@ -450,23 +585,30 @@ export const OrdemServicoModal: React.FC<OrdemServicoModalProps> = ({
               />
             </div>
             <div>
-              <span className="block text-[10px] font-bold text-slate-500 uppercase">Total</span>
+              <span className="block text-[10px] font-bold text-slate-500 uppercase">Total Geral</span>
               <span className="font-mono text-base font-black text-emerald-700">R$ {totais.totalAmount.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-slate-200 p-5 sticky bottom-0 bg-white">
-          <label className="flex items-center gap-2 text-[11px] text-slate-600">
-            Garantia (dias):
-            <input
-              type="number"
-              min={0}
-              value={draft.warrantyDays ?? 90}
-              onChange={(e) => alterar('warrantyDays', Number(e.target.value) || 0)}
-              className="w-20 px-2 py-1 border border-slate-300 rounded-lg text-xs text-right"
-            />
-          </label>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200 p-5 sticky bottom-0 bg-white">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-[11px] text-slate-700 font-semibold">
+              <ShieldCheck className="w-4 h-4 text-[#0284C7]" />
+              Garantia Legal CDC:
+              <input
+                type="number"
+                min={0}
+                value={draft.warrantyDays ?? 90}
+                onChange={(e) => alterar('warrantyDays', Number(e.target.value) || 0)}
+                className="w-16 px-2 py-1 border border-slate-300 rounded text-xs text-right font-bold"
+              />
+              <span className="text-[10px] text-slate-500">dias (Lei 8.078/90)</span>
+            </label>
+            <span className="text-[10px] bg-sky-50 text-sky-800 px-2 py-0.5 rounded border border-sky-200 font-medium hidden md:inline-block">
+              Cobertura obrigatória de 90 dias para autopeças duráveis
+            </span>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
