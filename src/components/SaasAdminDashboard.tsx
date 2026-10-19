@@ -23,7 +23,10 @@ import {
   UserX,
   FileText,
   Scale,
-  Fingerprint
+  Fingerprint,
+  Package,
+  Box,
+  Sliders
 } from 'lucide-react';
 import { apiJson } from '../services/apiClient';
 import type { TenantAccount } from '../types/rbac';
@@ -159,6 +162,14 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigate('planos-pacotes')}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-black text-xs shadow-lg shadow-purple-600/30 transition transform hover:-translate-y-0.5 cursor-pointer"
+            >
+              <Package className="w-4 h-4 text-purple-200" />
+              Pacotes & Preços
+            </button>
             <button
               type="button"
               onClick={() => onNavigate('conectores')}
@@ -515,7 +526,19 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
       </div>
 
       {/* ATALHOS RÁPIDOS DE GOVERNANÇA DO SAAS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
+        <button
+          type="button"
+          onClick={() => onNavigate('planos-pacotes')}
+          className="p-4 rounded-2xl bg-gradient-to-b from-purple-950/60 to-slate-900 hover:bg-slate-800 border border-purple-500/40 hover:border-purple-400 text-left transition cursor-pointer group shadow-lg"
+        >
+          <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <Package className="w-4 h-4 text-purple-300" />
+          </div>
+          <h3 className="font-bold text-white text-xs">Pacotes & Preços</h3>
+          <p className="text-[11px] text-purple-200/80 mt-0.5">Cadastrar pacotes, valores e limites de itens/clientes.</p>
+        </button>
+
         <button
           type="button"
           onClick={() => onNavigate('conectores')}

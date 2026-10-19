@@ -28,7 +28,8 @@ import {
   Database,
   Layers,
   KeyRound,
-  Wallet
+  Wallet,
+  Package
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { UserSession, BranchUnit, CompanyProfile } from '../types';
@@ -229,6 +230,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Home,
       aliases: ['saas-dashboard', 'dashboard', 'home', 'inicio'],
       badge: 'Camada 1',
+    },
+    {
+      id: 'planos-pacotes',
+      label: 'Pacotes & Planos (Valores & Cotas)',
+      icon: Package,
+      aliases: ['planos-pacotes', 'pacotes', 'planos', 'precos', 'cotas'],
+      badge: 'Super Admin',
     },
     {
       id: 'financeiro-saas',

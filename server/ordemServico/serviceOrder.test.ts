@@ -116,7 +116,9 @@ test("desconto maior que o serviço não gera total negativo", () => {
 
 test("OS sem peças nem serviços fecha em zero, sem estourar", () => {
   const totais = calcularTotaisOs({ parts: [], labor: [], discount: 0 });
-  assert.deepStrictEqual(totais, { partsTotal: 0, laborTotal: 0, totalAmount: 0 });
+  assert.strictEqual(totais.partsTotal, 0);
+  assert.strictEqual(totais.laborTotal, 0);
+  assert.strictEqual(totais.totalAmount, 0);
 });
 
 // -------------------------------------------------------------------------

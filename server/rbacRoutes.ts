@@ -5,6 +5,9 @@ import {
   RBAC_USERS_DATA,
   AUDIT_LOGS_DATA,
   SAAS_PLANS,
+  addSaasPlan,
+  updateSaasPlan,
+  deleteSaasPlan,
   MESSAGE_TEMPLATES,
   INTERNAL_MESSAGES_DATA,
   LGPD_REQUESTS_DATA,
@@ -713,6 +716,171 @@ rbacRouter.get("/plans", requireSaasScope, (req, res) => {
   res.json({
     success: true,
     plans: SAAS_PLANS
+  });
+});
+
+// 10.1 Cadastrar Novo Pacote SaaS (Super Admin)
+rbacRouter.post("/plans", requireSaasScope, requirePermission("limits_quotas", { write: true }), (req, res) => {
+  const caller = resolveAuthUser(req);
+  const { name, code, priceMonthly, priceAnnual, quotas, features, description, badge, active } = req.body;
+
+  if (!name || priceMonthly === undefined || priceMonthly === null) {
+    return res.status(400).json({ success: false, error: "Nome e Valor Mensal são obrigatórios." });
+  }
+
+  const numPrice = Number(priceMonthly);
+  if (isNaN(numPrice) || numPrice < 0) {
+    return res.status(400).json({ success: false, error: "Valor mensal deve ser um número válido." });
+  }
+
+  const cleanCode = (code || name.toLowerCase().replace(/[^a-z0-9]/g, '_')).slice(0, 32);
+  const planId = `plan_${cleanCode}_${Date.now().toString().slice(-4)}`;
+
+  const maxCust = Number(quotas?.maxCustomers);
+  const maxItm = Number(quotas?.maxItems);
+
+  const newPlan = {
+    id: planId,
+    code: cleanCode,
+    name: String(name).trim(),
+    description: description ? String(description).trim() : 'Pacote configurado pelo Super Admin.',
+    priceMonthly: numPrice,
+    priceAnnual: typeof priceAnnual === 'number' ? priceAnnual : Number((numPrice * 10).toFixed(2)),
+    badge: badge ? String(badge).trim() : undefined,
+    active: active !== false,
+    quotas: {
+      maxCustomers: !isNaN(maxCust) && maxCust > 0 ? maxCust : 1000,
+      maxItems: !isNaN(maxItm) && maxItm > 0 ? maxItm : 5000,
+      maxUsers: Number(quotas?.maxUsers) || 5,
+      maxEmployees: Number(quotas?.maxEmployees) || 15,
+      maxStorageMb: Number(quotas?.maxStorageMb) || 10240,
+      maxInternalMessagesMonth: Number(quotas?.maxInternalMessagesMonth) || 1000,
+      maxApiRequestsPerDay: Number(quotas?.maxApiRequestsPerDay) || 2000,
+    },
+    features: Array.isArray(features) && features.length > 0 ? features : [
+      'Balcão & Orçamentos',
+      'Catálogo & Estoque de Peças',
+      'Garantia CDC com Laudo e Fotos',
+      'Comissões de Vendedor & Oficina',
+      'Emissão de NF-e e Cupom Fiscal'
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  addSaasPlan(newPlan);
+
+  appendAuditLog({
+    id: `aud_plan_create_${Date.now()}`,
+    tenantId: 'saas_platform',
+    userId: caller.id,
+    userName: caller.name,
+    userRole: caller.roleCode,
+    resource: 'limits_quotas',
+    action: 'create',
+    status: 'success',
+    ipAddress: req.ip || '127.0.0.1',
+    userAgent: req.headers['user-agent'] || 'API Client',
+    details: `Super Admin cadastrou novo pacote: "${newPlan.name}" com valor de R$ ${newPlan.priceMonthly.toFixed(2)}/mês, cota de ${newPlan.quotas.maxItems.toLocaleString()} itens e ${newPlan.quotas.maxCustomers.toLocaleString()} clientes.`,
+    timestamp: new Date().toISOString()
+  });
+
+  res.status(201).json({
+    success: true,
+    plan: newPlan,
+    message: "Pacote cadastrado com sucesso!"
+  });
+});
+
+// 10.2 Editar Pacote SaaS e Valores (Super Admin)
+rbacRouter.put("/plans/:id", requireSaasScope, requirePermission("limits_quotas", { write: true }), (req, res) => {
+  const caller = resolveAuthUser(req);
+  const { id } = req.params;
+  const updates = req.body;
+
+  const existing = SAAS_PLANS.find(p => p.id === id);
+  if (!existing) {
+    return res.status(404).json({ success: false, error: "Pacote não encontrado." });
+  }
+
+  const updated = updateSaasPlan(id, updates);
+  if (!updated) {
+    return res.status(500).json({ success: false, error: "Falha ao atualizar o pacote." });
+  }
+
+  // Se o nome mudou, sincronizar nos tenants que usam este plano
+  if (updates.name && updates.name !== existing.name) {
+    TENANTS_DATA.forEach(t => {
+      if (t.planId === id) {
+        t.planName = updates.name;
+        mirrorTenantUpsert(t);
+      }
+    });
+  }
+
+  appendAuditLog({
+    id: `aud_plan_edit_${Date.now()}`,
+    tenantId: 'saas_platform',
+    userId: caller.id,
+    userName: caller.name,
+    userRole: caller.roleCode,
+    resource: 'limits_quotas',
+    action: 'update',
+    status: 'success',
+    ipAddress: req.ip || '127.0.0.1',
+    userAgent: req.headers['user-agent'] || 'API Client',
+    details: `Super Admin editou pacote "${updated.name}": Preço R$ ${updated.priceMonthly.toFixed(2)}/mês, Max Itens: ${updated.quotas.maxItems.toLocaleString()}, Max Clientes: ${updated.quotas.maxCustomers.toLocaleString()}.`,
+    timestamp: new Date().toISOString()
+  });
+
+  res.json({
+    success: true,
+    plan: updated,
+    message: "Pacote atualizado com sucesso!"
+  });
+});
+
+// 10.3 Excluir Pacote (Super Admin)
+rbacRouter.delete("/plans/:id", requireSaasScope, requirePermission("limits_quotas", { write: true }), (req, res) => {
+  const caller = resolveAuthUser(req);
+  const { id } = req.params;
+
+  const existing = SAAS_PLANS.find(p => p.id === id);
+  if (!existing) {
+    return res.status(404).json({ success: false, error: "Pacote não encontrado." });
+  }
+
+  const tenantsWithPlan = TENANTS_DATA.filter(t => t.planId === id);
+  if (tenantsWithPlan.length > 0) {
+    return res.status(400).json({
+      success: false,
+      error: `Não é permitido excluir o pacote "${existing.name}" porque há ${tenantsWithPlan.length} empresa(s) cliente(s) vinculada(s) a ele.`
+    });
+  }
+
+  const deleted = deleteSaasPlan(id);
+  if (!deleted) {
+    return res.status(500).json({ success: false, error: "Falha ao remover o pacote." });
+  }
+
+  appendAuditLog({
+    id: `aud_plan_del_${Date.now()}`,
+    tenantId: 'saas_platform',
+    userId: caller.id,
+    userName: caller.name,
+    userRole: caller.roleCode,
+    resource: 'limits_quotas',
+    action: 'delete',
+    status: 'success',
+    ipAddress: req.ip || '127.0.0.1',
+    userAgent: req.headers['user-agent'] || 'API Client',
+    details: `Super Admin removeu o pacote "${existing.name}" (ID: ${id}).`,
+    timestamp: new Date().toISOString()
+  });
+
+  res.json({
+    success: true,
+    message: `Pacote "${existing.name}" excluído com sucesso.`
   });
 });
 

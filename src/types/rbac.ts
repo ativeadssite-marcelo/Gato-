@@ -139,9 +139,13 @@ export interface RbacUser {
 
 export interface PlanLimitConfig {
   id: string;
-  code: 'starter' | 'pro' | 'enterprise' | 'custom';
+  code: 'starter' | 'pro' | 'enterprise' | 'custom' | string;
   name: string;
+  description?: string;
   priceMonthly: number;
+  priceAnnual?: number;
+  badge?: string;
+  active?: boolean;
   quotas: {
     maxCustomers: number;
     maxItems: number;
@@ -152,6 +156,8 @@ export interface PlanLimitConfig {
     maxApiRequestsPerDay: number;
   };
   features: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface TenantQuotaUsage {

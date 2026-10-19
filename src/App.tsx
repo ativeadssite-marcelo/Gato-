@@ -30,6 +30,7 @@ import { DashboardFinanceiroSaaS } from './components/DashboardFinanceiroSaaS';
 import { ConfiguracaoBancoDados } from './components/ConfiguracaoBancoDados';
 import { CamadasAcesso } from './components/CamadasAcesso';
 import { SaasAdminDashboard } from './components/SaasAdminDashboard';
+import { GestaoPacotesPlanos } from './components/GestaoPacotesPlanos';
 import { SaasConnectorsManager } from './components/SaasConnectorsManager';
 import { CatalogIsolationNotice } from './components/CatalogIsolationNotice';
 import { EquipeAcessos } from './components/EquipeAcessos';
@@ -1442,6 +1443,13 @@ export default function App() {
           {((adminUnlocked || userSession?.isSaasScope) && currentView === 'camadas-acesso') && (
             <CamadasAcesso onShowNotification={showNotification} />
           )}
+
+          {((adminUnlocked || userSession?.isSaasScope) && (currentView === 'planos-pacotes' || currentView === 'pacotes')) && (
+            <GestaoPacotesPlanos
+              onNavigate={(v) => setCurrentView(v)}
+              onShowNotification={showNotification}
+            />
+          )}
         </main>
       </div>
 
@@ -1476,13 +1484,15 @@ export default function App() {
         viewLabel={
           pendingRestrictedView === 'rbac' || pendingRestrictedView === 'admin-rbac' || pendingRestrictedView === 'governanca' || pendingRestrictedView === 'tenants' || pendingRestrictedView === 'seguranca'
             ? 'Admin — Imposto e Governança'
-            : pendingRestrictedView === 'financeiro-saas'
-              ? 'Financeiro SaaS — MRR & Churn'
-              : pendingRestrictedView === 'banco-dados'
-                ? 'Banco de Dados — Credenciais'
-                : pendingRestrictedView === 'camadas-acesso'
-                  ? 'Camadas de Acesso — Permissões por Papel'
-                  : 'Admin — Impostos e Regras Fiscais'
+            : pendingRestrictedView === 'planos-pacotes' || pendingRestrictedView === 'pacotes'
+              ? 'Super Admin — Pacotes, Preços e Cotas'
+              : pendingRestrictedView === 'financeiro-saas'
+                ? 'Financeiro SaaS — MRR & Churn'
+                : pendingRestrictedView === 'banco-dados'
+                  ? 'Banco de Dados — Credenciais'
+                  : pendingRestrictedView === 'camadas-acesso'
+                    ? 'Camadas de Acesso — Permissões por Papel'
+                    : 'Admin — Impostos e Regras Fiscais'
         }
         onConfirm={async (password) => {
           // A senha master é conferida no SERVIDOR (nenhum segredo existe no bundle).

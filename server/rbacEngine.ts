@@ -431,7 +431,11 @@ export const SAAS_PLANS: PlanLimitConfig[] = [
     id: 'plan_starter',
     code: 'starter',
     name: 'GATO Starter (Essencial)',
+    description: 'Ideal para autopeças e oficinas iniciantes com balcão de vendas e controle de estoque ágil.',
     priceMonthly: 189.90,
+    priceAnnual: 1899.00,
+    badge: 'Essencial',
+    active: true,
     quotas: {
       maxCustomers: 300,
       maxItems: 1500,
@@ -441,13 +445,17 @@ export const SAAS_PLANS: PlanLimitConfig[] = [
       maxInternalMessagesMonth: 200,
       maxApiRequestsPerDay: 500
     },
-    features: ['Balcão & Orçamentos', 'Catálogo Básico', 'NF-e Balcão', 'Suporte em Horário Comercial']
+    features: ['Balcão & Orçamentos', 'Catálogo Básico', 'NF-e Balcão', 'Garantia CDC de Peças', 'Suporte em Horário Comercial']
   },
   {
     id: 'plan_pro',
     code: 'pro',
     name: 'GATO Pro (Crescimento)',
+    description: 'Pacote completo para oficinas e autopeças consolidadas com integração de comissões e marketplaces.',
     priceMonthly: 389.90,
+    priceAnnual: 3899.00,
+    badge: 'Mais Popular',
+    active: true,
     quotas: {
       maxCustomers: 2500,
       maxItems: 15000,
@@ -457,13 +465,17 @@ export const SAAS_PLANS: PlanLimitConfig[] = [
       maxInternalMessagesMonth: 1500,
       maxApiRequestsPerDay: 5000
     },
-    features: ['Conectores Mercado Livre & Shopee', 'SPED Fiscal', 'MDF-e Interestadual', 'Multi-CDs Filiais', 'Suporte Prioritário']
+    features: ['Conectores Mercado Livre & Shopee', 'SPED Fiscal', 'MDF-e Interestadual', 'Multi-CDs Filiais', 'Garantia CDC com Fotos', 'Comissões de Vendedor e Oficina', 'Suporte Prioritário']
   },
   {
     id: 'plan_enterprise',
     code: 'enterprise',
     name: 'GATO Enterprise (Frota & Distribuição)',
+    description: 'Para redes de autopeças, distribuidores e centros automotivos com alto volume de peças e filiais.',
     priceMonthly: 890.00,
+    priceAnnual: 8900.00,
+    badge: 'Corporativo',
+    active: true,
     quotas: {
       maxCustomers: 20000,
       maxItems: 100000,
@@ -473,9 +485,39 @@ export const SAAS_PLANS: PlanLimitConfig[] = [
       maxInternalMessagesMonth: 20000,
       maxApiRequestsPerDay: 50000
     },
-    features: ['Acesso API Dedicada', 'Auditoria em Tempo Real', 'IP Allowlist Avançado', 'Gestor de Contas CS Dedicado', 'SLA 99.9%']
+    features: ['Acesso API Dedicada', 'Auditoria em Tempo Real', 'IP Allowlist Avançado', 'Gestor de Contas CS Dedicado', 'Comissões Avançadas & OS Customizada', 'SLA 99.9%']
   }
 ];
+
+export function addSaasPlan(plan: PlanLimitConfig): PlanLimitConfig {
+  SAAS_PLANS.push(plan);
+  return plan;
+}
+
+export function updateSaasPlan(id: string, updates: Partial<PlanLimitConfig>): PlanLimitConfig | null {
+  const index = SAAS_PLANS.findIndex(p => p.id === id);
+  if (index === -1) return null;
+  const existing = SAAS_PLANS[index];
+  const updated: PlanLimitConfig = {
+    ...existing,
+    ...updates,
+    quotas: {
+      ...existing.quotas,
+      ...(updates.quotas || {})
+    },
+    features: updates.features ? [...updates.features] : existing.features,
+    updatedAt: new Date().toISOString()
+  };
+  SAAS_PLANS[index] = updated;
+  return updated;
+}
+
+export function deleteSaasPlan(id: string): boolean {
+  const index = SAAS_PLANS.findIndex(p => p.id === id);
+  if (index === -1) return false;
+  SAAS_PLANS.splice(index, 1);
+  return true;
+}
 
 // =========================================================================
 // 4. BANCO EM MEMÓRIA COM PERSISTÊNCIA INICIAL

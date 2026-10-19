@@ -11,7 +11,7 @@ import { verifyMasterPasswordOnServer } from './sessionService';
 const ADMIN_ROLES: UserSession['role'][] = ['admin', 'administrador'];
 
 /** Views restritas que exigem elevação com senha master. */
-export const RESTRICTED_VIEWS = ['admin', 'admin-impostos', 'rbac', 'admin-rbac', 'governanca', 'tenants', 'seguranca', 'financeiro-saas', 'banco-dados', 'camadas-acesso'];
+export const RESTRICTED_VIEWS = ['admin', 'admin-impostos', 'rbac', 'admin-rbac', 'governanca', 'tenants', 'seguranca', 'financeiro-saas', 'banco-dados', 'camadas-acesso', 'planos-pacotes', 'pacotes'];
 
 /** Somente administradores podem tentar elevar acesso. */
 export function isElevatedAdmin(user?: UserSession | null): boolean {

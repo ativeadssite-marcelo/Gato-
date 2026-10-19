@@ -35,7 +35,9 @@ import {
   Mail,
   Bell,
   HardDrive,
-  Cpu
+  Cpu,
+  Package,
+  Box
 } from 'lucide-react';
 import {
   RbacRoleCode,
@@ -57,6 +59,7 @@ import {
 import { apiFetch } from '../services/apiClient';
 import { generateStrongPassword } from '../utils/passwordGenerator';
 import { TenantPermissionMatrix } from './TenantPermissionMatrix';
+import { GestaoPacotesPlanos } from './GestaoPacotesPlanos';
 
 interface AdminRbacProps {
   onNotify?: (message: string, type?: 'success' | 'warning' | 'error') => void;
@@ -93,6 +96,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
   const [justificationText, setJustificationText] = useState('');
   const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
   const [isPlanChangeModalOpen, setIsPlanChangeModalOpen] = useState(false);
+  const [isPackageManagementOpen, setIsPackageManagementOpen] = useState(false);
   const [selectedTargetPlan, setSelectedTargetPlan] = useState('plan_enterprise');
 
   // Form State: Novo Usuário
@@ -1375,10 +1379,19 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
               </select>
 
               <button
-                onClick={() => setIsPlanChangeModalOpen(true)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 transition-colors flex items-center gap-1.5"
+                type="button"
+                onClick={() => setIsPackageManagementOpen(true)}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <DollarSign className="w-4 h-4" /> Alterar Plano / Pró-Rata
+                <Package className="w-4 h-4 text-purple-200" /> Cadastrar / Editar Pacotes (Super Admin)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPlanChangeModalOpen(true)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl text-xs font-semibold shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <DollarSign className="w-4 h-4 text-emerald-400" /> Alterar Plano / Pró-Rata
               </button>
             </div>
           </div>
@@ -2373,6 +2386,35 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                 Confirmar Migração
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE GESTÃO DE PACOTES E PREÇOS (SUPER ADMIN) */}
+      {isPackageManagementOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-200 flex items-center justify-center">
+          <div className="relative max-w-7xl w-full my-6 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+              <div className="flex items-center gap-2 text-white font-black text-lg">
+                <Package className="w-5 h-5 text-purple-400" />
+                <span>Gestão Comercial de Pacotes, Preços e Cotas (Super Admin)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPackageManagementOpen(false);
+                  void loadRbacData();
+                }}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                ✕ Fechar e Atualizar
+              </button>
+            </div>
+            <GestaoPacotesPlanos
+              onShowNotification={(title, message, type) => {
+                notify(`${title}: ${message}`, type === 'warning' ? 'warning' : 'success');
+              }}
+            />
           </div>
         </div>
       )}
