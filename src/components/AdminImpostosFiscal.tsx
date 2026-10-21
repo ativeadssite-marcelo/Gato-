@@ -371,7 +371,7 @@ export const AdminImpostosFiscal: React.FC<AdminImpostosFiscalProps> = ({
           <div className="space-y-1.5">
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 font-mono text-xs font-bold border border-orange-500/30 flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5" /> www.gatogestao.com.br/superadmin
+                <Globe className="w-3.5 h-3.5" /> www.gatogestao.com.br/admin
               </span>
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-semibold border border-emerald-500/30 flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5" /> Módulo Fiscal Avançado v2026.9
@@ -388,14 +388,14 @@ export const AdminImpostosFiscal: React.FC<AdminImpostosFiscalProps> = ({
 
           <div className="flex items-center gap-3">
             <a
-              href="/superadmin"
+              href="/admin"
               onClick={(e) => {
                 e.preventDefault();
-                window.history.pushState({}, '', '/superadmin');
+                window.history.pushState({}, '', '/admin');
               }}
               className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-2xl text-xs font-bold transition-all border border-slate-700/60 flex items-center gap-2 shadow-sm cursor-pointer"
             >
-              <ExternalLink className="w-4 h-4 text-amber-400" /> Rota Direct: /superadmin
+              <ExternalLink className="w-4 h-4 text-amber-400" /> Rota Direct: /admin
             </a>
             <button
               onClick={() => handleSaveStateRules(stateRules)}

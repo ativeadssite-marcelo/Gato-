@@ -146,6 +146,16 @@ export interface AppUser {
 
 export const AVAILABLE_USERS: AppUser[] = [
   {
+    id: 'usr_super_admin',
+    name: 'Administrador Geral (Eu)',
+    email: 'contato.ativeads@gmail.com',
+    role: 'administrador',
+    roleLabel: 'Super Admin (Dono da Plataforma)',
+    defaultBranchId: 'matriz-ms',
+    avatarInitials: 'SA',
+    bio: 'Gestão global da plataforma: contratos, pacotes, faturamento e multi-tenancy.',
+  },
+  {
     id: 'user-01',
     name: 'Carlos Mendes',
     email: 'vendedor@gatoautopecas.com.br',

@@ -101,7 +101,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         referrerPolicy="no-referrer"
       />
 
-      <div className="w-full max-w-2xl space-y-6">
+      <div className="w-full max-w-2xl space-y-4">
+        {typeof window !== 'undefined' && (window.location.pathname.toLowerCase().includes('/admin') || window.location.pathname.toLowerCase().includes('/superadmin') || window.location.hash.toLowerCase().includes('admin')) && (
+          <div className="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-3.5 flex items-center gap-3 text-amber-200 text-xs shadow-lg animate-in fade-in duration-200">
+            <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <strong className="text-amber-100 font-bold block">Rota de Acesso Administrativo (/admin)</strong>
+              <span>Autentique-se como <strong>Super Admin</strong> (Dono do SaaS) ou <strong>Administrador</strong> para acessar o painel de governança e controle.</span>
+            </div>
+          </div>
+        )}
+
         {/* GUIA DAS 3 CAMADAS DE ACESSO */}
         <div className="bg-slate-900/90 backdrop-blur border border-purple-500/30 rounded-3xl p-5 sm:p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4">

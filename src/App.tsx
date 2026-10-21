@@ -177,18 +177,41 @@ export default function App() {
 
   // Global Application State
   const [currentView, setCurrentView] = useState<string>(() => {
-    if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/superadmin') || window.location.hash === '#superadmin')) {
-      return 'saas-dashboard';
+    let isRequestedAdminRoute = false;
+    let isRequestedLoginRoute = false;
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      isRequestedAdminRoute = (
+        path === '/admin' ||
+        path.startsWith('/admin/') ||
+        path === '/superadmin' ||
+        path.startsWith('/superadmin/') ||
+        hash === '#admin' ||
+        hash === '#superadmin'
+      );
+      isRequestedLoginRoute = path === '/login' || hash === '#login';
     }
+
     try {
       const saved = localStorage.getItem('gato_user_session');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed?.isSaasScope) return 'saas-dashboard';
+        if (isRequestedAdminRoute) {
+          if (parsed?.role === 'admin' || parsed?.role === 'administrador') {
+            return 'admin';
+          }
+        }
       }
     } catch {
       /* noop */
     }
+
+    if (isRequestedAdminRoute || isRequestedLoginRoute) {
+      return 'login';
+    }
+
     return 'consulta-pecas';
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -351,19 +374,62 @@ export default function App() {
     setCurrentView(view);
   };
 
+  // Sincroniza a URL do navegador com a view atual (/admin, /superadmin, /login ou /)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Toda view administrativa/SaaS mantém a rota /superadmin, não apenas
-      // 'admin'/'admin-impostos' — evita "voltar" para / ao abrir Governança,
-      // Financeiro SaaS, Banco de Dados ou Camadas de Acesso.
-      const isAdminView = isRestrictedView(currentView);
-      if (isAdminView && window.location.pathname !== '/superadmin') {
-        window.history.pushState({}, '', '/superadmin');
-      } else if (!isAdminView && window.location.pathname === '/superadmin') {
+      const isSaasOrAdminView =
+        isRestrictedView(currentView) ||
+        currentView === 'saas-dashboard' ||
+        (userSession?.isSaasScope && currentView === 'dashboard');
+      const isLoginView = currentView === 'login';
+      const path = window.location.pathname.toLowerCase();
+
+      if (isSaasOrAdminView) {
+        // Mantém a rota /admin (ou /superadmin se o usuário entrou explicitamente por ela)
+        if (path !== '/admin' && path !== '/superadmin') {
+          window.history.pushState({}, '', '/admin');
+        }
+      } else if (isLoginView) {
+        if (path !== '/admin' && path !== '/superadmin' && path !== '/login') {
+          window.history.pushState({}, '', '/login');
+        }
+      } else if (path === '/admin' || path === '/superadmin' || path === '/login') {
         window.history.pushState({}, '', '/');
       }
     }
-  }, [currentView]);
+  }, [currentView, userSession?.isSaasScope]);
+
+  // Suporte a navegação por URL / histórico do navegador (popstate)
+  useEffect(() => {
+    const handleLocationChange = () => {
+      if (typeof window === 'undefined') return;
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const isAdm = (
+        path === '/admin' ||
+        path.startsWith('/admin/') ||
+        path === '/superadmin' ||
+        path.startsWith('/superadmin/') ||
+        hash === '#admin' ||
+        hash === '#superadmin'
+      );
+
+      if (isAdm) {
+        if (userSession?.isSaasScope) {
+          setCurrentView('saas-dashboard');
+        } else if (userSession?.role === 'admin' || userSession?.role === 'administrador') {
+          setCurrentView('admin');
+        } else {
+          setCurrentView('login');
+        }
+      } else if (path === '/login' || hash === '#login') {
+        setCurrentView('login');
+      }
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, [userSession]);
 
   // Multi-branch state with persistence
   const [branches, setBranches] = useState<BranchUnit[]>(() => {
@@ -952,7 +1018,13 @@ export default function App() {
           branches={branches}
           onLoginSuccess={(session, newComp) => {
             handleLoginSuccess(session, newComp);
-            setCurrentView('dashboard');
+            if (session.isSaasScope) {
+              setCurrentView('saas-dashboard');
+            } else if (session.role === 'admin' || session.role === 'administrador') {
+              setCurrentView('admin');
+            } else {
+              setCurrentView('dashboard');
+            }
           }}
           onBackToApp={handleOpenSystemDirectly}
         />
