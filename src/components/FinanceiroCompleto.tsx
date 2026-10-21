@@ -46,6 +46,7 @@ import {
   ServiceOrder
 } from '../types';
 import { demoAddon } from '../utils/seedMode';
+import { GraficoFaturamentoD3 } from './GraficoFaturamentoD3';
 
 interface FinanceiroCompletoProps {
   payables: FinancialPayable[];
@@ -82,6 +83,7 @@ export const FinanceiroCompleto: React.FC<FinanceiroCompletoProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>('pagar');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('todas');
+  const [showD3Chart, setShowD3Chart] = useState<boolean>(true);
   const [pixModalData, setPixModalData] = useState<{
     id: string;
     description: string;
@@ -517,6 +519,20 @@ export const FinanceiroCompleto: React.FC<FinanceiroCompletoProps> = ({
 
           <button
             type="button"
+            onClick={() => setShowD3Chart(!showD3Chart)}
+            title="Exibir ou ocultar o gráfico interativo D3 de faturamento dos últimos 30 dias"
+            className={`px-3.5 py-2.5 font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer ${
+              showD3Chart
+                ? 'bg-sky-100 text-sky-900 border border-sky-300'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 text-sky-600" />
+            <span className="hidden sm:inline">{showD3Chart ? 'Ocultar Gráfico D3' : 'Gráfico D3 (30d)'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleExportFinancialCsv}
             title="Baixar planilha de contas para a contabilidade"
             className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
@@ -625,6 +641,23 @@ export const FinanceiroCompleto: React.FC<FinanceiroCompletoProps> = ({
           </p>
         </div>
       </div>
+
+      {/* GRÁFICO INTERATIVO D3: EVOLUÇÃO DO FATURAMENTO DIÁRIO (ÚLTIMOS 30 DIAS) */}
+      {showD3Chart && (
+        <GraficoFaturamentoD3
+          orders={safeOrders}
+          serviceOrders={safeServiceOrders}
+          receivables={scopedReceivables}
+          selectedBranchId={selectedBranchFilter}
+          onSelectDay={(pt) => {
+            onShowNotification(
+              'Dia Selecionado (D3)',
+              `${pt.fullDateLabel}: Faturamento de R$ ${pt.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em ${pt.orderCount} vendas (Ticket Médio: R$ ${pt.averageTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`,
+              'info'
+            );
+          }}
+        />
+      )}
 
       {/* Navegação de Abas */}
       <div className="flex border-b border-slate-200 bg-white rounded-2xl px-3 pt-2 shadow-xs overflow-x-auto">
