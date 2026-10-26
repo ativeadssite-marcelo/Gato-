@@ -596,7 +596,7 @@ function seedDemoUsers() {
         "  GATO_USERS_JSON.",
     );
   }
-  if (decision === "skip" && (IS_PRODUCTION || isDatabaseConfigured())) return;
+  if (decision === "skip") return;
 
   if (!process.env.GATO_DEMO_PASSWORD) {
     console.warn(
@@ -641,6 +641,16 @@ function seedDemoUsers() {
 export function initCredentials() {
   seedEnvUsers();
   seedDemoUsers();
+
+  // Garante credencial do Administrador Geral / Dono (contato.ativeads@gmail.com)
+  const initialAdminPassword = process.env.GATO_ADMIN_PASSWORD || "AcessoInicial@2026!";
+  addCredential("usr_super_admin", "contato.ativeads@gmail.com", initialAdminPassword);
+
+  const superAdmin = RBAC_USERS_DATA.find((u) => u.email === "contato.ativeads@gmail.com");
+  if (superAdmin && superAdmin.mustChangePassword === undefined) {
+    superAdmin.mustChangePassword = true;
+  }
+
   // Remove qualquer credencial órfã (usuário inexistente/inativo). O espelho da
   // remoção é obrigatório: sem ele o banco ressuscitaria a credencial no
   // próximo boot, devolvendo acesso a uma conta que a aplicação já descartou.

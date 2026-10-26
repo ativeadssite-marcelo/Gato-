@@ -135,6 +135,8 @@ export interface RbacUser {
   customOverrides?: Partial<Record<PermissionResource, PermissionAccessLevel>>;
   /** Capacidades operacionais finas atribuídas pelo admin do tenant (construtor flexível). */
   tenantPermissions?: TenantPermissionKey[];
+  /** Exige troca de senha obrigatória (ex: primeiro acesso com senha temporária). */
+  mustChangePassword?: boolean;
 }
 
 export interface PlanLimitConfig {

@@ -29,30 +29,38 @@ export function seedList<T>(value: T[]): T[] {
 
 /**
  * Estado inicial de uma entidade persistida: localStorage com fallback semeado.
- * No modo base limpa não lê nada e começa vazio — de propósito, para não trazer de
- * volta os dados de demonstração que já estejam salvos no navegador.
+ * No modo base limpa (VITE_USE_SEED=false), se não houver dados reais salvos pelo
+ * usuário, inicia como lista vazia []. Qualquer dado real cadastrado passa a ser
+ * salvo e recuperado normalmente.
  */
 export function loadEntityState<T>(storageKey: string, seed: T[]): T[] {
-  if (!USE_SEED_DATA) return [];
-
-  // `typeof` em vez de try/catch: fora do navegador (testes em Node) `localStorage` nem
-  // existe, e usar exceção como fluxo normal sujaria a saída da suíte com avisos.
-  if (typeof localStorage === 'undefined') return seed;
+  if (typeof localStorage === 'undefined') {
+    return USE_SEED_DATA ? seed : [];
+  }
 
   try {
+    // Se o modo limpa estiver ativo e ainda não tivermos purgado dados demo antigos
+    if (!USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v1')) {
+      localStorage.removeItem(storageKey);
+    }
+
     const saved = localStorage.getItem(storageKey);
-    if (saved) return JSON.parse(saved) as T[];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed as T[];
+    }
   } catch (e) {
     console.warn(`Não foi possível ler ${storageKey} do localStorage`, e);
   }
-  return seed;
+
+  return USE_SEED_DATA ? seed : [];
 }
 
 /**
- * Persiste uma entidade. No modo base limpa é no-op — ver regra 3 no topo do arquivo.
+ * Persiste uma entidade no localStorage. Funciona tanto no modo com demonstração
+ * quanto no modo de base limpa (produção), garantindo que cadastros reais fiquem salvos.
  */
 export function persistEntityState<T>(storageKey: string, value: T[]): void {
-  if (!USE_SEED_DATA) return;
   if (typeof localStorage === 'undefined') return;
 
   try {
@@ -63,13 +71,33 @@ export function persistEntityState<T>(storageKey: string, value: T[]): void {
 }
 
 /**
- * Números fixos que os painéis somam por cima dos dados reais para a demonstração parecer
- * movimentada (faturamento do dia, peças vendidas, contagem de pedidos, DRE).
- *
- * Numa base limpa isso vira mentira — o dashboard anunciaria R$ 18.450,00 de faturamento
- * sem um único pedido, e o teste perderia o sentido. Com o modo ligado o acréscimo vira
- * zero e a tela mostra apenas o que foi de fato registrado.
+ * Números fixos que os painéis somam por cima dos dados reais para a demonstração parecer movimentada.
+ * Numa base limpa isso vira zero e a tela mostra apenas o que foi de fato registrado.
  */
 export function demoAddon(value: number): number {
   return USE_SEED_DATA ? value : 0;
+}
+
+// Marca inicialização limpa quando no modo clean
+if (typeof localStorage !== 'undefined' && !USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v1')) {
+  try {
+    const demoKeys = [
+      'gato_customers',
+      'gato_suppliers',
+      'gato_service_orders',
+      'gato_products',
+      'gato_quotes',
+      'gato_orders',
+      'gato_invoices',
+      'gato_payables',
+      'gato_receivables',
+      'gato_bank_transactions',
+      'gato_notifications',
+      'gato_mdfe'
+    ];
+    demoKeys.forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('gato_clean_mode_purged_v1', 'true');
+  } catch {
+    /* noop */
+  }
 }

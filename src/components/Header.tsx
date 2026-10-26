@@ -18,7 +18,8 @@ import {
   MapPin,
   Maximize2,
   Minimize2,
-  ShoppingCart
+  ShoppingCart,
+  KeyRound
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { PushNotification, UserSession, CompanyProfile } from '../types';
@@ -39,6 +40,7 @@ interface HeaderProps {
   onOpenLogin: () => void;
   onOpenTrocaFilial: () => void;
   onLogout: () => void;
+  onOpenChangePassword?: () => void;
   globalSearchQuery?: string;
   onSearchChange?: (query: string) => void;
   onSearchSubmit?: (query: string) => void;
@@ -57,6 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLogin,
   onOpenTrocaFilial,
   onLogout,
+  onOpenChangePassword,
 }) => {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -418,6 +421,21 @@ export const Header: React.FC<HeaderProps> = ({
                     <Download className="w-4 h-4 text-sky-600" />
                     <span>Baixar Logo & Personalização</span>
                   </button>
+
+                  {onOpenChangePassword && (
+                    <button
+                      type="button"
+                      id="header-user-menu-change-pw-btn"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenChangePassword();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-slate-700 hover:bg-sky-50 hover:text-sky-900 font-bold flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <KeyRound className="w-4 h-4 text-amber-500" />
+                      <span>Alterar Minha Senha</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"

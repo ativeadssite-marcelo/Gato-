@@ -30,6 +30,8 @@ export interface ServerUser {
   requiresMfa?: boolean;
   /** Capacidades operacionais finas do tenant (construtor flexível). */
   tenantPermissions?: string[];
+  /** Exige troca de senha obrigatória (primeiro acesso) */
+  mustChangePassword?: boolean;
 }
 
 export interface ServerRole {
@@ -118,6 +120,7 @@ export function buildUserSession(
     cdCode: branch.cdCode,
     avatarInitials: user.avatarInitials || user.name.substring(0, 2).toUpperCase(),
     loginTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    mustChangePassword: user.mustChangePassword,
   };
 }
 

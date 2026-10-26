@@ -4,7 +4,9 @@
 
 [build.environment]
   NODE_VERSION = "22"
-  NPM_FLAGS = "--legacy-peer-deps"
+  NODE_ENV = "development"
+  NPM_FLAGS = "--legacy-peer-deps --include=dev"
+  CI = "false"
 
 # Redirecionamento SPA para React Router / TanStack / rotas (/admin, /superadmin, etc.)
 [[redirects]]

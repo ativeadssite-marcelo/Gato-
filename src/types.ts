@@ -137,6 +137,8 @@ export interface UserSession {
   cdCode: string;
   avatarInitials: string;
   loginTime: string;
+  /** Exige troca de senha no primeiro acesso */
+  mustChangePassword?: boolean;
 }
 
 export interface StateTaxConfig {

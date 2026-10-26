@@ -14,6 +14,7 @@ import {
   revokeToken,
   verifyPassword,
   registerCredential,
+  setCredential,
   isEmailRegistered,
   verifyMasterPassword,
   canElevateWithMasterPassword,
@@ -145,6 +146,7 @@ authRouter.post("/login", (req: Request, res: Response) => {
       // Lidas sempre vivas do RBAC_USERS_DATA em cada requisição, então uma
       // concessão nova vale sem exigir novo login.
       tenantPermissions: user.tenantPermissions,
+      mustChangePassword: !!user.mustChangePassword,
     },
     role: {
       code: role?.code,
@@ -494,5 +496,54 @@ authRouter.get("/config-status", requireAuth, (req: Request, res: Response) => {
     masterPasswordConfigured: isMasterPasswordConfigured(),
     sessionStoreMode: "signed-hmac-sha256",
     requesterScope: req.auth!.isSaasScope ? "saas" : "tenant",
+  });
+});
+
+// =========================================================================
+// 10. ALTERAÇÃO DE SENHA PELO USUÁRIO (Autenticado)
+// =========================================================================
+authRouter.post("/change-password", requireAuth, (req: Request, res: Response) => {
+  const auth = req.auth!;
+  const currentPassword = String(req.body?.currentPassword || "").slice(0, MAX_PASSWORD_LENGTH);
+  const newPassword = String(req.body?.newPassword || "").slice(0, MAX_PASSWORD_LENGTH);
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ success: false, error: "Informe a senha atual e a nova senha." });
+  }
+
+  // Valida a senha atual do usuário real
+  const verified = verifyPassword(auth.realUser.email, currentPassword);
+  if (!verified) {
+    recordAudit(req, auth.realUser, "CHANGE_PASSWORD_FAILED", "security_compliance", auth.realUser.id, "warning", {
+      details: "Tentativa de alteração com senha atual incorreta.",
+    });
+    return res.status(401).json({ success: false, error: "A senha atual informada está incorreta." });
+  }
+
+  // Validação de força mínima (8 caracteres)
+  const strength = isStrongPassword(newPassword);
+  if (!strength.ok) {
+    return res.status(400).json({ success: false, error: strength.error });
+  }
+
+  // Atualiza a credencial no store (SCrypt salt + hash)
+  const updated = setCredential(auth.realUser.id, auth.realUser.email, newPassword);
+  if (!updated) {
+    return res.status(500).json({ success: false, error: "Falha ao gravar nova senha." });
+  }
+
+  // Limpa o indicador de troca obrigatória / primeiro acesso
+  auth.realUser.mustChangePassword = false;
+  if (auth.user) {
+    auth.user.mustChangePassword = false;
+  }
+
+  recordAudit(req, auth.realUser, "CHANGE_PASSWORD_SUCCESS", "security_compliance", auth.realUser.id, "success", {
+    details: "Senha alterada com sucesso pelo próprio usuário. Credencial temporária revogada.",
+  });
+
+  res.json({
+    success: true,
+    message: "Sua senha definitiva foi criada e salva com sucesso! A senha temporária anterior não funciona mais.",
   });
 });
