@@ -6,6 +6,8 @@ import {
   RefreshCw, 
   AlertCircle, 
   ArrowRight,
+  ArrowLeft,
+  X,
   ShieldCheck,
   Building2,
   Users,
@@ -30,6 +32,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   currentSession,
   branches,
   onLoginSuccess,
+  onBackToApp,
 }) => {
   const availableBranches = branches && branches.length > 0 ? branches : INITIAL_BRANCHES;
 
@@ -92,6 +95,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center font-['Plus_Jakarta_Sans'] selection:bg-[#0284C7] selection:text-white px-4 py-8" 
       id="gato-login-page"
     >
+      {/* Barra Superior de Fechamento / Voltar ao Sistema */}
+      {onBackToApp && (
+        <div className="w-full max-w-2xl flex items-center justify-between mb-4">
+          <button
+            type="button"
+            id="btn-voltar-ao-sistema"
+            onClick={onBackToApp}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold transition shadow-md cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#0284C7]" />
+            <span>Voltar ao Sistema</span>
+          </button>
+
+          <button
+            type="button"
+            id="btn-fechar-login"
+            onClick={onBackToApp}
+            className="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer"
+            title="Fechar tela de login e voltar ao sistema"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
       {/* LOGO OFICIAL GATO */}
       <img 
         src={gatoLogoNova} 

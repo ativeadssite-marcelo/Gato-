@@ -970,16 +970,37 @@ export default function App() {
   // Helper count badges
   const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
 
-  // Helper to open the app directly with guaranteed session
-  const handleOpenSystemDirectly = () => {
-    if (!userSession) {
-      // SEGURANÇA: sem sessão autenticada não há acesso direto ao sistema.
-      // Antes, este atalho fabricava uma sessão de administrador no navegador.
-      setCurrentView('login');
-      setIsLoginModalOpen(true);
-      return;
+  // Abre a tela de login
+  const handleOpenLogin = () => {
+    setCurrentView('login');
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (!path.includes('login') && !path.includes('admin')) {
+        window.history.pushState({}, '', '/login');
+      }
     }
-    setCurrentView('dashboard');
+  };
+
+  // Fecha a tela de login e volta ao sistema
+  const handleCloseLogin = () => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (path === '/login' || path.startsWith('/admin') || path.startsWith('/superadmin') || window.location.hash.includes('login') || window.location.hash.includes('admin')) {
+        window.history.pushState({}, '', '/');
+      }
+    }
+    setIsLoginModalOpen(false);
+    if (userSession) {
+      if (userSession.isSaasScope) {
+        setCurrentView('saas-dashboard');
+      } else if (userSession.role === 'admin' || userSession.role === 'administrador') {
+        setCurrentView('admin');
+      } else {
+        setCurrentView('dashboard');
+      }
+    } else {
+      setCurrentView('consulta-pecas');
+    }
   };
 
   // Dedicated Login Page View when explicitly requested
@@ -1026,7 +1047,7 @@ export default function App() {
               setCurrentView('dashboard');
             }
           }}
-          onBackToApp={handleOpenSystemDirectly}
+          onBackToApp={handleCloseLogin}
         />
       </div>
     );
@@ -1090,7 +1111,7 @@ export default function App() {
         onNavigate={(view) => setCurrentView(view)}
         userSession={userSession}
         companyProfile={companyProfile}
-        onOpenLogin={() => setCurrentView('login')}
+        onOpenLogin={handleOpenLogin}
         onOpenTrocaFilial={() => setIsTrocaFilialOpen(true)}
         onLogout={handleLogout}
         globalSearchQuery={globalSearchQuery}
@@ -1116,7 +1137,7 @@ export default function App() {
           companyProfile={companyProfile}
           activeBranch={activeBranch}
           onOpenTrocaFilial={() => setIsTrocaFilialOpen(true)}
-          onOpenLogin={() => setCurrentView('login')}
+          onOpenLogin={handleOpenLogin}
         />
 
         {/* Dynamic Main Workspace View */}

@@ -29,7 +29,8 @@ import {
   Layers,
   KeyRound,
   Wallet,
-  Package
+  Package,
+  LogIn
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { UserSession, BranchUnit, CompanyProfile } from '../types';
@@ -458,6 +459,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Bottom Status matching Store & Operator */}
         <div className="p-3 border-t border-slate-800/70 bg-gradient-to-t from-slate-950 to-slate-900/60 text-xs space-y-2.5 rounded-b-3xl">
+          {/* Botão de Login / Trocar Conta */}
+          {onOpenLogin && (
+            <button
+              type="button"
+              id="sidebar-btn-login"
+              onClick={onOpenLogin}
+              className={`w-full p-2 rounded-2xl flex items-center transition-all duration-200 cursor-pointer ${
+                isCollapsed ? 'justify-center' : 'justify-between'
+              } ${
+                userSession 
+                  ? 'bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300' 
+                  : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold shadow-md shadow-sky-600/20'
+              }`}
+              title={userSession ? `Sessão ativa: ${userSession.name} (${userSession.roleLabel}) — Trocar Usuário` : 'Fazer Login / Acessar as 3 Camadas'}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${userSession ? 'bg-slate-800 text-sky-400' : 'bg-white/20 text-white'}`}>
+                  <LogIn className="w-3.5 h-3.5" />
+                </div>
+                {!isCollapsed && (
+                  <div className="truncate text-left">
+                    <p className="font-extrabold text-xs truncate">
+                      {userSession ? userSession.name.split(' ')[0] : 'Fazer Login'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {userSession ? userSession.roleLabel : 'Acessar 3 Camadas'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {!isCollapsed && <ChevronRight className="w-3.5 h-3.5 opacity-60 shrink-0" />}
+            </button>
+          )}
+
           {activeBranch && (
             <div 
               onClick={onOpenTrocaFilial}

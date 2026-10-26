@@ -277,12 +277,32 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* User Profile matching screenshot */}
-          <div className="relative" ref={userMenuRef}>
+          <div className="relative flex items-center gap-2" ref={userMenuRef}>
+            {!userSession && (
+              <button
+                type="button"
+                id="header-btn-direct-login"
+                onClick={onOpenLogin}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#0C4A6E] to-[#0284C7] hover:opacity-95 text-white font-extrabold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                title="Acessar Sistema com Senha / 3 Camadas"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Entrar</span>
+              </button>
+            )}
+
             <button
               type="button"
               id="header-user-session-btn"
-              onClick={() => setShowUserMenu(!showUserMenu)}
+              onClick={() => {
+                if (!userSession) {
+                  onOpenLogin();
+                } else {
+                  setShowUserMenu(!showUserMenu);
+                }
+              }}
               className="flex items-center gap-2 pl-1 sm:pl-2 hover:opacity-90 transition cursor-pointer text-left"
+              title={userSession ? `${userSession.name} (${userSession.roleLabel})` : 'Clique para Fazer Login'}
             >
               <img 
                 src={marceloAvatar} 
@@ -291,10 +311,10 @@ export const Header: React.FC<HeaderProps> = ({
               />
               <div className="hidden sm:block leading-tight text-left">
                 <p className="text-xs font-bold text-slate-900 leading-tight">
-                  {userSession?.name?.split(' ')[0] || 'Marcelo'}
+                  {userSession?.name?.split(' ')[0] || 'Visitante'}
                 </p>
                 <p className="text-[10px] text-slate-500 font-normal leading-tight">
-                  {userSession?.roleLabel || 'Vendedor'}
+                  {userSession?.roleLabel || 'Entrar no Sistema'}
                 </p>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -401,14 +421,15 @@ export const Header: React.FC<HeaderProps> = ({
 
                   <button
                     type="button"
+                    id="header-user-menu-login-btn"
                     onClick={() => {
                       setShowUserMenu(false);
-                      onNavigate('login');
+                      onOpenLogin();
                     }}
                     className="w-full text-left px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-100 font-medium flex items-center gap-2 transition cursor-pointer"
                   >
                     <User className="w-4 h-4 text-slate-500" />
-                    <span>Ir para Página de Login</span>
+                    <span>Trocar Usuário / Página de Login</span>
                   </button>
 
                   <div className="pt-1 border-t border-slate-100">
