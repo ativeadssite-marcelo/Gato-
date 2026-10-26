@@ -175,10 +175,13 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isTrocaFilialOpen, setIsTrocaFilialOpen] = useState(false);
 
-  // Global Application State
+  // Global Application State: SEMPRE abre no login, NUNCA na página sem autenticação
   const [currentView, setCurrentView] = useState<string>(() => {
+    if (!hasSessionToken()) {
+      return 'login';
+    }
+
     let isRequestedAdminRoute = false;
-    let isRequestedLoginRoute = false;
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -190,29 +193,27 @@ export default function App() {
         hash === '#admin' ||
         hash === '#superadmin'
       );
-      isRequestedLoginRoute = path === '/login' || hash === '#login';
     }
 
     try {
       const saved = localStorage.getItem('gato_user_session');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed?.isSaasScope) return 'saas-dashboard';
-        if (isRequestedAdminRoute) {
-          if (parsed?.role === 'admin' || parsed?.role === 'administrador') {
-            return 'admin';
+        if (parsed?.id && parsed?.email) {
+          if (parsed?.isSaasScope) return 'saas-dashboard';
+          if (isRequestedAdminRoute) {
+            if (parsed?.role === 'admin' || parsed?.role === 'administrador') {
+              return 'admin';
+            }
           }
+          return 'dashboard';
         }
       }
     } catch {
       /* noop */
     }
 
-    if (isRequestedAdminRoute || isRequestedLoginRoute) {
-      return 'login';
-    }
-
-    return 'consulta-pecas';
+    return 'login';
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -325,6 +326,12 @@ export default function App() {
 
   // Toda navegação de view passa por aqui — aplica a política de acesso e isolamento das Camadas.
   const handleSelectView = (view: string) => {
+    // Sem sessão autenticada: redireciona sempre para o login
+    if (!userSession) {
+      setCurrentView('login');
+      return;
+    }
+
     // Isolamento da CAMADA 1: O catálogo do cliente NUNCA fica visível ao Super Admin.
     // Cada contrato gera dados 100% separados para cada cliente.
     if (userSession?.isSaasScope) {
@@ -999,7 +1006,7 @@ export default function App() {
         setCurrentView('dashboard');
       }
     } else {
-      setCurrentView('consulta-pecas');
+      setCurrentView('login');
     }
   };
 

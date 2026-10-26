@@ -46,7 +46,7 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
   onLoginSuccess,
   onCancel,
 }) => {
-  const [activeTab, setActiveTab] = useState<'cadastro' | 'login' | 'rapido'>('rapido');
+  const [activeTab, setActiveTab] = useState<'cadastro' | 'login'>('login');
 
   const availableBranches = branches && branches.length > 0 ? branches : INITIAL_BRANCHES;
 
@@ -64,34 +64,16 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
   const [ie, setIe] = useState('');
 
   // --- LOGIN EXISTENTE ---
-  const [selectedUser, setSelectedUser] = useState<AppUser>(
-    AVAILABLE_USERS.find(u => u.id === currentSession?.id) || AVAILABLE_USERS[0]
-  );
-  const [emailInput, setEmailInput] = useState(selectedUser.email);
+  const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
-    currentSession?.branchId || selectedUser.defaultBranchId || 'matriz-ms'
+    currentSession?.branchId || availableBranches[0]?.id || 'matriz-ms'
   );
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const activeBranch = availableBranches.find(b => b.id === selectedBranchId) || availableBranches[0];
-
-  const handleFillDemo = () => {
-    setTradeName('Auto Peças São Cristóvão');
-    setCorporateName('São Cristóvão Comércio de Peças LTDA');
-    setCnpj('18.234.567/0001-89');
-    setSegment('Autopeças Leves & Acessórios');
-    setAdminName('Ricardo Silveira');
-    setEmailCadastro('ricardo@autopecas.com.br');
-    setPhoneCadastro('(67) 99234-5678');
-    setStateUfCadastro('MS');
-    setCityCadastro('Campo Grande');
-    setIe('');
-    // Senha não é preenchida automaticamente: o usuário escolhe a própria.
-    setErrorMessage(null);
-  };
 
   const handleRegisterCompanySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,49 +205,25 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
     })();
   };
 
-  const handleQuickSelectUser = async (user: AppUser) => {
-    const branch = availableBranches.find(b => b.id === (user.defaultBranchId || 'matriz-ms')) || availableBranches[0];
-    setIsLoading(true);
-    setErrorMessage(null);
-    try {
-      // Acesso rápido também exige autenticação no servidor — antes qualquer
-      // visitante assumia o papel escolhido apenas editando o estado local.
-      const demo = getDemoLoginConfig();
-      if (!demo.enabled) {
-        throw new Error('Login rápido desabilitado. Use e-mail e senha para autenticar.');
-      }
-      const result = await loginWithCredentials(user.email, demo.password, availableBranches, branch.id);
-      try {
-        localStorage.setItem('gato_user_session', JSON.stringify(result.session));
-        localStorage.setItem('gato_active_store', branch.id);
-      } catch (err) {
-        console.warn('LocalStorage error:', err);
-      }
-      setIsLoading(false);
-      onLoginSuccess(result.session);
-    } catch (err: any) {
-      setIsLoading(false);
-      setErrorMessage(err?.message || 'Login rápido indisponível. Autentique-se com e-mail e senha.');
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto" id="gato-login-modal">
       <div className="bg-white rounded-3xl max-w-xl w-full text-slate-800 shadow-2xl border border-slate-100 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
         
-        {/* Chamativo Hero Header */}
+        {/* Header Corporativo */}
         <div className="bg-gradient-to-r from-[#0C4A6E] via-[#073047] to-slate-900 p-5 text-white relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
             <GatoBrand size="md" showSubtitle={true} />
-            <button
-              type="button"
-              id="btn-close-login-modal"
-              onClick={onCancel || (() => handleQuickSelectUser(AVAILABLE_USERS[0]))}
-              className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-              title="Fechar e Abrir Sistema"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {onCancel && (
+              <button
+                type="button"
+                id="btn-close-login-modal"
+                onClick={onCancel}
+                className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                title="Fechar janela"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           <div className="mt-3 relative z-10 flex items-center justify-between">
@@ -274,7 +232,7 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
                 SaaS de Balcão, Estoque & Aplicação de Peças
               </p>
               <h2 className="text-base sm:text-lg font-black text-white mt-0.5">
-                {activeTab === 'cadastro' ? 'Cadastre sua Empresa • Teste 14 Dias Grátis' : 'Acesse sua Conta no GATO SaaS'}
+                {activeTab === 'cadastro' ? 'Cadastre sua Empresa • Teste 14 Dias Grátis' : 'Acesse sua Conta Corporativa'}
               </h2>
             </div>
             <div className="hidden sm:flex items-center gap-1 bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-1 rounded-full uppercase">
@@ -284,62 +242,32 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
           </div>
         </div>
 
-        {/* Fast Entry Bar */}
-        <div className="bg-sky-50 px-5 py-2.5 border-b border-sky-200 flex items-center justify-between gap-3">
-          <div className="text-xs">
-            <span className="font-extrabold text-[#0C4A6E] block">Ambiente Operacional Pronto</span>
-            <span className="text-[10px] text-slate-500">Acesso direto ao balcão e estoque</span>
-          </div>
-          <button
-            type="button"
-            id="btn-modal-open-system"
-            onClick={onCancel || (() => handleQuickSelectUser(AVAILABLE_USERS[0]))}
-            className="px-3.5 py-1.5 bg-[#0284C7] hover:bg-[#0284C7]/90 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
-            <span>Entrar no Sistema</span>
-          </button>
-        </div>
-
         {/* Tab Selector */}
-        <div className="flex border-b border-slate-100 bg-slate-50 p-1.5 gap-1">
-          <button
-            type="button"
-            onClick={() => { setActiveTab('cadastro'); setErrorMessage(null); }}
-            className={`flex-1 py-2 px-2 text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
-              activeTab === 'cadastro'
-                ? 'bg-[#0C4A6E] text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Rocket className="w-3.5 h-3.5 text-amber-400" />
-            <span>Cadastrar Empresa (14 Dias Grátis)</span>
-          </button>
-
+        <div className="flex border-b border-slate-100 bg-slate-50 p-1.5 gap-1.5">
           <button
             type="button"
             onClick={() => { setActiveTab('login'); setErrorMessage(null); }}
-            className={`py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1 cursor-pointer ${
+            className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'login'
                 ? 'bg-[#0C4A6E] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <KeyRound className="w-3.5 h-3.5" />
-            <span>Entrar</span>
+            <span>Acessar Conta (Login)</span>
           </button>
 
           <button
             type="button"
-            onClick={() => { setActiveTab('rapido'); setErrorMessage(null); }}
-            className={`py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1 cursor-pointer ${
-              activeTab === 'rapido'
+            onClick={() => { setActiveTab('cadastro'); setErrorMessage(null); }}
+            className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              activeTab === 'cadastro'
                 ? 'bg-[#0C4A6E] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Zap className="w-3.5 h-3.5 text-amber-500" />
-            <span>Demo</span>
+            <Rocket className="w-3.5 h-3.5 text-amber-400" />
+            <span>Criar Nova Empresa (14 Dias)</span>
           </button>
         </div>
 
@@ -571,29 +499,6 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
                 Acessar Sistema
               </button>
             </form>
-          )}
-
-          {/* TAB 3: DEMO */}
-          {activeTab === 'rapido' && (
-            <div className="space-y-2.5">
-              <p className="text-xs text-slate-600 mb-2">Selecione um perfil para acesso em 1-clique:</p>
-              {AVAILABLE_USERS.map((user) => (
-                <div
-                  key={user.id}
-                  onClick={() => { void handleQuickSelectUser(user); }}
-                  className="p-2.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 rounded-xl transition cursor-pointer flex items-center gap-3"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#0C4A6E] text-white font-black text-xs flex items-center justify-center shrink-0">
-                    {user.avatarInitials}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <strong className="text-xs text-slate-900 block truncate">{user.name}</strong>
-                    <span className="text-[10px] text-[#0284C7] font-semibold block truncate">{user.roleLabel}</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                </div>
-              ))}
-            </div>
           )}
         </div>
 
