@@ -16,7 +16,7 @@ import {
 import gatoLogoNova from '../assets/images/gato_logo_2026.png';
 import { BranchUnit, UserSession, CompanyProfile } from '../types';
 import { INITIAL_BRANCHES, AVAILABLE_USERS, AppUser } from '../data/initialData';
-import { loginWithCredentials } from '../utils/sessionService';
+import { loginWithCredentials, getDemoLoginConfig } from '../utils/sessionService';
 
 interface LoginPageProps {
   currentSession: UserSession | null;
@@ -37,7 +37,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     AVAILABLE_USERS.find(u => u.id === currentSession?.id) || AVAILABLE_USERS[0]
   );
   const [emailLogin, setEmailLogin] = useState('contato.ativeads@gmail.com');
-  const [passwordLogin, setPasswordLogin] = useState('senha123456');
+  const [passwordLogin, setPasswordLogin] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
     currentSession?.branchId || selectedUser.defaultBranchId || 'matriz-ms'
@@ -118,11 +118,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <h2 className="text-sm font-black text-white uppercase tracking-wider">
-                Acesso de Teste — Selecione uma das 3 Camadas
+                Acesso de Demonstração — Selecione uma das 3 Camadas
               </h2>
             </div>
-            <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
-              Senha: senha123456
+            <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Acesso Seguro & Auditado
             </span>
           </div>
 
@@ -148,9 +149,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="button"
                 disabled={isLoading}
                 onClick={() => {
+                  const demoCfg = getDemoLoginConfig();
                   setEmailLogin('contato.ativeads@gmail.com');
-                  setPasswordLogin('senha123456');
-                  void executeLogin('contato.ativeads@gmail.com', 'senha123456');
+                  setPasswordLogin('');
+                  void executeLogin('contato.ativeads@gmail.com', demoCfg.password);
                 }}
                 className="mt-3 w-full py-2 px-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-[11px] shadow-md shadow-purple-600/30 transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
@@ -180,9 +182,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="button"
                 disabled={isLoading}
                 onClick={() => {
+                  const demoCfg = getDemoLoginConfig();
                   setEmailLogin('admin@gatoautopecas.com.br');
-                  setPasswordLogin('senha123456');
-                  void executeLogin('admin@gatoautopecas.com.br', 'senha123456', 'matriz-ms');
+                  setPasswordLogin('');
+                  void executeLogin('admin@gatoautopecas.com.br', demoCfg.password, 'matriz-ms');
                 }}
                 className="mt-3 w-full py-2 px-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-[11px] shadow-md shadow-sky-600/30 transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
@@ -213,9 +216,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   type="button"
                   disabled={isLoading}
                   onClick={() => {
+                    const demoCfg = getDemoLoginConfig();
                     setEmailLogin('vendedor@gatoautopecas.com.br');
-                    setPasswordLogin('senha123456');
-                    void executeLogin('vendedor@gatoautopecas.com.br', 'senha123456', 'matriz-ms');
+                    setPasswordLogin('');
+                    void executeLogin('vendedor@gatoautopecas.com.br', demoCfg.password, 'matriz-ms');
                   }}
                   className="py-2 px-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[10px] shadow-md shadow-emerald-600/30 transition cursor-pointer text-center disabled:opacity-50"
                 >
@@ -225,9 +229,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   type="button"
                   disabled={isLoading}
                   onClick={() => {
+                    const demoCfg = getDemoLoginConfig();
                     setEmailLogin('caixa@gatoautopecas.com.br');
-                    setPasswordLogin('senha123456');
-                    void executeLogin('caixa@gatoautopecas.com.br', 'senha123456', 'matriz-ms');
+                    setPasswordLogin('');
+                    void executeLogin('caixa@gatoautopecas.com.br', demoCfg.password, 'matriz-ms');
                   }}
                   className="py-2 px-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-[10px] shadow-md shadow-emerald-700/30 transition cursor-pointer text-center disabled:opacity-50"
                 >
@@ -269,8 +274,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <label htmlFor="input-password-login" className="text-xs font-bold text-slate-300 block">
                     Senha de Acesso
                   </label>
-                  <span className="text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
-                    Teste: senha123456
+                  <span className="text-[10px] text-slate-400 font-semibold bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60">
+                    Protegido LGPD
                   </span>
                 </div>
                 <div className="relative">
@@ -281,8 +286,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     value={passwordLogin}
                     onChange={(e) => setPasswordLogin(e.target.value)}
                     placeholder="••••••••"
+                    autoComplete="current-password"
                     required
-                    className="w-full pl-9 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent"
+                    className="w-full pl-9 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent font-mono"
                   />
                   <button
                     type="button"

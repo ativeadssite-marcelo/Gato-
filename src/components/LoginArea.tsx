@@ -68,7 +68,7 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
     AVAILABLE_USERS.find(u => u.id === currentSession?.id) || AVAILABLE_USERS[0]
   );
   const [emailInput, setEmailInput] = useState(selectedUser.email);
-  const [passwordInput, setPasswordInput] = useState('senha123456');
+  const [passwordInput, setPasswordInput] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
     currentSession?.branchId || selectedUser.defaultBranchId || 'matriz-ms'
   );
@@ -196,7 +196,8 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    const pwd = (!passwordInput || passwordInput === '••••••••') ? 'senha123456' : passwordInput;
+    const demoCfg = getDemoLoginConfig();
+    const pwd = passwordInput.trim() || (demoCfg.enabled ? demoCfg.password : '');
     if (!emailInput.trim() || !pwd) {
       setErrorMessage('Informe e-mail e senha corporativos.');
       return;
@@ -541,6 +542,7 @@ export const LoginArea: React.FC<LoginAreaProps> = ({
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="••••••••"
+                  autoComplete="current-password"
                   required
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                 />

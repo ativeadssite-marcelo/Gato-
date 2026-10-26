@@ -28,6 +28,7 @@ import {
 } from '../utils/quoteMarketingSync';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { ImprimirOrcamentoSeletor } from './ImprimirOrcamentoSeletor';
+import { maskDocument, maskPhone } from '../utils/securityPrivacy';
 
 // Shim para logoDownloadKit removido
 async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
@@ -183,7 +184,7 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Cliente: <strong className="text-slate-200">{quote.customerName}</strong> • {quote.customerDocument}
+                Cliente: <strong className="text-slate-200">{quote.customerName}</strong> • {maskDocument(quote.customerDocument)}
               </p>
             </div>
           </div>
@@ -343,11 +344,11 @@ export const CupomFiscalModal: React.FC<CupomFiscalModalProps> = ({
                     <span className="font-bold">CLIENTE:</span> {quote.customerName}
                   </div>
                   <div>
-                    <span className="font-bold">CPF/CNPJ:</span> {quote.customerDocument}
+                    <span className="font-bold">CPF/CNPJ:</span> {maskDocument(quote.customerDocument)}
                   </div>
                   {quote.customerPhone && (
                     <div>
-                      <span className="font-bold">FONE:</span> {quote.customerPhone}
+                      <span className="font-bold">FONE:</span> {maskPhone(quote.customerPhone)}
                     </div>
                   )}
                   {quote.vehicleModel && (

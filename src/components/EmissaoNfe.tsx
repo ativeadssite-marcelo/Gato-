@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { InvoiceRecord, Product, Customer, CompanyProfile, BranchUnit, MdfeRecord } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
+import { maskDocument } from '../utils/securityPrivacy';
 
 // Placeholders para features fiscais removidas (NFCe, MDFe, SPED)
 const NfceManager: React.FC<{ products: Product[]; activeBranch: BranchUnit; companyProfile?: CompanyProfile; onShowNotification: (title: string, message: string, type?: 'success' | 'warning' | 'info') => void }> = () => (
@@ -817,7 +818,7 @@ export const EmissaoNfe: React.FC<EmissaoNfeProps> = ({
                 >
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} ({c.document} - {c.type.toUpperCase()})
+                      {c.name} ({maskDocument(c.document)} - {c.type.toUpperCase()})
                     </option>
                   ))}
                 </select>

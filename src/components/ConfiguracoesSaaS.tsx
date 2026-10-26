@@ -38,6 +38,7 @@ import {
 import { Product, Order, Customer, InvoiceRecord, CompanyProfile, BranchUnit } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
 import { ClienteLogoCustomizer } from './ClienteLogoCustomizer';
+import { maskDocument, maskPhone } from '../utils/securityPrivacy';
 import { resetTenantData } from '../services/entityApi';
 
 // Shim para imageOptimizer removido
@@ -938,7 +939,7 @@ export const ConfiguracoesSaaS: React.FC<ConfiguracoesSaaSProps> = ({
                       <tbody className="divide-y divide-slate-800/60 font-sans">
                         {supabaseCustomers.map((c) => (
                           <tr key={c.id} className="hover:bg-slate-800/40">
-                            <td className="py-2 px-2 font-mono text-sky-400">{c.document}</td>
+                            <td className="py-2 px-2 font-mono text-sky-400">{maskDocument(c.document)}</td>
                             <td className="py-2 px-2 font-medium text-slate-200">{c.name}</td>
                             <td className="py-2 px-2">
                               <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">
@@ -946,7 +947,7 @@ export const ConfiguracoesSaaS: React.FC<ConfiguracoesSaaSProps> = ({
                               </span>
                             </td>
                             <td className="py-2 px-2 text-slate-300">{c.city ? `${c.city}/${c.state}` : '-'}</td>
-                            <td className="py-2 px-2 text-slate-400">{c.phone || '-'}</td>
+                            <td className="py-2 px-2 text-slate-400">{c.phone ? maskPhone(c.phone) : '-'}</td>
                           </tr>
                         ))}
                       </tbody>

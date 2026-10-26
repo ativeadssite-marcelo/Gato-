@@ -540,6 +540,8 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                     onChange={(e) => handleDocumentChange(e.target.value)}
                     placeholder="000.000.000-00 ou 00.000.000/0001-00"
                     maxLength={18}
+                    autoComplete="off"
+                    spellCheck={false}
                     className="flex-1 p-2.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-[#EA580C] focus:ring-2 focus:ring-[#EA580C]/15"
                   />
                   <button
@@ -699,6 +701,8 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
                     placeholder="(67) 3341-0000"
+                    autoComplete="off"
+                    spellCheck={false}
                     className="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-slate-800 focus:outline-none focus:border-[#EA580C]"
                   />
                 </div>
@@ -726,6 +730,8 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                     value={formData.whatsapp}
                     onChange={(e) => setFormData({ ...formData, whatsapp: formatPhone(e.target.value) })}
                     placeholder="(67) 99123-4567"
+                    autoComplete="off"
+                    spellCheck={false}
                     className="w-full p-2.5 border border-emerald-300 bg-emerald-50/30 rounded-xl font-mono text-slate-900 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -742,6 +748,8 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="compras@oficina.com.br ou cliente@email.com"
+                  autoComplete="off"
+                  spellCheck={false}
                   className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-[#EA580C]"
                 />
               </div>

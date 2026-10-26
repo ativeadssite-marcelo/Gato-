@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { Product, Customer, QuoteItem, CustomerType, StateTaxConfig, Quote, BranchUnit, UserSession, VehicleFleetItem, VehicleFleetSegment } from '../types';
 import { STATE_TAX_TABLE, INITIAL_BRANCHES } from '../data/initialData';
+import { maskDocument } from '../utils/securityPrivacy';
 import {
   BRAZILIAN_FLEET_DATABASE,
   getDistinctFleetMakes,
@@ -1639,7 +1640,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Doc: {c.document} • {c.city}/{c.uf} • Desconto de Tabela: {c.discountRate || 0}%
+                        Doc: {maskDocument(c.document)} • {c.city}/{c.uf} • Desconto de Tabela: {c.discountRate || 0}%
                       </p>
                     </div>
 
@@ -1865,7 +1866,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
               <div>
                 <span className="text-[10px] text-slate-400 block font-bold uppercase">Cliente</span>
                 <strong className="text-slate-800">{currentCustomer.name}</strong>
-                <p className="text-[10px] text-slate-500">Doc: {currentCustomer.document}</p>
+                <p className="text-[10px] text-slate-500">Doc: {maskDocument(currentCustomer.document)}</p>
               </div>
 
               <div>
@@ -2111,7 +2112,7 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
                   <span className="text-indigo-600 font-mono">ICMS: {stateTax.icmsAliquota}%</span>
                 </div>
                 <strong className="block text-slate-900 text-sm truncate">{currentCustomer.name}</strong>
-                <p className="font-mono text-slate-600 text-[11px]">{currentCustomer.document}</p>
+                <p className="font-mono text-slate-600 text-[11px]">{maskDocument(currentCustomer.document)}</p>
                 <p className="text-slate-500 text-[11px]">
                   {currentCustomer.city || 'Campo Grande'} / {selectedUf} • Regime: {selectedCustomerType.toUpperCase()}
                 </p>

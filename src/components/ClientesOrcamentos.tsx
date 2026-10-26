@@ -45,6 +45,7 @@ import {
 import { copyTextToClipboard } from '../utils/clipboard';
 import { ImprimirOrcamentoSeletor } from './ImprimirOrcamentoSeletor';
 import { createCustomer, isDatabaseNotConfiguredError, updateQuoteStatus } from '../services/entityApi';
+import { maskDocument, maskPhone, maskEmail } from '../utils/securityPrivacy';
 
 // Shim para logoDownloadKit removido
 async function downloadLogoFormat(_profile: CompanyProfile, _format: string): Promise<void> {
@@ -114,6 +115,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
   const [selectedCustomerType, setSelectedCustomerType] = useState<string>('all');
   const [customerStatusFilter, setCustomerStatusFilter] = useState<string>('all');
   const [customerViewMode, setCustomerViewMode] = useState<'grid' | 'table'>('table');
+  const [isLgpdMasked, setIsLgpdMasked] = useState(true);
 
   // Customer Modals
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -579,7 +581,9 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                         <td className="py-3 px-4">
                           <div className="font-bold text-slate-800">{quote.customerName}</div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] font-mono text-slate-400">{quote.customerDocument}</span>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              {isLgpdMasked ? maskDocument(quote.customerDocument) : quote.customerDocument}
+                            </span>
                             {renderCustomerTypeBadge(quote.customerType)}
                           </div>
                         </td>
@@ -810,6 +814,21 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                   </button>
                 </div>
 
+                {/* BOTÃO MODO PRIVACIDADE LGPD */}
+                <button
+                  type="button"
+                  onClick={() => setIsLgpdMasked(!isLgpdMasked)}
+                  title="Conformidade LGPD: Mascara documentos e telefones contra inspeção indevida"
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                    isLgpdMasked
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs'
+                      : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                  }`}
+                >
+                  <ShieldCheck className={`w-3.5 h-3.5 ${isLgpdMasked ? 'text-emerald-600' : 'text-amber-600'}`} />
+                  <span>{isLgpdMasked ? 'LGPD Ativo (Dados Ocultos)' : 'Modo Desmascarado'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleOpenNewCustomer}
@@ -929,7 +948,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                                 </p>
                               )}
                               <p className="text-[11px] font-mono text-slate-400 mt-0.5">
-                                {c.document} {c.ie ? `• IE: ${c.ie}` : ''}
+                                {isLgpdMasked ? maskDocument(c.document) : c.document} {c.ie ? `• IE: ${c.ie}` : ''}
                               </p>
                             </div>
                           </div>
@@ -942,7 +961,9 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Phone className="w-3.5 h-3.5 text-slate-400" />
-                              <span className="font-mono">{c.phone || 'Sem telefone'}</span>
+                              <span className="font-mono">
+                                {c.phone ? (isLgpdMasked ? maskPhone(c.phone) : c.phone) : 'Sem telefone'}
+                              </span>
                             </div>
 
                             {cleanPhone && (
@@ -1105,8 +1126,10 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                             </td>
 
                             <td className="p-3 font-mono text-[11px]">
-                              <div>{c.document}</div>
-                              <div className="text-slate-500 font-sans">{c.phone || c.whatsapp || '-'}</div>
+                              <div>{isLgpdMasked ? maskDocument(c.document) : c.document}</div>
+                              <div className="text-slate-500 font-sans">
+                                {c.phone ? (isLgpdMasked ? maskPhone(c.phone) : c.phone) : (c.whatsapp ? (isLgpdMasked ? maskPhone(c.whatsapp) : c.whatsapp) : '-')}
+                              </div>
                             </td>
 
                             <td className="p-3">
@@ -1347,7 +1370,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                   Histórico de Orçamentos: {selectedCustomerForHistory.name}
                 </h3>
                 <p className="text-xs text-slate-500 font-mono">
-                  {selectedCustomerForHistory.document} • {selectedCustomerForHistory.discountRate}% desconto configurado
+                  {isLgpdMasked ? maskDocument(selectedCustomerForHistory.document) : selectedCustomerForHistory.document} • {selectedCustomerForHistory.discountRate}% desconto configurado
                 </p>
               </div>
               <button
@@ -1431,7 +1454,7 @@ export const ClientesOrcamentos: React.FC<ClientesOrcamentosProps> = ({
                   {renderQuoteStatusBadge(viewingQuote.status)}
                 </div>
                 <p className="text-xs text-slate-500">
-                  Cliente: <strong>{viewingQuote.customerName}</strong> ({viewingQuote.customerDocument})
+                  Cliente: <strong>{viewingQuote.customerName}</strong> ({isLgpdMasked ? maskDocument(viewingQuote.customerDocument) : viewingQuote.customerDocument})
                 </p>
               </div>
               <button
