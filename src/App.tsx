@@ -17,6 +17,7 @@ import { EmpresaFiliaisManager } from './components/EmpresaFiliaisManager';
 import { LoginArea } from './components/LoginArea';
 import { LoginPage } from './components/LoginPage';
 import { AlterarSenhaModal } from './components/AlterarSenhaModal';
+import { TrocarFotoPerfilModal } from './components/TrocarFotoPerfilModal';
 import { TrocaFilialCdModal } from './components/TrocaFilialCdModal';
 import { FinanceiroCompleto } from './components/FinanceiroCompleto';
 import { OrdemServicoManager } from './components/OrdemServicoManager';
@@ -176,6 +177,7 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isTrocaFilialOpen, setIsTrocaFilialOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isProfilePhotoModalOpen, setIsProfilePhotoModalOpen] = useState(false);
 
   // Global Application State: SEMPRE abre no login, NUNCA na página sem autenticação
   const [currentView, setCurrentView] = useState<string>(() => {
@@ -1124,6 +1126,7 @@ export default function App() {
         onOpenTrocaFilial={() => setIsTrocaFilialOpen(true)}
         onLogout={handleLogout}
         onOpenChangePassword={() => setIsChangePasswordOpen(true)}
+        onOpenEditProfilePhoto={() => setIsProfilePhotoModalOpen(true)}
         globalSearchQuery={globalSearchQuery}
         onSearchChange={setGlobalSearchQuery}
         onSearchSubmit={(q) => {
@@ -1603,6 +1606,25 @@ export default function App() {
           setIsChangePasswordOpen(false);
         }}
         userEmail={userSession?.email || ''}
+        onShowNotification={showNotification}
+      />
+
+      {/* Modal de Troca de Foto de Perfil */}
+      <TrocarFotoPerfilModal
+        isOpen={isProfilePhotoModalOpen}
+        onClose={() => setIsProfilePhotoModalOpen(false)}
+        userSession={userSession}
+        onSuccess={(newAvatarUrl) => {
+          if (userSession) {
+            const updated = { ...userSession, avatarUrl: newAvatarUrl || undefined };
+            setUserSession(updated);
+            try {
+              localStorage.setItem('gato_user_session', JSON.stringify(updated));
+            } catch {
+              /* noop */
+            }
+          }
+        }}
         onShowNotification={showNotification}
       />
 

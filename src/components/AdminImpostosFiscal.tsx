@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Globe, 
@@ -105,6 +105,76 @@ export const AdminImpostosFiscal: React.FC<AdminImpostosFiscalProps> = ({
 
   // Selected state rule for modal/editing
   const [selectedUfForEdit, setSelectedUfForEdit] = useState<StateTaxRule | null>(null);
+
+  // Form de Configuração Fiscal Padrão por Estado (UF) para Emissão de NF-e
+  const [selectedConfigUf, setSelectedConfigUf] = useState<string>('SP');
+  const [ufIcmsInterno, setUfIcmsInterno] = useState<number>(18);
+  const [ufIcmsInterestadual, setUfIcmsInterestadual] = useState<number>(12);
+  const [ufPisPadrao, setUfPisPadrao] = useState<number>(1.65);
+  const [ufCofinsPadrao, setUfCofinsPadrao] = useState<number>(7.60);
+  const [ufCfopInterno, setUfCfopInterno] = useState<string>('5.102');
+  const [ufCfopInterestadual, setUfCfopInterestadual] = useState<string>('6.102');
+  const [ufCstIcms, setUfCstIcms] = useState<string>('102');
+  const [ufCstPisCofins, setUfCstPisCofins] = useState<string>('01');
+
+  // Sincroniza o formulário com a UF selecionada
+  useEffect(() => {
+    const currentRule = stateRules.find(r => r.uf === selectedConfigUf);
+    if (currentRule) {
+      setUfIcmsInterno(currentRule.icmsInterno || 18);
+      setUfIcmsInterestadual(currentRule.icmsInterestadual || (['SP', 'RJ', 'MG', 'PR', 'RS', 'SC'].includes(selectedConfigUf) ? 12 : 7));
+      setUfPisPadrao(currentRule.pisAliquotaPadrao ?? 1.65);
+      setUfCofinsPadrao(currentRule.cofinsAliquotaPadrao ?? 7.60);
+      setUfCfopInterno(currentRule.cfopInternoPadrao || '5.102');
+      setUfCfopInterestadual(currentRule.cfopInterestadualPadrao || '6.102');
+      setUfCstIcms(currentRule.cstIcmsPadrao || '102');
+      setUfCstPisCofins(currentRule.cstPisCofinsPadrao || '01');
+    }
+  }, [selectedConfigUf, stateRules]);
+
+  const handleSaveUfFiscalConfig = () => {
+    const updated = stateRules.map(r => {
+      if (r.uf === selectedConfigUf) {
+        return {
+          ...r,
+          icmsInterno: ufIcmsInterno,
+          icmsInterestadual: ufIcmsInterestadual,
+          pisAliquotaPadrao: ufPisPadrao,
+          cofinsAliquotaPadrao: ufCofinsPadrao,
+          cfopInternoPadrao: ufCfopInterno,
+          cfopInterestadualPadrao: ufCfopInterestadual,
+          cstIcmsPadrao: ufCstIcms,
+          cstPisCofinsPadrao: ufCstPisCofins,
+        };
+      }
+      return r;
+    });
+    handleSaveStateRules(updated);
+    if (onShowNotification) {
+      onShowNotification(
+        'Configuração Fiscal Salva',
+        `Parâmetros fiscais da UF ${selectedConfigUf} (ICMS ${ufIcmsInterno}%, PIS ${ufPisPadrao}%, COFINS ${ufCofinsPadrao}%) foram atualizados com sucesso!`,
+        'success'
+      );
+    }
+  };
+
+  const handleApplyPisCofinsToAllUfs = () => {
+    const updated = stateRules.map(r => ({
+      ...r,
+      pisAliquotaPadrao: ufPisPadrao,
+      cofinsAliquotaPadrao: ufCofinsPadrao,
+      cstPisCofinsPadrao: ufCstPisCofins
+    }));
+    handleSaveStateRules(updated);
+    if (onShowNotification) {
+      onShowNotification(
+        'PIS/COFINS Replicado!',
+        `Alíquotas de PIS (${ufPisPadrao}%) e COFINS (${ufCofinsPadrao}%) aplicadas a todos os estados da federação.`,
+        'success'
+      );
+    }
+  };
 
   // Save Federal Tax Handler
   const handleSaveFederalSettings = () => {
@@ -882,6 +952,163 @@ export const AdminImpostosFiscal: React.FC<AdminImpostosFiscalProps> = ({
       {/* 1. IMPOSTOS ESTADUAIS */}
       {activeTab === 'estaduais' && (
         <div className="space-y-4">
+          {/* Formulário de Configurações Fiscais Padrão por Estado (UF) */}
+          <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-black">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    Configuração Fiscal Padrão por Estado (UF)
+                    <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                      Emissão NF-e
+                    </span>
+                  </h3>
+                  <p className="text-slate-500 text-xs">
+                    Defina as alíquotas padrão de ICMS, PIS, COFINS e CFOP para faturar notas fiscais com rapidez e precisão por destino.
+                  </p>
+                </div>
+              </div>
+
+              {/* UF Selector Dropdown */}
+              <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
+                <label className="text-xs font-bold text-slate-600 pl-2">UF:</label>
+                <select
+                  value={selectedConfigUf}
+                  onChange={(e) => setSelectedConfigUf(e.target.value)}
+                  className="bg-white border border-slate-300 font-extrabold text-slate-900 text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                >
+                  {stateRules.map((r) => (
+                    <option key={r.uf} value={r.uf}>
+                      {r.uf} — {r.ufName} ({r.region})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Inputs Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  ICMS Interno (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={ufIcmsInterno}
+                    onChange={(e) => setUfIcmsInterno(parseFloat(e.target.value) || 0)}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">%</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  ICMS Interestadual
+                </label>
+                <select
+                  value={ufIcmsInterestadual}
+                  onChange={(e) => setUfIcmsInterestadual(parseFloat(e.target.value) || 12)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none cursor-pointer"
+                >
+                  <option value={4}>4% (Importado Res. 13)</option>
+                  <option value={7}>7% (Sul/Sudeste para N/NE/CO)</option>
+                  <option value={12}>12% (Padrão Demais Estados)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  PIS Padrão (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={ufPisPadrao}
+                    onChange={(e) => setUfPisPadrao(parseFloat(e.target.value) || 0)}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">%</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  COFINS Padrão (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={ufCofinsPadrao}
+                    onChange={(e) => setUfCofinsPadrao(parseFloat(e.target.value) || 0)}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">%</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  CFOP Interno / Estadual
+                </label>
+                <input
+                  type="text"
+                  value={ufCfopInterno}
+                  onChange={(e) => setUfCfopInterno(e.target.value)}
+                  placeholder="5.102 / 5.405"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  CFOP Interestadual
+                </label>
+                <input
+                  type="text"
+                  value={ufCfopInterestadual}
+                  onChange={(e) => setUfCfopInterestadual(e.target.value)}
+                  placeholder="6.102 / 6.405"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Quick Actions & Replicate */}
+            <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 text-[11px]">CST ICMS: <strong>{ufCstIcms}</strong></span>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-500 text-[11px]">CST PIS/COFINS: <strong>{ufCstPisCofins}</strong></span>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleApplyPisCofinsToAllUfs}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+                  title="Aplica as alíquotas de PIS e COFINS selecionadas a todos os 27 estados"
+                >
+                  Replicar PIS/COFINS em Todas as UFs
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveUfFiscalConfig}
+                  className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Salvar Configuração Fiscal da UF
+                </button>
+              </div>
+            </div>
+          </div>
           {/* Filters Bar */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="relative flex-1 max-w-md">

@@ -27,6 +27,7 @@ export interface ServerUser {
   tenantId: string;
   tenantName: string;
   avatarInitials: string;
+  avatarUrl?: string;
   mfaEnabled?: boolean;
   requiresMfa?: boolean;
   /** Capacidades operacionais finas do tenant (construtor flexível). */
@@ -140,6 +141,7 @@ export function buildUserSession(
     cdName: branch.cdName,
     cdCode: branch.cdCode,
     avatarInitials: user.avatarInitials || user.name.substring(0, 2).toUpperCase(),
+    avatarUrl: user.avatarUrl || (typeof localStorage !== 'undefined' ? (user.email ? localStorage.getItem(`gato_user_avatar_${user.email.toLowerCase()}`) : null) || localStorage.getItem('gato_user_profile_avatar') || undefined : undefined),
     loginTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     mustChangePassword: user.mustChangePassword,
   };

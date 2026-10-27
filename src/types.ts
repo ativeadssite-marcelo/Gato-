@@ -136,6 +136,7 @@ export interface UserSession {
   cdName: string;
   cdCode: string;
   avatarInitials: string;
+  avatarUrl?: string;
   loginTime: string;
   /** Exige troca de senha no primeiro acesso */
   mustChangePassword?: boolean;

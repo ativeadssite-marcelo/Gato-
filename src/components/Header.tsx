@@ -19,7 +19,8 @@ import {
   Maximize2,
   Minimize2,
   ShoppingCart,
-  KeyRound
+  KeyRound,
+  Camera
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { PushNotification, UserSession, CompanyProfile } from '../types';
@@ -42,6 +43,7 @@ interface HeaderProps {
   onOpenTrocaFilial: () => void;
   onLogout: () => void;
   onOpenChangePassword?: () => void;
+  onOpenEditProfilePhoto?: () => void;
   globalSearchQuery?: string;
   onSearchChange?: (query: string) => void;
   onSearchSubmit?: (query: string) => void;
@@ -62,6 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTrocaFilial,
   onLogout,
   onOpenChangePassword,
+  onOpenEditProfilePhoto,
 }) => {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -328,11 +331,38 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-2 pl-1 sm:pl-2 hover:opacity-90 transition cursor-pointer text-left"
               title={userSession ? `${userSession.name} (${userSession.roleLabel})` : 'Clique para Fazer Login'}
             >
-              <img 
-                src={marceloAvatar} 
-                alt="Marcelo" 
-                className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0" 
-              />
+              <div className="relative group/avatar shrink-0">
+                {userSession?.avatarUrl ? (
+                  <img 
+                    src={userSession.avatarUrl} 
+                    alt={userSession.name || 'Usuário'} 
+                    className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0 ring-2 ring-orange-500/20" 
+                  />
+                ) : userSession ? (
+                  <div className="w-8 h-8 rounded-full bg-[#0C4A6E] text-white flex items-center justify-center font-black text-xs border border-slate-200 shadow-2xs shrink-0">
+                    {userSession.avatarInitials}
+                  </div>
+                ) : (
+                  <img 
+                    src={marceloAvatar} 
+                    alt="Visitante" 
+                    className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0" 
+                  />
+                )}
+                {userSession && onOpenEditProfilePhoto && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowUserMenu(false);
+                      onOpenEditProfilePhoto();
+                    }}
+                    title="Trocar Foto do Perfil"
+                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-orange-600 hover:bg-orange-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition shadow-xs cursor-pointer"
+                  >
+                    <Camera className="w-2.5 h-2.5" />
+                  </span>
+                )}
+              </div>
               <div className="hidden sm:block leading-tight text-left">
                 <p className="text-xs font-bold text-slate-900 leading-tight">
                   {userSession?.name?.split(' ')[0] || 'Visitante'}
@@ -349,15 +379,52 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 {/* User Identity Header */}
                 <div className="p-2.5 bg-sky-50/80 rounded-xl border border-sky-100 flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-[#0C4A6E] rounded-full flex items-center justify-center text-white font-black text-sm">
-                    {userSession.avatarInitials}
+                  <div className="relative group/menuavatar shrink-0">
+                    {userSession.avatarUrl ? (
+                      <img 
+                        src={userSession.avatarUrl} 
+                        alt={userSession.name} 
+                        className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm ring-2 ring-sky-500/30"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 bg-[#0C4A6E] rounded-full flex items-center justify-center text-white font-black text-sm border-2 border-white shadow-sm">
+                        {userSession.avatarInitials}
+                      </div>
+                    )}
+                    {onOpenEditProfilePhoto && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onOpenEditProfilePhoto();
+                        }}
+                        className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-orange-600 hover:bg-orange-700 text-white rounded-full flex items-center justify-center shadow-md transition cursor-pointer"
+                        title="Trocar Foto do Perfil"
+                      >
+                        <Camera className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-extrabold text-slate-900 truncate">{userSession.name}</p>
                     <p className="text-[11px] text-slate-500 truncate">{userSession.email}</p>
-                    <span className="inline-block mt-0.5 text-[9px] font-black uppercase px-1.5 py-0.2 bg-[#0284C7] text-white rounded">
-                      {userSession.roleLabel}
-                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.2 bg-[#0284C7] text-white rounded">
+                        {userSession.roleLabel}
+                      </span>
+                      {onOpenEditProfilePhoto && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            onOpenEditProfilePhoto();
+                          }}
+                          className="text-[10px] text-orange-600 hover:text-orange-700 font-bold hover:underline cursor-pointer"
+                        >
+                          Trocar foto
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -443,6 +510,20 @@ export const Header: React.FC<HeaderProps> = ({
                     <span>Baixar Logo & Personalização</span>
                   </button>
 
+                  {onOpenEditProfilePhoto && (
+                    <button
+                      type="button"
+                      id="header-user-menu-change-photo-btn"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenEditProfilePhoto();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-slate-700 hover:bg-orange-50 hover:text-orange-900 font-bold flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4 text-orange-600" />
+                      <span>Trocar Foto do Perfil</span>
+                    </button>
+                  )}
                   {onOpenChangePassword && (
                     <button
                       type="button"
