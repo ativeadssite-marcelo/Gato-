@@ -9,6 +9,7 @@
 
 import type { BranchUnit, CompanyProfile, UserRole, UserSession } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
+import { filterDemoBranches } from './seedMode';
 import {
   apiJson,
   clearSessionToken,
@@ -88,9 +89,29 @@ export function toUiRole(roleCode: string): UserRole {
   return RBAC_TO_UI_ROLE[roleCode] || 'vendedor';
 }
 
+export const DEFAULT_CLEAN_BRANCH: BranchUnit = {
+  id: 'matriz-principal',
+  name: 'Sede / Matriz Principal',
+  cdCode: 'CD-01',
+  cdName: 'Centro de Distribuição Principal',
+  uf: 'SP',
+  city: 'São Paulo',
+  cnpj: '',
+  ie: '',
+  address: '',
+  sefazCode: '35',
+  isMatriz: true,
+  icmsInterno: 18,
+  status: 'ativa',
+};
+
 function pickBranch(branches: BranchUnit[], branchId?: string): BranchUnit {
-  const list = branches.length > 0 ? branches : INITIAL_BRANCHES;
-  return list.find((b) => b.id === branchId) || list.find((b) => b.isMatriz) || list[0];
+  const rawList = branches && branches.length > 0 ? branches : INITIAL_BRANCHES;
+  const list = filterDemoBranches(rawList);
+  if (list.length === 0) {
+    return DEFAULT_CLEAN_BRANCH;
+  }
+  return list.find((b) => b.id === branchId) || list.find((b) => b.isMatriz) || list[0] || DEFAULT_CLEAN_BRANCH;
 }
 
 /** Monta a sessão de interface a partir do usuário autenticado no servidor. */

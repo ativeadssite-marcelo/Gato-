@@ -26,8 +26,32 @@ import {
   FederalTaxSettings,
   StateTaxRule
 } from '../types';
+import { USE_SEED_DATA } from '../utils/seedMode';
 
-export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
+export const CLEAN_COMPANY_PROFILE: CompanyProfile = {
+  id: 'empresa-principal',
+  tenantId: '',
+  tradeName: '',
+  corporateName: '',
+  cnpj: '',
+  stateRegistration: '',
+  legalNature: 'LTDA',
+  companySize: 'ME',
+  taxRegime: 'simples_nacional',
+  cnae: '',
+  segment: 'Autopeças & Serviços Automotivos',
+  phone: '',
+  email: '',
+  city: '',
+  uf: 'SP',
+  address: '',
+  isTrial: false,
+  trialDaysRemaining: 0,
+  planName: 'GATO SaaS Corporativo',
+  createdAt: new Date().toISOString(),
+};
+
+export const DEFAULT_COMPANY_PROFILE: CompanyProfile = USE_SEED_DATA ? {
   id: 'empresa-001',
   tenantId: 'cmtt58e6o0000ju346a0g6s32', // Tenant ID associado no Supabase
   tradeName: 'GATO Autopeças & Distribuidora', // Nome Fantasia Oficial
@@ -48,9 +72,9 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   trialDaysRemaining: 14,
   planName: 'GATO SaaS - Teste Grátis (14 Dias)',
   createdAt: new Date().toISOString(),
-};
+} : CLEAN_COMPANY_PROFILE;
 
-export const INITIAL_BRANCHES: BranchUnit[] = [
+export const INITIAL_BRANCHES: BranchUnit[] = USE_SEED_DATA ? [
   {
     id: 'matriz-ms',
     cdCode: 'CD-01',
@@ -131,7 +155,7 @@ export const INITIAL_BRANCHES: BranchUnit[] = [
     status: 'ativa',
     description: 'Expedição expressa para oficinas mecânicas, autoelétricas e frotistas da região metropolitana.',
   },
-];
+] : [];
 
 export interface AppUser {
   id: string;

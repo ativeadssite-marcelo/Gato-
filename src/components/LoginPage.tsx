@@ -16,6 +16,7 @@ import gatoLogoNova from '../assets/images/gato_logo_2026.png';
 import { BranchUnit, UserSession, CompanyProfile } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
 import { loginWithCredentials } from '../utils/sessionService';
+import { filterDemoBranches } from '../utils/seedMode';
 
 interface LoginPageProps {
   currentSession: UserSession | null;
@@ -31,13 +32,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onLoginSuccess,
   onBackToApp,
 }) => {
-  const availableBranches = branches && branches.length > 0 ? branches : INITIAL_BRANCHES;
+  const rawBranches = branches && branches.length > 0 ? branches : INITIAL_BRANCHES;
+  const availableBranches = filterDemoBranches(rawBranches);
 
   const [emailLogin, setEmailLogin] = useState('');
   const [passwordLogin, setPasswordLogin] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
-    currentSession?.branchId || availableBranches[0]?.id || 'matriz-ms'
+    currentSession?.branchId || availableBranches[0]?.id || ''
   );
 
   // Feedback
@@ -52,7 +54,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setIsLoading(true);
 
     try {
-      const targetBranchId = branchIdToUse || activeBranch?.id || 'matriz-ms';
+      const targetBranchId = branchIdToUse || selectedBranchId || activeBranch?.id || 'matriz-principal';
       const result = await loginWithCredentials(
         emailToUse.trim(),
         passwordToUse,
@@ -196,26 +198,35 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           {/* Filial / CD */}
-          <div>
-            <label htmlFor="select-branch-login" className="text-xs font-bold text-slate-300 block mb-1">
-              Filial / Centro de Distribuição
-            </label>
-            <div className="relative">
-              <Building2 className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-              <select
-                id="select-branch-login"
-                value={selectedBranchId}
-                onChange={(e) => setSelectedBranchId(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent font-bold cursor-pointer"
-              >
-                {availableBranches.map((b) => (
-                  <option key={b.id} value={b.id} className="bg-slate-900 text-slate-100">
-                    {b.name} ({b.cdCode} • {b.uf})
-                  </option>
-                ))}
-              </select>
+          {availableBranches.length > 0 ? (
+            <div>
+              <label htmlFor="select-branch-login" className="text-xs font-bold text-slate-300 block mb-1">
+                Filial / Centro de Distribuição
+              </label>
+              <div className="relative">
+                <Building2 className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                <select
+                  id="select-branch-login"
+                  value={selectedBranchId}
+                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent font-bold cursor-pointer"
+                >
+                  {availableBranches.map((b) => (
+                    <option key={b.id} value={b.id} className="bg-slate-900 text-slate-100">
+                      {b.name} ({b.cdCode} • {b.uf})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                <Building2 className="w-4 h-4 text-sky-400 shrink-0" />
+                <span>Base Limpa • Filial Principal será configurada após o acesso</span>
+              </div>
+            </div>
+          )}
 
           {/* Botão de Entrar */}
           <button

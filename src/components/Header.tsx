@@ -37,6 +37,7 @@ interface HeaderProps {
   onNavigate: (view: string) => void;
   userSession: UserSession | null;
   companyProfile?: CompanyProfile | null;
+  branches?: BranchUnit[];
   onOpenLogin: () => void;
   onOpenTrocaFilial: () => void;
   onLogout: () => void;
@@ -56,6 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   userSession,
   companyProfile,
+  branches,
   onOpenLogin,
   onOpenTrocaFilial,
   onLogout,
@@ -89,7 +91,26 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  const activeBranch = INITIAL_BRANCHES.find(b => b.id === activeStore) || INITIAL_BRANCHES[0];
+  const fallbackHeaderBranch: BranchUnit = {
+    id: userSession?.branchId || '',
+    name: userSession?.branchName || 'Sede / Matriz Principal',
+    cdCode: userSession?.cdCode || 'CD-01',
+    cdName: userSession?.cdName || 'Centro de Distribuição Principal',
+    uf: userSession?.branchUf || 'SP',
+    city: 'São Paulo',
+    cnpj: '',
+    ie: '',
+    address: '',
+    sefazCode: '35',
+    isMatriz: true,
+    icmsInterno: 18,
+    status: 'ativa',
+  };
+
+  const activeBranch: BranchUnit =
+    (branches && branches.find(b => b.id === activeStore)) ||
+    branches?.[0] ||
+    fallbackHeaderBranch;
 
   useEffect(() => {
     apiFetch('/api/db/status')

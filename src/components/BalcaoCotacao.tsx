@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { Product, Customer, QuoteItem, CustomerType, StateTaxConfig, Quote, BranchUnit, UserSession, VehicleFleetItem, VehicleFleetSegment } from '../types';
 import { STATE_TAX_TABLE, INITIAL_BRANCHES } from '../data/initialData';
+import { filterDemoBranches } from '../utils/seedMode';
 import { maskDocument } from '../utils/securityPrivacy';
 import {
   BRAZILIAN_FLEET_DATABASE,
@@ -73,6 +74,7 @@ interface BalcaoCotacaoProps {
   initialProduct?: Product | null;
   activeStore?: string;
   userSession?: UserSession | null;
+  branches?: BranchUnit[];
   onSelectStore?: (storeId: string) => void;
   onAddNewProduct: (product: Product) => void;
   onEmitNfeFromQuote: (quoteData: any) => void;
@@ -97,8 +99,9 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
   initialCustomer,
   initialFleetVehicle,
   initialProduct,
-  activeStore = 'matriz-ms',
+  activeStore = '',
   userSession,
+  branches,
   onSelectStore,
   onAddNewProduct,
   onEmitNfeFromQuote,
@@ -179,10 +182,28 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<string>('Dinheiro');
 
   // Origin Branch & Tax Destination
-  const [selectedOriginBranchId, setSelectedOriginBranchId] = useState<string>(activeStore || 'matriz-ms');
-  const activeBranch = INITIAL_BRANCHES.find(b => b.id === selectedOriginBranchId) || INITIAL_BRANCHES[0];
-  const originUf = activeBranch.uf; // 'MS' by default
-  const [selectedUf, setSelectedUf] = useState<string>(currentCustomer.uf || 'MS');
+  const availableBranches = filterDemoBranches(branches && branches.length > 0 ? branches : INITIAL_BRANCHES);
+  const fallbackBranch: BranchUnit = {
+    id: 'matriz-principal',
+    name: 'Sede / Matriz Principal',
+    cdCode: 'CD-01',
+    cdName: 'Centro de Distribuição Principal',
+    uf: 'SP',
+    city: 'São Paulo',
+    cnpj: '',
+    ie: '',
+    address: '',
+    sefazCode: '35',
+    isMatriz: true,
+    icmsInterno: 18,
+    status: 'ativa',
+  };
+  const [selectedOriginBranchId, setSelectedOriginBranchId] = useState<string>(
+    activeStore || availableBranches[0]?.id || ''
+  );
+  const activeBranch = availableBranches.find(b => b.id === selectedOriginBranchId) || availableBranches[0] || fallbackBranch;
+  const originUf = activeBranch.uf || 'SP';
+  const [selectedUf, setSelectedUf] = useState<string>(currentCustomer.uf || originUf || 'SP');
   const [selectedCustomerType, setSelectedCustomerType] = useState<CustomerType>(currentCustomer.type || 'frotista');
 
   // Pricing overrides & quantity for preview
@@ -1219,9 +1240,13 @@ export const BalcaoCotacao: React.FC<BalcaoCotacaoProps> = ({
                 }}
                 className="w-full p-1.5 bg-white border border-slate-300 rounded font-bold text-xs"
               >
-                {INITIAL_BRANCHES.map(b => (
-                  <option key={b.id} value={b.id}>{b.cdCode} - {b.name} ({b.uf})</option>
-                ))}
+                {availableBranches.length > 0 ? (
+                  availableBranches.map(b => (
+                    <option key={b.id} value={b.id}>{b.cdCode} - {b.name} ({b.uf})</option>
+                  ))
+                ) : (
+                  <option value="">Sede / Matriz Principal</option>
+                )}
               </select>
             </div>
 

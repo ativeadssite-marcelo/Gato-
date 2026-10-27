@@ -27,6 +27,22 @@ export function seedList<T>(value: T[]): T[] {
   return USE_SEED_DATA ? value : [];
 }
 
+const DEMO_BRANCH_IDS = new Set(['matriz-ms', 'filial-sp', 'filial-sc', 'filial-mt', 'filial-pr']);
+
+/** Remove filiais fictícias de teste da listagem quando em modo base limpa */
+export function filterDemoBranches<T extends { id?: string; name?: string }>(branches: T[]): T[] {
+  if (USE_SEED_DATA) return branches;
+  return (branches || []).filter(
+    (b) =>
+      b &&
+      !DEMO_BRANCH_IDS.has(b.id || '') &&
+      !b.name?.includes('Pantanal') &&
+      !b.name?.includes('Campo Grande') &&
+      !b.name?.includes('Joinville') &&
+      !b.name?.includes('Rondonópolis')
+  );
+}
+
 /**
  * Estado inicial de uma entidade persistida: localStorage com fallback semeado.
  * No modo base limpa (VITE_USE_SEED=false), se não houver dados reais salvos pelo
@@ -40,14 +56,19 @@ export function loadEntityState<T>(storageKey: string, seed: T[]): T[] {
 
   try {
     // Se o modo limpa estiver ativo e ainda não tivermos purgado dados demo antigos
-    if (!USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v1')) {
+    if (!USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v3')) {
       localStorage.removeItem(storageKey);
     }
 
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed as T[];
+      if (Array.isArray(parsed)) {
+        if (storageKey === 'gato_branches') {
+          return filterDemoBranches(parsed) as T[];
+        }
+        return parsed as T[];
+      }
     }
   } catch (e) {
     console.warn(`Não foi possível ler ${storageKey} do localStorage`, e);
@@ -78,8 +99,8 @@ export function demoAddon(value: number): number {
   return USE_SEED_DATA ? value : 0;
 }
 
-// Marca inicialização limpa quando no modo clean
-if (typeof localStorage !== 'undefined' && !USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v1')) {
+// Marca inicialização limpa quando no modo clean (v3 purga filiais e dados de teste)
+if (typeof localStorage !== 'undefined' && !USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v3')) {
   try {
     const demoKeys = [
       'gato_customers',
@@ -93,10 +114,13 @@ if (typeof localStorage !== 'undefined' && !USE_SEED_DATA && !localStorage.getIt
       'gato_receivables',
       'gato_bank_transactions',
       'gato_notifications',
-      'gato_mdfe'
+      'gato_mdfe',
+      'gato_branches',
+      'gato_active_store',
+      'gato_company_profile'
     ];
     demoKeys.forEach(k => localStorage.removeItem(k));
-    localStorage.setItem('gato_clean_mode_purged_v1', 'true');
+    localStorage.setItem('gato_clean_mode_purged_v3', 'true');
   } catch {
     /* noop */
   }

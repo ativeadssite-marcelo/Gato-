@@ -280,14 +280,7 @@ export default function App() {
         setAdminUnlocked(false);
         return;
       }
-      const branchList = (() => {
-        try {
-          const saved = localStorage.getItem('gato_branches');
-          return saved ? JSON.parse(saved) : INITIAL_BRANCHES;
-        } catch {
-          return INITIAL_BRANCHES;
-        }
-      })();
+      const branchList = loadEntityState('gato_branches', INITIAL_BRANCHES);
       const savedBranchId = (() => {
         try {
           return localStorage.getItem('gato_active_store') || undefined;
@@ -441,37 +434,43 @@ export default function App() {
   }, [userSession]);
 
   // Multi-branch state with persistence
-  const [branches, setBranches] = useState<BranchUnit[]>(() => {
-    try {
-      const saved = localStorage.getItem('gato_branches');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.warn('Could not read branches from storage', e);
-    }
-    return INITIAL_BRANCHES;
-  });
+  const [branches, setBranches] = useState<BranchUnit[]>(() =>
+    loadEntityState('gato_branches', INITIAL_BRANCHES)
+  );
 
   const handleUpdateBranches = (newBranches: BranchUnit[]) => {
     setBranches(newBranches);
-    try {
-      localStorage.setItem('gato_branches', JSON.stringify(newBranches));
-    } catch (e) {
-      console.warn('Could not save branches to storage', e);
-    }
+    persistEntityState('gato_branches', newBranches);
   };
 
   const [activeStore, setActiveStore] = useState(() => {
     try {
       const savedStore = localStorage.getItem('gato_active_store');
-      if (savedStore) return savedStore;
+      if (savedStore && !['matriz-ms', 'filial-sp', 'filial-sc', 'filial-mt', 'filial-pr'].includes(savedStore)) {
+        return savedStore;
+      }
     } catch (e) {
       console.warn(e);
     }
-    return 'matriz-ms';
+    return '';
   });
-  const activeBranch = branches.find(b => b.id === activeStore) || branches[0] || INITIAL_BRANCHES[0];
+
+  const fallbackCleanBranch: BranchUnit = {
+    id: 'matriz-principal',
+    name: 'Sede / Matriz Principal',
+    cdCode: 'CD-01',
+    cdName: 'Centro de Distribuição Principal',
+    uf: 'SP',
+    city: 'São Paulo',
+    cnpj: '',
+    ie: '',
+    address: '',
+    sefazCode: '35',
+    isMatriz: true,
+    icmsInterno: 18,
+    status: 'ativa',
+  };
+  const activeBranch = branches.find(b => b.id === activeStore) || branches[0] || fallbackCleanBranch;
 
   // Entities State
   // `seedList`/`loadEntityState` devolvem lista vazia no modo base limpa (VITE_USE_SEED=false);
@@ -943,8 +942,8 @@ export default function App() {
 
   const handleSelectBranch = (branchId: string) => {
     setActiveStore(branchId);
-    const targetBranch = branches.find(b => b.id === branchId) || INITIAL_BRANCHES.find(b => b.id === branchId) || branches[0];
-    if (userSession) {
+    const targetBranch = branches.find(b => b.id === branchId) || branches[0] || fallbackCleanBranch;
+    if (userSession && targetBranch) {
       const updatedSession: UserSession = {
         ...userSession,
         branchId: targetBranch.id,
@@ -1120,6 +1119,7 @@ export default function App() {
         onNavigate={(view) => setCurrentView(view)}
         userSession={userSession}
         companyProfile={companyProfile}
+        branches={branches}
         onOpenLogin={handleOpenLogin}
         onOpenTrocaFilial={() => setIsTrocaFilialOpen(true)}
         onLogout={handleLogout}
