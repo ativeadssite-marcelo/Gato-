@@ -26,7 +26,9 @@ import {
   Fingerprint,
   Package,
   Box,
-  Sliders
+  Sliders,
+  MessageSquare,
+  Phone
 } from 'lucide-react';
 import { apiJson } from '../services/apiClient';
 import type { TenantAccount } from '../types/rbac';
@@ -54,6 +56,17 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedFiscalTenant, setSelectedFiscalTenant] = useState<TenantAccount | null>(null);
   const [selectedLgpdTenant, setSelectedLgpdTenant] = useState<TenantAccount | null>(null);
+  const [loginLeads, setLoginLeads] = useState<any[]>(() => {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('gato_superadmin_leads');
+        if (raw) return JSON.parse(raw);
+      } catch {
+        /* noop */
+      }
+    }
+    return [];
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -69,6 +82,11 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
       setSubscriptions(subsRes.subscriptions || []);
       setInvoices(invsRes.invoices || []);
       setPlans(plansRes.plans || []);
+
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('gato_superadmin_leads');
+        if (raw) setLoginLeads(JSON.parse(raw));
+      }
     } catch {
       // Falhas parciais em dev não interrompem o painel
     } finally {
@@ -522,6 +540,118 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* PAINEL DE SOLICITAÇÕES DE TESTES DE 15 DIAS & SUPORTE DO LOGIN */}
+      <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl text-white">
+        <div className="p-5 md:p-6 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <Sparkles className="w-5 h-5 fill-amber-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black text-white">
+                  Solicitações de Testes de 15 Dias & Suporte (Login)
+                </h2>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase">
+                  {loginLeads.length} {loginLeads.length === 1 ? 'mensagem' : 'mensagens'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Mensagens enviadas diretamente por empresas e visitantes através da tela de login para o Superadmin.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('rbac')}
+            className="text-xs font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+          >
+            Abrir Central RBAC & Mensagens <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="p-5 md:p-6">
+          {loginLeads.length === 0 ? (
+            <div className="text-center py-6 text-slate-400 text-xs space-y-1">
+              <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+              <p className="font-bold text-slate-300">Nenhuma nova solicitação pendente no momento.</p>
+              <p className="text-slate-500 text-[11px]">
+                Novas mensagens enviadas pelo botão de "Solicite Teste por 15 Dias" ou "Suporte" do login aparecerão aqui.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {loginLeads.map((lead, idx) => {
+                const phoneDigits = (lead.phone || '').replace(/\D/g, '');
+                return (
+                  <div
+                    key={lead.protocol || idx}
+                    className="p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-amber-500/30 transition space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] text-sky-400 font-bold">
+                        {lead.protocol || `SOL-${idx}`}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[9px] font-black uppercase">
+                        {lead.requestType === 'teste_15_dias'
+                          ? 'Teste 15 Dias'
+                          : lead.requestType === 'suporte_login'
+                            ? 'Suporte Login'
+                            : lead.requestType === 'liberacao_cnpj'
+                              ? 'Liberação CNPJ'
+                              : 'Extensão Teste'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-extrabold text-sm text-white truncate">
+                        {lead.companyName}
+                      </h4>
+                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Users className="w-3 h-3 text-slate-500 shrink-0" />
+                        <span>{lead.contactName}</span>
+                      </p>
+                    </div>
+
+                    {lead.cnpj && (
+                      <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
+                        <span>{lead.cnpj}</span>
+                      </div>
+                    )}
+
+                    {lead.message && (
+                      <p className="text-[11px] text-slate-300 bg-slate-900 p-2 rounded-xl border border-slate-800 italic line-clamp-2">
+                        "{lead.message}"
+                      </p>
+                    )}
+
+                    <div className="pt-2 border-t border-slate-900 flex items-center justify-between text-xs gap-2">
+                      <span className="text-[10px] text-slate-500">
+                        {new Date(lead.timestamp || Date.now()).toLocaleDateString('pt-BR')}
+                      </span>
+
+                      {phoneDigits ? (
+                        <a
+                          href={`https://wa.me/55${phoneDigits}?text=Ol%C3%A1%20${encodeURIComponent(lead.contactName)},%20recebemos%20sua%20solicita%C3%A7%C3%A3o%20do%20GATO%20SaaS!`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1 transition"
+                        >
+                          <Phone className="w-3 h-3" />
+                          <span>WhatsApp</span>
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

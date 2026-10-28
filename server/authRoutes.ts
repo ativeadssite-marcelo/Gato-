@@ -29,7 +29,7 @@ import {
   onlyDigits,
   getDefaultTenantId,
 } from "./auth";
-import { RBAC_USERS_DATA, ROLE_DEFINITIONS, TENANTS_DATA, SAAS_PLANS, maskCnpj } from "./rbacEngine";
+import { RBAC_USERS_DATA, ROLE_DEFINITIONS, TENANTS_DATA, SAAS_PLANS, maskCnpj, INTERNAL_MESSAGES_DATA } from "./rbacEngine";
 import { appendAuditLog } from "./auditStore";
 import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
 import { RbacRoleCode, RbacUser, TenantAccount } from "../src/types/rbac";
@@ -545,5 +545,231 @@ authRouter.post("/change-password", requireAuth, (req: Request, res: Response) =
   res.json({
     success: true,
     message: "Sua senha definitiva foi criada e salva com sucesso! A senha temporária anterior não funciona mais.",
+  });
+});
+
+// =========================================================================
+// 11. CONSULTA DE STATUS DO TESTE DE 15 DIAS POR CNPJ
+// =========================================================================
+authRouter.get("/trial-status", (req: Request, res: Response) => {
+  const cnpjParam = onlyDigits(String(req.query?.cnpj || "")).slice(0, 14);
+  if (!cnpjParam || cnpjParam.length !== 14) {
+    return res.status(400).json({ success: false, error: "Informe um CNPJ válido com 14 dígitos." });
+  }
+
+  const masked = maskCnpj(cnpjParam);
+  const tenant = TENANTS_DATA.find((t) => onlyDigits(t.cnpj) === cnpjParam);
+
+  if (!tenant) {
+    return res.json({
+      success: true,
+      exists: false,
+      totalDays: 15,
+      daysRemaining: 15,
+      daysPassed: 0,
+      isExpired: false,
+    });
+  }
+
+  const createdDate = new Date(tenant.createdAt || Date.now()).getTime();
+  const now = Date.now();
+  const daysPassed = Math.floor(Math.max(0, now - createdDate) / (1000 * 60 * 60 * 24));
+  const daysRemaining = Math.max(0, 15 - daysPassed);
+  const isExpired = daysRemaining <= 0;
+
+  return res.json({
+    success: true,
+    exists: true,
+    totalDays: 15,
+    daysRemaining,
+    daysPassed,
+    isExpired,
+    record: {
+      cnpj: masked,
+      tradeName: tenant.tradeName || tenant.name,
+      corporateName: tenant.name,
+      adminName: tenant.contactEmail?.split("@")[0] || "Administrador",
+      email: tenant.contactEmail || "",
+      phone: tenant.contactPhone || "",
+      city: tenant.city || "Campo Grande",
+      uf: tenant.uf || "MS",
+      createdAt: tenant.createdAt,
+      totalDays: 15,
+    },
+  });
+});
+
+// =========================================================================
+// 12. ATIVAÇÃO DE TESTE DE 15 DIAS POR CNPJ
+// =========================================================================
+authRouter.post("/trial-activate", (req: Request, res: Response) => {
+  const cnpjRaw = onlyDigits(String(req.body?.cnpj || "")).slice(0, 14);
+  const tradeName = String(req.body?.tradeName || "").trim().slice(0, 120);
+  const corporateName = String(req.body?.corporateName || "").trim().slice(0, 160);
+  const adminName = String(req.body?.adminName || "").trim().slice(0, 120);
+  const email = String(req.body?.email || "").trim().toLowerCase().slice(0, MAX_EMAIL_LENGTH);
+  const phone = String(req.body?.phone || "").trim().slice(0, 30);
+  const uf = String(req.body?.uf || "MS").trim().toUpperCase().slice(0, 2);
+  const city = String(req.body?.city || "Campo Grande").trim().slice(0, 80);
+
+  if (!cnpjRaw || cnpjRaw.length !== 14 || !tradeName || !adminName || !email) {
+    return res.status(400).json({ success: false, error: "Dados incompletos para ativar o teste." });
+  }
+
+  const existingTenant = TENANTS_DATA.find((t) => onlyDigits(t.cnpj) === cnpjRaw);
+  if (existingTenant) {
+    return res.status(409).json({ success: false, error: "Este CNPJ já possui cadastro na plataforma." });
+  }
+
+  const tenantId = `tnt_trial_${cnpjRaw.slice(-6)}_${Date.now().toString().slice(-4)}`;
+  const trialPlan = SAAS_PLANS.find((p) => p.code === "starter") || SAAS_PLANS[0];
+
+  const tenant: TenantAccount = {
+    id: tenantId,
+    name: (corporateName || tradeName).slice(0, 160),
+    tradeName,
+    cnpj: maskCnpj(cnpjRaw),
+    planId: trialPlan.id,
+    planName: `${trialPlan.name} — Teste Grátis 15 Dias`,
+    status: "trial",
+    contactEmail: email,
+    contactPhone: phone || "não informado",
+    city,
+    uf,
+    createdAt: new Date().toISOString(),
+    mfaRequired: false,
+    sessionTimeoutMinutes: 480,
+    ipAllowlist: [],
+    softBlockEnabled: true,
+  };
+  TENANTS_DATA.push(tenant);
+
+  const userId = `usr_trial_${cnpjRaw.slice(-6)}_${Date.now().toString().slice(-4)}`;
+  const roleCode: RbacRoleCode = "tenant_admin";
+  const newUser: RbacUser = {
+    id: userId,
+    tenantId,
+    tenantName: tradeName,
+    name: adminName,
+    email,
+    roleCode,
+    roleName: ROLE_DEFINITIONS[roleCode].name,
+    department: "Diretoria / Teste 15 Dias",
+    active: true,
+    avatarInitials: adminName.slice(0, 2).toUpperCase(),
+    mfaEnabled: false,
+    mfaEnforced: false,
+    lastLoginAt: new Date().toISOString(),
+    lastLoginIp: getClientIp(req),
+    createdAt: new Date().toISOString(),
+    sessionTimeoutMinutes: tenant.sessionTimeoutMinutes,
+  };
+  RBAC_USERS_DATA.push(newUser);
+
+  // Notificação para o Superadmin na central de mensagens
+  INTERNAL_MESSAGES_DATA.unshift({
+    id: `msg_trial_${Date.now()}`,
+    tenantId: "system",
+    senderId: userId,
+    senderName: `${adminName} (${tradeName})`,
+    senderRole: "Lead / Teste 15 Dias",
+    title: `[Novo Teste de 15 Dias] ${tradeName} (${maskCnpj(cnpjRaw)})`,
+    content: `A empresa "${tradeName}" iniciou teste de 15 dias na plataforma.\n\nResponsável: ${adminName}\nE-mail: ${email}\nTelefone/WhatsApp: ${phone}\nCidade/UF: ${city}/${uf}\nData de início: ${new Date().toLocaleDateString("pt-BR")}`,
+    channels: ["in_app"],
+    priority: "high",
+    templateCode: "upgrade_solicitado",
+    createdAt: new Date().toISOString(),
+    readBy: [],
+    optOutUsers: [],
+  });
+
+  appendAuditLog({
+    id: `aud_trial_${Date.now()}`,
+    tenantId,
+    userId,
+    userName: adminName,
+    userRole: roleCode,
+    action: "ACTIVATE_15_DAY_TRIAL",
+    resource: "manage_accounts",
+    entityId: tenantId,
+    timestamp: new Date().toISOString(),
+    justification: `Teste de 15 dias ativado pelo CNPJ ${maskCnpj(cnpjRaw)} na tela de login.`,
+    status: "success",
+    ipAddress: getClientIp(req),
+  });
+
+  const { token, expiresAt } = issueSessionToken(newUser);
+
+  res.status(201).json({
+    success: true,
+    token,
+    expiresAt,
+    user: newUser,
+    tenant: tenantId,
+    totalDays: 15,
+    daysRemaining: 15,
+    message: "Teste de 15 dias ativado com sucesso!",
+  });
+});
+
+// =========================================================================
+// 13. SOLICITAÇÃO DE SUPORTE / TESTE ENVIADA AO SUPERADMIN
+// =========================================================================
+authRouter.post("/support-request", (req: Request, res: Response) => {
+  const companyName = String(req.body?.companyName || "").trim().slice(0, 160);
+  const contactName = String(req.body?.contactName || "").trim().slice(0, 120);
+  const email = String(req.body?.email || "").trim().toLowerCase().slice(0, MAX_EMAIL_LENGTH);
+  const phone = String(req.body?.phone || "").trim().slice(0, 30);
+  const cnpj = String(req.body?.cnpj || "").trim().slice(0, 30);
+  const requestType = String(req.body?.requestType || "teste_15_dias").slice(0, 50);
+  const message = String(req.body?.message || "").trim().slice(0, 1000);
+
+  if (!companyName || !contactName || !email || !phone) {
+    return res.status(400).json({ success: false, error: "Nome, empresa, e-mail e telefone são obrigatórios." });
+  }
+
+  const protocol = `SOL-${Date.now().toString().slice(-6)}`;
+  const typeLabel =
+    requestType === "teste_15_dias" ? "Solicitação de Teste 15 Dias" :
+    requestType === "suporte_login" ? "Suporte Técnico de Login" :
+    requestType === "liberacao_cnpj" ? "Liberação de CNPJ Bloqueado" : "Extensão de Período de Teste";
+
+  // Enfileira mensagem para o Superadmin
+  INTERNAL_MESSAGES_DATA.unshift({
+    id: `msg_support_${Date.now()}`,
+    tenantId: "system",
+    senderId: "lead_visitor",
+    senderName: `${contactName} (${companyName})`,
+    senderRole: "Visitante / Login",
+    title: `[${typeLabel}] ${companyName} (${cnpj || "Sem CNPJ"})`,
+    content: `Protocolo: ${protocol}\nSolicitante: ${contactName}\nEmpresa: ${companyName}\nCNPJ: ${cnpj || "Não informado"}\nE-mail: ${email}\nTelefone/WhatsApp: ${phone}\nMensagem: ${message || "Nenhuma mensagem adicional."}`,
+    channels: ["in_app", "email"],
+    priority: "high",
+    templateCode: "upgrade_solicitado",
+    createdAt: new Date().toISOString(),
+    readBy: [],
+    optOutUsers: [],
+  });
+
+  appendAuditLog({
+    id: `aud_supp_${Date.now()}`,
+    tenantId: "system",
+    userId: "lead_visitor",
+    userName: contactName,
+    userRole: "super_admin",
+    action: "PUBLIC_SUPPORT_REQUEST",
+    resource: "internal_messages",
+    entityId: protocol,
+    timestamp: new Date().toISOString(),
+    justification: `[${typeLabel}] Mensagem enviada pelo formulário de suporte/teste do login: ${companyName}`,
+    status: "success",
+    ipAddress: getClientIp(req),
+  });
+
+  res.status(200).json({
+    success: true,
+    protocol,
+    message: "Solicitação recebida com sucesso! O Superadmin foi notificado.",
+    timestamp: new Date().toISOString(),
   });
 });
