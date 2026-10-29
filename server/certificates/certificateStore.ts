@@ -12,8 +12,8 @@ import type {
 } from "../../src/types/certificate";
 import { TENANTS_DATA } from "../rbacEngine";
 
-const PERSISTENCE_FILE = path.join(__dirname, "../.certificates_store.json");
-const PFX_FILES_DIR = path.join(__dirname, "../.certificates_pfx");
+const PERSISTENCE_FILE = path.resolve(process.cwd(), "server", ".certificates_store.json");
+const PFX_FILES_DIR = path.resolve(process.cwd(), "server", ".certificates_pfx");
 
 // Garantir diretório de PFX seguro
 try {

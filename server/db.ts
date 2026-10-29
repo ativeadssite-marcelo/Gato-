@@ -128,7 +128,7 @@ export function getDbPool(): pg.Pool {
 /** Descarta o pool em cache (chame após cadastrar novas credenciais). */
 export function resetDbPool(): void {
   if (pool) {
-    pool.end().catch(() => {});
+    pool.end().catch(() => { });
     pool = null;
   }
 }
@@ -156,7 +156,7 @@ export async function testDbConnection(config: DbConfig): Promise<DbConnectionTe
     const safe = String(err?.message || err).replace(/:[^:@]+@/, ":****@").slice(0, 200);
     return { ok: false, latencyMs: Date.now() - start, error: safe };
   } finally {
-    await testPool.end().catch(() => {});
+    await testPool.end().catch(() => { });
   }
 }
 
@@ -259,98 +259,5 @@ export async function checkDatabaseConnection(): Promise<DbStatusResult> {
       counts: {},
       error: safeError || "Falha segura na conexão com o banco de dados",
     };
-  }
-}
-
-// =========================================================================
-// CADASTRO DE TENANTS (persistência best-effort)
-// =========================================================================
-
-export interface TenantAccountInput {
-  id: string;
-  name: string;
-  tradeName: string;
-  cnpj: string;
-  stateRegistration?: string;
-  segment?: string;
-  contactName?: string;
-  contactEmail: string;
-  contactPhone?: string;
-  city?: string;
-  uf?: string;
-  branchId?: string;
-}
-
-export interface TenantAccountResult {
-  persisted: boolean;
-  error?: string;
-}
-
-/** Verifica se já existe usuário/tenant com o e-mail informado no banco. */
-export async function emailExistsInDatabase(email: string): Promise<boolean> {
-  if (!isDatabaseConfigured()) return false;
-  const normalized = (email || "").trim().toLowerCase();
-  if (!normalized) return false;
-  try {
-    const db = getDbPool();
-    const result = await db.query(
-      `SELECT 1 FROM "User" WHERE LOWER(email) = $1
-       UNION ALL
-       SELECT 1 FROM "Tenant" WHERE LOWER("contactEmail") = $1
-       LIMIT 1;`,
-      [normalized]
-    );
-    return result.rows.length > 0;
-  } catch (error: any) {
-    // Fail-closed na checagem de duplicidade: em erro assume "existe" para não
-    // permitir sobrescrever/sombrear um cadastro real de terceiro.
-    console.error("[Supabase PG] Falha ao verificar e-mail existente:", error?.message || error);
-    return true;
-  }
-}
-
-/**
- * Persiste o novo tenant contratante no PostgreSQL.
- * Retorna `persisted: false` sem lançar exceção: o cadastro continua válido em
- * memória e a pendência fica registrada para reprocessamento.
- */
-export async function insertTenantAccount(input: TenantAccountInput): Promise<TenantAccountResult> {
-  if (!isDatabaseConfigured()) {
-    return { persisted: false, error: DB_NOT_CONFIGURED_MESSAGE };
-  }
-  try {
-    const db = getDbPool();
-    const now = new Date().toISOString();
-    const branchId = input.branchId || `branch_${input.id.slice(-10)}`;
-
-    await db.query("BEGIN");
-    await db.query(
-      `INSERT INTO "Tenant" (id, name, "tradeName", cnpj, "stateRegistration", segment, "contactEmail", "contactPhone", city, uf, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
-       ON CONFLICT (id) DO NOTHING;`,
-      [
-        input.id,
-        input.name,
-        input.tradeName,
-        input.cnpj,
-        input.stateRegistration || "ISENTO",
-        input.segment || "Autopeças Leves & Acessórios",
-        (input.contactEmail || "").trim().toLowerCase(),
-        input.contactPhone || "",
-        input.city || "",
-        (input.uf || "").toUpperCase(),
-        now,
-      ]
-    );
-    await db.query("COMMIT");
-
-    return { persisted: true };
-  } catch (error: any) {
-    await getDbPool().query("ROLLBACK").catch(() => {});
-    const safeError = String(error?.message || error)
-      .replace(/:[^:@]+@/, ":****@")
-      .slice(0, 200);
-    console.error("[Supabase PG] Falha ao persistir tenant:", safeError);
-    return { persisted: false, error: `Não foi possível persistir no banco: ${safeError}` };
   }
 }

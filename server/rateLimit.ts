@@ -32,10 +32,14 @@ export function createRateLimiter(maxRequests: number, windowMs: number, keyPref
       record.count++;
     }
 
-    // Auto-limpeza periódica dos registros vencidos.
+    // Auto-limpeza periódica dos registros vencidos e teto contra exaustão de memória.
     if (rateLimits.size > 5000) {
       for (const [k, v] of rateLimits.entries()) {
         if (now > v.resetAt) rateLimits.delete(k);
+      }
+      if (rateLimits.size >= 5000) {
+        const oldestKey = rateLimits.keys().next().value;
+        if (oldestKey !== undefined) rateLimits.delete(oldestKey);
       }
     }
 

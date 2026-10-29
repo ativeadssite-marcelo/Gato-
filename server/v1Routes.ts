@@ -468,6 +468,18 @@ v1Router.post("/quotes", write("sales"), async (req, res) => {
     const budgetId = newId("bdg");
     const number = `API-${Date.now().toString().slice(-8)}`;
 
+    const rawProductIds = boundedItems
+      .map((it: any) => (typeof it?.productId === "string" ? it.productId.trim() : ""))
+      .filter(Boolean);
+    const validProductIds = new Set<string>();
+    if (rawProductIds.length > 0) {
+      const pRes = await client.query(
+        'SELECT id FROM "Product" WHERE "tenantId" = $1 AND id = ANY($2::text[]);',
+        [guard.tenantId, rawProductIds],
+      );
+      for (const r of pRes.rows) validProductIds.add(String(r.id));
+    }
+
     await client.query("BEGIN");
     await client.query(
       `INSERT INTO "Budget" (id, number, "customerId", total, status, "tenantId", "createdAt", "updatedAt")
@@ -478,10 +490,12 @@ v1Router.post("/quotes", write("sales"), async (req, res) => {
     for (const it of boundedItems) {
       const qty = Number.isFinite(Number(it?.quantity)) && Number(it.quantity) > 0 ? Number(it.quantity) : 1;
       const price = Number.isFinite(Number(it?.unitPrice)) && Number(it.unitPrice) >= 0 ? Number(it.unitPrice) : 0;
+      const safeProductId =
+        typeof it?.productId === "string" && validProductIds.has(it.productId.trim()) ? it.productId.trim() : null;
       await client.query(
         `INSERT INTO "BudgetItem" (id, "budgetId", "productId", quantity, "unitPrice", "createdAt")
          VALUES ($1, $2, $3, $4, $5, NOW());`,
-        [newId("bi"), budgetId, typeof it?.productId === "string" ? it.productId : null, qty, price],
+        [newId("bi"), budgetId, safeProductId, qty, price],
       );
     }
     await client.query("COMMIT");

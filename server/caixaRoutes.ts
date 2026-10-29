@@ -21,7 +21,6 @@ import {
   openCashRegister,
   closeCashRegister,
   recordMovement,
-  getCashRegister,
   listCashRegisters,
   listCashMovements,
   issueReceipt,
@@ -84,7 +83,7 @@ caixaRouter.post(
 
     const { openingAmount, notes } = req.body as OpenCaixaBody;
 
-    if (typeof openingAmount !== "number" || openingAmount < 0) {
+    if (typeof openingAmount !== "number" || !Number.isFinite(openingAmount) || openingAmount < 0) {
       return res.status(400).json({
         success: false,
         error: "openingAmount deve ser um número positivo.",
@@ -126,7 +125,7 @@ caixaRouter.post(
 
     const { actualAmount, notes } = req.body as CloseCaixaBody;
 
-    if (typeof actualAmount !== "number") {
+    if (typeof actualAmount !== "number" || !Number.isFinite(actualAmount) || actualAmount < 0) {
       return res.status(400).json({
         success: false,
         error: "actualAmount é obrigatório.",
@@ -202,16 +201,15 @@ caixaRouter.post(
     if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
 
     const body = req.body as MovementBody;
-    if (!body.type || !body.paymentMethod || typeof body.amount !== "number") {
+    if (!body.type || !body.paymentMethod || typeof body.amount !== "number" || !Number.isFinite(body.amount) || body.amount <= 0) {
       return res.status(400).json({
         success: false,
-        error: "Campos obrigatórios: type, paymentMethod, amount.",
+        error: "Campos obrigatórios: type, paymentMethod e amount (número positivo).",
       });
     }
 
     // Procura caixa aberto do tenant
-    const openRegister = await getCashRegister("current", scope.tenantId);
-    const caixaAberto = openRegister || [...(await listCashRegisters(scope.tenantId))].find(r => r.status === "open");
+    const caixaAberto = (await listCashRegisters(scope.tenantId)).find(r => r.status === "open");
 
     if (!caixaAberto) {
       return res.status(400).json({ success: false, error: "Nenhum caixa aberto encontrado." });
@@ -366,10 +364,10 @@ caixaRouter.post(
     if (!scope.tenantId) return res.status(400).json({ success: false, error: "Tenant não informado." });
 
     const body = req.body as BoletoBody;
-    if (!body.customerId || !body.amount || !body.dueDate) {
+    if (!body.customerId || typeof body.amount !== "number" || !Number.isFinite(body.amount) || body.amount <= 0 || !body.dueDate) {
       return res.status(400).json({
         success: false,
-        error: "Campos obrigatórios: customerId, amount, dueDate.",
+        error: "Campos obrigatórios: customerId, amount (positivo), dueDate.",
       });
     }
 
@@ -418,6 +416,9 @@ caixaRouter.put(
       paymentMethod: "dinheiro" | "cartao_credito" | "cartao_debito" | "pix" | "boleto" | "cheque" | "outros";
       paidAmount: number;
     };
+    if (typeof paidAmount !== "number" || !Number.isFinite(paidAmount) || paidAmount <= 0) {
+      return res.status(400).json({ success: false, error: "paidAmount deve ser um número positivo." });
+    }
 
     const boleto = await markBoletoPaid(req.params.id, scope.tenantId!, paymentMethod, paidAmount, actorFrom(req));
     if (!boleto) {
