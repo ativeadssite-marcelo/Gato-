@@ -18,12 +18,13 @@ import {
   HelpCircle,
   Phone,
   User,
-  Zap
+  Zap,
+  KeyRound
 } from 'lucide-react';
 import gatoLogoNova from '../assets/images/gato_logo_2026.png';
 import { BranchUnit, UserSession, CompanyProfile } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
-import { loginWithCredentials } from '../utils/sessionService';
+import { loginWithCredentials, resetAdminPasswordDirectly } from '../utils/sessionService';
 import { filterDemoBranches } from '../utils/seedMode';
 import {
   formatCnpj,
@@ -215,50 +216,108 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setIsSupportModalOpen(true);
   };
 
+  const handleUseInitialPassword = () => {
+    setEmailLogin('contato.ativeads@gmail.com');
+    setPasswordLogin('AcessoInicial@2026!');
+    setErrorMessage(null);
+    setSuccessMessage('Senha inicial preenchida: AcessoInicial@2026!. Clique em "Acessar Sistema".');
+  };
+
+  const handleQuickAdminLogin = () => {
+    setEmailLogin('contato.ativeads@gmail.com');
+    setPasswordLogin('AcessoInicial@2026!');
+    void executeLogin('contato.ativeads@gmail.com', 'AcessoInicial@2026!');
+  };
+
+  const handleResetAdminCustomPassword = () => {
+    try {
+      localStorage.removeItem('gato_admin_custom_password');
+      handleUseInitialPassword();
+    } catch {
+      handleUseInitialPassword();
+    }
+  };
+
+  // --- MODAL DE DEFINIÇÃO DE SENHA ÚNICA ---
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [newUniquePassword, setNewUniquePassword] = useState('');
+  const [confirmUniquePassword, setConfirmUniquePassword] = useState('');
+  const [showUniquePassword, setShowUniquePassword] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetModalError, setResetModalError] = useState<string | null>(null);
+
+  const handleDefineUniquePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetModalError(null);
+    if (!newUniquePassword || newUniquePassword.length < 8) {
+      setResetModalError('A nova senha deve ter no mínimo 8 caracteres.');
+      return;
+    }
+    if (newUniquePassword !== confirmUniquePassword) {
+      setResetModalError('A confirmação da nova senha não confere.');
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      const res = await resetAdminPasswordDirectly(newUniquePassword);
+      setIsResettingPassword(false);
+      setIsResetModalOpen(false);
+      setEmailLogin('contato.ativeads@gmail.com');
+      setPasswordLogin(newUniquePassword);
+      setSuccessMessage(res.message || 'Nova senha única cadastrada! Entrando no sistema...');
+      void executeLogin('contato.ativeads@gmail.com', newUniquePassword);
+    } catch (err: any) {
+      setIsResettingPassword(false);
+      setResetModalError(err?.message || 'Falha ao salvar a nova senha.');
+    }
+  };
+
   return (
     <div 
-      className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center font-['Plus_Jakarta_Sans'] selection:bg-[#0284C7] selection:text-white px-4 py-8" 
+      className="min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col items-center overflow-y-auto font-['Plus_Jakarta_Sans'] selection:bg-[#0284C7] selection:text-white px-4 py-8 custom-scrollbar" 
       id="gato-login-page"
     >
-      {/* Botão de retorno caso o usuário já possua sessão ativa */}
-      {currentSession && onBackToApp && (
-        <div className="w-full max-w-md flex items-center justify-between mb-4">
-          <button
-            type="button"
-            id="btn-voltar-ao-sistema"
-            onClick={onBackToApp}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold transition shadow-md cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#0284C7]" />
-            <span>Voltar ao Painel ({currentSession.name.split(' ')[0]})</span>
-          </button>
+      <div className="w-full max-w-md my-auto flex flex-col items-center">
+        {/* Botão de retorno caso o usuário já possua sessão ativa */}
+        {currentSession && onBackToApp && (
+          <div className="w-full flex items-center justify-between mb-4">
+            <button
+              type="button"
+              id="btn-voltar-ao-sistema"
+              onClick={onBackToApp}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold transition shadow-md cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4 text-[#0284C7]" />
+              <span>Voltar ao Painel ({currentSession.name.split(' ')[0]})</span>
+            </button>
 
-          <button
-            type="button"
-            id="btn-fechar-login"
-            onClick={onBackToApp}
-            className="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer"
-            title="Fechar tela de login e voltar ao sistema"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              id="btn-fechar-login"
+              onClick={onBackToApp}
+              className="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer"
+              title="Fechar tela de login e voltar ao sistema"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
 
-      {/* LOGO OFICIAL GATO */}
-      <img 
-        src={gatoLogoNova} 
-        alt="GATO - Gestão de Estoque e Balcão" 
-        className="w-full max-w-xs sm:max-w-sm rounded-3xl border border-amber-500/30 shadow-[0_0_50px_-15px_rgba(249,115,22,0.4)] mb-5"
-        id="img-logo-login-gato"
-        referrerPolicy="no-referrer"
-      />
+        {/* LOGO OFICIAL GATO */}
+        <img 
+          src={gatoLogoNova} 
+          alt="GATO - Gestão de Estoque e Balcão" 
+          className="w-full max-w-xs sm:max-w-sm rounded-3xl border border-amber-500/30 shadow-[0_0_50px_-15px_rgba(249,115,22,0.4)] mb-5"
+          id="img-logo-login-gato"
+          referrerPolicy="no-referrer"
+        />
 
-      {/* CARD PRINCIPAL DE LOGIN & TESTE 15 DIAS */}
-      <div className="w-full max-w-md bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
-        
-        {/* TABS DE SELEÇÃO: ACESSO CORPORATIVO vs TESTE 15 DIAS POR CNPJ */}
-        <div className="flex p-1 bg-slate-950 border border-slate-800 rounded-2xl gap-1">
+        {/* CARD PRINCIPAL DE LOGIN & TESTE 15 DIAS */}
+        <div className="w-full bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+          
+          {/* TABS DE SELEÇÃO: ACESSO CORPORATIVO vs TESTE 15 DIAS POR CNPJ */}
+          <div className="flex p-1 bg-slate-950 border border-slate-800 rounded-2xl gap-1">
           <button
             type="button"
             onClick={() => {
@@ -296,9 +355,41 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
         {/* MENSAGEM DE ERRO OU SUCESSO */}
         {errorMessage && (
-          <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400 animate-in fade-in duration-150" id="alert-login-error">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{errorMessage}</span>
+          <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-2xl text-xs text-red-300 animate-in fade-in duration-150 space-y-2.5" id="alert-login-error">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+              <div className="flex-1">
+                <span className="font-semibold">{errorMessage}</span>
+              </div>
+            </div>
+            
+            {/* Atalhos de Desbloqueio Imediato */}
+            <div className="pt-2 border-t border-red-500/20 flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={handleQuickAdminLogin}
+                className="py-1.5 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] transition shadow flex items-center justify-center gap-1.5 cursor-pointer"
+                id="btn-quick-admin-login-error"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>Acessar c/ Senha Inicial (1 Clique)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setNewUniquePassword('');
+                  setConfirmUniquePassword('');
+                  setResetModalError(null);
+                  setIsResetModalOpen(true);
+                }}
+                className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-[11px] border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                id="btn-open-reset-modal-error"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+                <span>Cadastrar Minha Senha Única</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -373,6 +464,67 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
+              </div>
+
+              {/* Auxílio de Primeiro Acesso do Administrador */}
+              <div className="p-3 mt-2 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-amber-500/30 shadow-md text-[11px] space-y-2.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 text-slate-300 font-bold">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Primeiro Acesso / Super Admin:</span>
+                  </div>
+                  <span className="text-amber-400 font-mono font-black bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                    AcessoInicial@2026!
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleQuickAdminLogin}
+                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-[11px] shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    id="btn-quick-admin-login-card"
+                    title="Preenche e acessa o sistema imediatamente como Super Admin"
+                  >
+                    <Zap className="w-3.5 h-3.5 fill-current" />
+                    <span>Entrar Agora (1 Clique)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewUniquePassword('');
+                      setConfirmUniquePassword('');
+                      setResetModalError(null);
+                      setIsResetModalOpen(true);
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-[11px] border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    id="btn-definir-senha-unica-modal"
+                    title="Defina uma senha pessoal exclusiva para contato.ativeads@gmail.com"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Cadastrar Senha Única</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 px-0.5">
+                  <button
+                    type="button"
+                    onClick={handleUseInitialPassword}
+                    className="font-bold text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Preencher nos Campos</span>
+                  </button>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={handleResetAdminCustomPassword}
+                    className="font-bold text-slate-400 hover:text-slate-200 hover:underline cursor-pointer"
+                    title="Restaura a senha de primeiro acesso"
+                  >
+                    <span>Restaurar Padrão</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -723,9 +875,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </div>
       </div>
 
-      <p className="text-[10px] text-slate-500 mt-6 tracking-wide uppercase text-center">
-        GATO SaaS • Gestão de Estoque, Balcão & Frota Nacional
-      </p>
+        <p className="text-[10px] text-slate-500 mt-6 tracking-wide uppercase text-center">
+          GATO SaaS • Gestão de Estoque, Balcão & Frota Nacional
+        </p>
+      </div>
 
       {/* MODAL DE SUPORTE & SOLICITAÇÃO AO SUPERADMIN */}
       <SolicitarSuporteModal
@@ -738,6 +891,122 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           setSuccessMessage(`Solicitação ${proto} enviada ao Superadmin com sucesso!`);
         }}
       />
+
+      {/* MODAL DE DEFINIÇÃO DE SENHA ÚNICA (PRIMEIRO ACESSO OU ESQUECI) */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full shadow-2xl p-6 sm:p-7 text-white animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                  <KeyRound className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-white">
+                    Cadastrar Nova Senha Única
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Administrador: contato.ativeads@gmail.com
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDefineUniquePasswordSubmit} className="space-y-4 pt-4">
+              {resetModalError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span>{resetModalError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Nova Senha Única (mínimo 8 caracteres)
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <input
+                    type={showUniquePassword ? 'text' : 'password'}
+                    value={newUniquePassword}
+                    onChange={(e) => setNewUniquePassword(e.target.value)}
+                    placeholder="Digite sua nova senha"
+                    required
+                    minLength={8}
+                    className="w-full pl-9 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0284C7] font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowUniquePassword(!showUniquePassword)}
+                    className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 cursor-pointer"
+                  >
+                    {showUniquePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Confirmar Nova Senha
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <input
+                    type={showUniquePassword ? 'text' : 'password'}
+                    value={confirmUniquePassword}
+                    onChange={(e) => setConfirmUniquePassword(e.target.value)}
+                    placeholder="Repita a nova senha"
+                    required
+                    minLength={8}
+                    className="w-full pl-9 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0284C7] font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex flex-col gap-2">
+                <button
+                  type="submit"
+                  disabled={isResettingPassword}
+                  className="w-full py-3 bg-gradient-to-r from-[#0C4A6E] via-[#0284C7] to-indigo-600 hover:opacity-95 text-white font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  id="btn-confirmar-nova-senha-unica"
+                >
+                  {isResettingPassword ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Salvando senha...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Salvar e Acessar o Sistema</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResetModalOpen(false);
+                    handleQuickAdminLogin();
+                  }}
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center justify-center gap-1.5 cursor-pointer text-center"
+                >
+                  <Zap className="w-3.5 h-3.5 fill-current shrink-0" />
+                  <span>Ou entrar com a senha de primeiro acesso (AcessoInicial@2026!)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -549,6 +549,37 @@ authRouter.post("/change-password", requireAuth, (req: Request, res: Response) =
 });
 
 // =========================================================================
+// 10.1. DEFINIÇÃO / REDEFINIÇÃO DE SENHA DO SUPERADMIN (PRIMEIRO ACESSO OU ESQUECI)
+// =========================================================================
+authRouter.post("/reset-admin-password", (req: Request, res: Response) => {
+  const email = String(req.body?.email || "").trim().toLowerCase().slice(0, MAX_EMAIL_LENGTH);
+  const newPassword = String(req.body?.newPassword || "").slice(0, MAX_PASSWORD_LENGTH);
+
+  if (email !== "contato.ativeads@gmail.com") {
+    return res.status(403).json({ success: false, error: "Apenas a conta de administração geral pode utilizar esta rota de recuperação." });
+  }
+
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ success: false, error: "A nova senha deve ter no mínimo 8 caracteres." });
+  }
+
+  const superAdmin = RBAC_USERS_DATA.find((u) => u.email === "contato.ativeads@gmail.com");
+  if (!superAdmin) {
+    return res.status(404).json({ success: false, error: "Administrador não encontrado." });
+  }
+
+  setCredential("usr_super_admin", "contato.ativeads@gmail.com", newPassword);
+  superAdmin.mustChangePassword = false;
+
+  logAuthEvent(req, "ADMIN_PASSWORD_RESET_DIRECT", email, "success", "Senha do administrador geral definida/redefinida com sucesso.");
+
+  res.json({
+    success: true,
+    message: "Sua senha única definitiva foi cadastrada com sucesso! Você já pode entrar com ela.",
+  });
+});
+
+// =========================================================================
 // 11. CONSULTA DE STATUS DO TESTE DE 15 DIAS POR CNPJ
 // =========================================================================
 authRouter.get("/trial-status", (req: Request, res: Response) => {

@@ -52,10 +52,10 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-950 to-slate-900 px-6 py-5 flex items-start justify-between">
+        <div className="bg-gradient-to-r from-slate-950 to-slate-900 px-6 py-5 flex items-start justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
               <ShieldAlert className="w-6 h-6 text-amber-400" />
@@ -76,7 +76,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
         </div>
 
         {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
           <p className="text-sm text-slate-600 leading-relaxed">
             A área <strong className="text-slate-900">“{viewLabel}”</strong> é protegida. Informe a{' '}
             <strong className="text-slate-900">senha master do superadmin</strong> para desbloquear.

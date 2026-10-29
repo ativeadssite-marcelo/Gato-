@@ -1016,7 +1016,7 @@ export default function App() {
   // Dedicated Login Page View when explicitly requested
   if (currentView === 'login') {
     return (
-      <div className="min-h-screen bg-slate-950 font-['Plus_Jakarta_Sans'] antialiased">
+      <div className="min-h-screen w-full bg-slate-950 font-['Plus_Jakarta_Sans'] antialiased overflow-y-auto">
         {/* Global Toast Notification */}
         {toast && (
           <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-sky-500/30 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-3 duration-200">
