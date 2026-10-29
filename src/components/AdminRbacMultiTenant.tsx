@@ -60,6 +60,7 @@ import { apiFetch } from '../services/apiClient';
 import { generateStrongPassword } from '../utils/passwordGenerator';
 import { TenantPermissionMatrix } from './TenantPermissionMatrix';
 import { GestaoPacotesPlanos } from './GestaoPacotesPlanos';
+import { AcessoEnviadoModal } from './AcessoEnviadoModal';
 
 interface AdminRbacProps {
   onNotify?: (message: string, type?: 'success' | 'warning' | 'error') => void;
@@ -107,6 +108,9 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
   const [newUserDept, setNewUserDept] = useState('Operacional');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserPasswordConfirm, setNewUserPasswordConfirm] = useState('');
+  const [newUserSendEmail, setNewUserSendEmail] = useState(true);
+  const [acessoEnviadoData, setAcessoEnviadoData] = useState<any | null>(null);
+  const [resendingUserId, setResendingUserId] = useState<string | null>(null);
 
   // Reset de senha: a senha nova é definida na hora. Antes esta ação só emitia
   // um "link seguro" que não existia — nada mudava e o chamado parecia resolvido.
@@ -258,6 +262,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
     setNewUserEmail('');
     setNewUserPassword('');
     setNewUserPasswordConfirm('');
+    setNewUserSendEmail(true);
     setNewUserTenantPermissions([]);
     setIsUserModalOpen(true);
   };
@@ -317,6 +322,7 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                   department: newUserDept,
                   tenantPermissions: newUserTenantPermissions,
                   password: newUserPassword,
+                  sendEmail: newUserSendEmail,
                 },
           ),
         },
@@ -331,11 +337,75 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
         );
         closeUserModal();
         loadRbacData();
+
+        if (!isEdit && data.user) {
+          setAcessoEnviadoData({
+            title: 'Usuário Criado com Sucesso!',
+            recipientName: data.user.name,
+            recipientEmail: data.user.email,
+            companyName: data.user.tenantName || 'Empresa',
+            roleName: data.user.roleName,
+            loginUrl: data.loginUrl || `${window.location.origin}/login`,
+            password: data.plainPassword || newUserPassword,
+            emailSent: data.emailSent,
+            emailError: data.emailError,
+            formattedAccessText: data.formattedAccessText,
+            whatsappUrl: data.whatsappUrl,
+            onResendEmail: async () => {
+              await apiFetch(`/api/rbac/users/${data.user.id}/send-invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resetPassword: false }),
+              });
+            },
+          });
+        }
       } else {
         notify(data.error || 'Falha ao salvar usuário', 'error');
       }
     } catch (err) {
       notify('Erro na requisição de cadastro', 'error');
+    }
+  };
+
+  const handleResendUserInvite = async (user: RbacUser) => {
+    setResendingUserId(user.id);
+    try {
+      const res = await apiFetch(`/api/rbac/users/${user.id}/send-invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetPassword: false }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAcessoEnviadoData({
+          title: 'Dados de Acesso do Usuário',
+          recipientName: user.name,
+          recipientEmail: user.email,
+          companyName: user.tenantName || 'Empresa',
+          roleName: user.roleName,
+          loginUrl: data.loginUrl || `${window.location.origin}/login`,
+          password: data.plainPassword,
+          emailSent: data.emailSent,
+          emailError: data.emailError,
+          formattedAccessText: data.formattedAccessText,
+          whatsappUrl: data.whatsappUrl,
+          onResendEmail: async () => {
+            await apiFetch(`/api/rbac/users/${user.id}/send-invite`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ resetPassword: true }),
+            });
+          },
+        });
+        notify(`Dados de acesso preparados para ${user.name}!`, 'success');
+      } else {
+        notify(data.error || 'Falha ao preparar acesso', 'error');
+      }
+    } catch (err: any) {
+      notify('Erro ao enviar acesso do usuário', 'error');
+    } finally {
+      setResendingUserId(null);
     }
   };
 
@@ -947,6 +1017,19 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleResendUserInvite(user)}
+                              disabled={resendingUserId === user.id}
+                              className="px-2.5 py-1 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                              title="Enviar ou reenviar dados de acesso por e-mail e WhatsApp"
+                            >
+                              {resendingUserId === user.id ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Mail className="w-3.5 h-3.5" />
+                              )}
+                              <span>Enviar Acesso</span>
+                            </button>
                             <button
                               onClick={() => openEditAccesses(user)}
                               className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors"
@@ -1980,6 +2063,25 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
                   salvar — depois disso o sistema guarda só o hash e não há como lê-la de volta.
                 </p>
               </div>
+
+              {/* OPÇÃO DE ENVIO AUTOMÁTICO DE ACESSO POR E-MAIL */}
+              <div className="sm:col-span-2 p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="newUserSendEmailCheckbox"
+                  checked={newUserSendEmail}
+                  onChange={(e) => setNewUserSendEmail(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-700 bg-slate-900 cursor-pointer"
+                />
+                <label htmlFor="newUserSendEmailCheckbox" className="text-xs text-slate-300 cursor-pointer select-none">
+                  <span className="font-semibold text-white flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-indigo-400" /> Enviar e-mail de acesso e credenciais de login imediatamente
+                  </span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                    Dispara uma notificação com o link de acesso ao sistema ({window.location.origin}/login), e-mail corporativo e senha temporária gerada.
+                  </span>
+                </label>
+              </div>
               </>
               )}
 
@@ -2417,6 +2519,27 @@ export const AdminRbacMultiTenant: React.FC<AdminRbacProps> = ({ onNotify }) => 
             />
           </div>
         </div>
+      )}
+
+      {/* MODAL DE DETALHES DE ACESSO ENVIADO / COMPARTILHAMENTO VIA EMAIL E WHATSAPP */}
+      {acessoEnviadoData && (
+        <AcessoEnviadoModal
+          isOpen={!!acessoEnviadoData}
+          onClose={() => setAcessoEnviadoData(null)}
+          title={acessoEnviadoData.title}
+          recipientName={acessoEnviadoData.recipientName}
+          recipientEmail={acessoEnviadoData.recipientEmail}
+          companyName={acessoEnviadoData.companyName}
+          roleName={acessoEnviadoData.roleName}
+          loginUrl={acessoEnviadoData.loginUrl}
+          password={acessoEnviadoData.password}
+          emailSent={acessoEnviadoData.emailSent}
+          emailError={acessoEnviadoData.emailError}
+          formattedAccessText={acessoEnviadoData.formattedAccessText}
+          whatsappUrl={acessoEnviadoData.whatsappUrl}
+          onResendEmail={acessoEnviadoData.onResendEmail}
+          onShowNotification={(title, message, type) => notify(`${title}: ${message}`, type === 'warning' ? 'warning' : 'success')}
+        />
       )}
     </div>
   );

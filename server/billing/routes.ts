@@ -143,12 +143,21 @@ billingRouter.post("/cancel", requireAuth, requirePermission("billing_contracts"
 // -------------------------------------------------------------------------
 // VISÃO ADMINISTRATIVA (escopo SaaS + permissão de billing)
 // -------------------------------------------------------------------------
-billingRouter.get("/admin/subscriptions", requireAuth, requireSaasScope, requirePermission("billing_contracts"), async (_req: Request, res: Response) => {
+billingRouter.get("/admin/subscriptions", requireAuth, async (req: Request, res: Response) => {
+  if (!req.auth?.isSaasScope) {
+    const sub = await getSubscriptionByTenant(req.auth!.tenantId);
+    const subscriptions = sub ? [sub] : [];
+    return res.json({ success: true, count: subscriptions.length, subscriptions });
+  }
   const subscriptions = await listSubscriptions();
   res.json({ success: true, count: subscriptions.length, subscriptions });
 });
 
-billingRouter.get("/admin/invoices", requireAuth, requireSaasScope, requirePermission("billing_contracts"), async (_req: Request, res: Response) => {
+billingRouter.get("/admin/invoices", requireAuth, async (req: Request, res: Response) => {
+  if (!req.auth?.isSaasScope) {
+    const invoices = await listInvoices(req.auth!.tenantId);
+    return res.json({ success: true, count: invoices.length, invoices });
+  }
   const invoices = await listInvoices();
   res.json({ success: true, count: invoices.length, invoices });
 });

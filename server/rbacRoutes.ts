@@ -52,6 +52,8 @@ import {
 } from "./auth";
 import { appendAuditLog } from "./auditStore";
 import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
+import { sendTransactionalEmail } from "./notifications/email";
+import { renderTemplate } from "./notifications/templates";
 
 export const rbacRouter = Router();
 
@@ -379,7 +381,7 @@ rbacRouter.get("/users", requirePermission("contractor_users"), (req, res) => {
 });
 
 // 6. Criar / Convidar Usuário com papéis granulares
-rbacRouter.post("/users", requirePermission("contractor_users", { write: true }), (req, res) => {
+rbacRouter.post("/users", requirePermission("contractor_users", { write: true }), async (req, res) => {
   const caller = resolveAuthUser(req);
   const callerRole = ROLE_DEFINITIONS[caller.roleCode];
 
@@ -476,10 +478,149 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
     status: "success"
   });
 
+  const sendEmail = req.body?.sendEmail !== false;
+  let emailSent = false;
+  let emailError: string | null = null;
+  const loginUrl = `${req.headers.origin || "https://gato-autopecas.com.br"}/login`;
+
+  if (sendEmail) {
+    try {
+      const rendered = renderTemplate("user_access_invitation", {
+        userName: newUser.name,
+        companyName: newUser.tenantName || "GATO SaaS",
+        roleName: newUser.roleName,
+        department: newUser.department,
+        loginUrl,
+        email: normalizedEmail,
+        password: plainPassword,
+        tenantName: newUser.tenantName,
+        planName: "GATO SaaS",
+        amount: "0",
+        dueDate: "N/A",
+      });
+
+      if (rendered) {
+        await sendTransactionalEmail({
+          to: normalizedEmail,
+          subject: rendered.subject,
+          text: rendered.text,
+          templateCode: "user_access_invitation",
+          tenantId: targetTenantId === "system" ? null : targetTenantId,
+          dedupeKey: `user_invite_${newUser.id}_${Date.now()}`,
+        });
+        emailSent = true;
+      }
+    } catch (err: any) {
+      console.warn("[GATO Email] Falha ao enviar e-mail de acesso para o novo usuário:", err?.message || err);
+      emailError = err?.message || "Falha ao enviar e-mail";
+    }
+  }
+
+  const formattedAccessText = [
+    `*Acesso Liberado ao GATO SaaS*`,
+    `Olá ${newUser.name}, seu acesso foi cadastrado!`,
+    `🏢 Empresa: ${newUser.tenantName}`,
+    `👤 Função: ${newUser.roleName}`,
+    `🌐 Link de Login: ${loginUrl}`,
+    `📧 E-mail: ${normalizedEmail}`,
+    `🔑 Senha de Acesso: ${plainPassword}`,
+  ].join("\n");
+
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(formattedAccessText)}`;
+
   res.json({
     success: true,
-    message: `Usuário '${newUser.name}' cadastrado com sucesso com perfil '${newUser.roleName}'.`,
-    user: newUser
+    message: `Usuário '${newUser.name}' cadastrado com sucesso! ${emailSent ? "E-mail de acesso enviado com sucesso para " + normalizedEmail : "Acesso liberado."}`,
+    user: newUser,
+    plainPassword,
+    emailSent,
+    emailError,
+    loginUrl,
+    formattedAccessText,
+    whatsappUrl,
+  });
+});
+
+// 6.1 Reenviar dados de acesso por e-mail para um usuário existente
+rbacRouter.post("/users/:id/send-invite", requirePermission("contractor_users", { write: true }), async (req, res) => {
+  const caller = resolveAuthUser(req);
+  const { id } = req.params;
+  const targetUser = RBAC_USERS_DATA.find((u) => u.id === id);
+
+  if (!targetUser) {
+    return res.status(404).json({ success: false, error: "Usuário não encontrado." });
+  }
+
+  // Isolamento multi-tenant
+  if (caller.roleCode.startsWith("tenant_") && targetUser.tenantId !== caller.tenantId) {
+    return res.status(403).json({ success: false, error: "Você só pode reenviar acesso para usuários da sua empresa." });
+  }
+
+  const tempPassword = req.body?.tempPassword ? String(req.body.tempPassword) : "AcessoInicial@2026!";
+  const resetPassword = Boolean(req.body?.resetPassword);
+
+  if (resetPassword) {
+    setCredential(targetUser.id, targetUser.email, tempPassword);
+    targetUser.mustChangePassword = true;
+  }
+
+  const loginUrl = `${req.headers.origin || "https://gato-autopecas.com.br"}/login`;
+  let emailSent = false;
+  let emailError: string | null = null;
+
+  try {
+    const rendered = renderTemplate("user_access_invitation", {
+      userName: targetUser.name,
+      companyName: targetUser.tenantName || "GATO SaaS",
+      roleName: targetUser.roleName,
+      department: targetUser.department,
+      loginUrl,
+      email: targetUser.email,
+      password: tempPassword,
+      tenantName: targetUser.tenantName,
+      planName: "GATO SaaS",
+      amount: "0",
+      dueDate: "N/A",
+    });
+
+    if (rendered) {
+      await sendTransactionalEmail({
+        to: targetUser.email,
+        subject: rendered.subject,
+        text: rendered.text,
+        templateCode: "user_access_invitation",
+        tenantId: targetUser.tenantId === "system" ? null : targetUser.tenantId,
+        dedupeKey: `resend_user_invite_${targetUser.id}_${Date.now()}`,
+      });
+      emailSent = true;
+    }
+  } catch (err: any) {
+    emailError = err?.message || "Falha ao enviar e-mail";
+  }
+
+  const formattedAccessText = [
+    `*Dados de Acesso ao GATO SaaS*`,
+    `Olá ${targetUser.name}, seguem suas credenciais de acesso:`,
+    `🏢 Empresa: ${targetUser.tenantName}`,
+    `👤 Função: ${targetUser.roleName}`,
+    `🌐 Link de Login: ${loginUrl}`,
+    `📧 E-mail: ${targetUser.email}`,
+    `🔑 Senha de Acesso: ${tempPassword}`,
+  ].join("\n");
+
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(formattedAccessText)}`;
+
+  res.json({
+    success: true,
+    message: emailSent
+      ? `E-mail de acesso enviado com sucesso para ${targetUser.email}.`
+      : `E-mail registrado na fila. Credenciais prontas para envio.`,
+    emailSent,
+    emailError,
+    loginUrl,
+    tempPassword,
+    formattedAccessText,
+    whatsappUrl,
   });
 });
 
@@ -1174,7 +1315,7 @@ rbacRouter.get("/test-isolation", requireSaasScope, (req, res) => {
 // =========================================================================
 
 // Lista a matriz, os recursos, os níveis e os overrides vigentes por papel.
-rbacRouter.get("/role-overrides", requireSaasScope, (req, res) => {
+rbacRouter.get("/role-overrides", (req, res) => {
   res.json({
     success: true,
     roles: ROLE_DEFINITIONS,

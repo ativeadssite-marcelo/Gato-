@@ -10,13 +10,45 @@ import { verifyMasterPasswordOnServer } from './sessionService';
 
 const ADMIN_ROLES: UserSession['role'][] = ['admin', 'administrador'];
 
-/** Views restritas que exigem elevação com senha master. */
-export const RESTRICTED_VIEWS = ['admin', 'admin-impostos', 'rbac', 'admin-rbac', 'governanca', 'tenants', 'seguranca', 'financeiro-saas', 'banco-dados', 'camadas-acesso', 'planos-pacotes', 'pacotes'];
+/** Views restritas que exigem elevação com senha master ou escopo administrativo. */
+export const RESTRICTED_VIEWS = [
+  'admin',
+  'admin-impostos',
+  'rbac',
+  'admin-rbac',
+  'governanca',
+  'tenants',
+  'seguranca',
+  'acesso',
+  'acessos',
+  'financeiro-saas',
+  'contratos',
+  'contrato',
+  'assinaturas-saas',
+  'mrr',
+  'banco-dados',
+  'database',
+  'camadas-acesso',
+  'camadas',
+  'camada',
+  'permissoes',
+  'planos-pacotes',
+  'pacotes',
+];
 
 /** Somente administradores podem tentar elevar acesso. */
 export function isElevatedAdmin(user?: UserSession | null): boolean {
   if (!user) return false;
   if (user.isSaasScope) return true;
+  if (
+    user.roleCode === 'super_admin' ||
+    user.roleCode === 'saas_owner' ||
+    user.roleCode?.startsWith('saas_') ||
+    user.email === 'contato.ativeads@gmail.com' ||
+    user.roleCode === 'tenant_admin'
+  ) {
+    return true;
+  }
   return ADMIN_ROLES.includes(user.role);
 }
 
@@ -52,7 +84,15 @@ export function grantAdminUnlock(user?: UserSession | null): void {
 /** Verifica se existe elevação válida e não expirada. */
 export function hasValidAdminUnlock(user?: UserSession | null): boolean {
   if (!user) return false;
-  if (user.isSaasScope) return true; // Dono do SaaS já é autenticado no topo da hierarquia
+  if (
+    user.isSaasScope ||
+    user.roleCode === 'super_admin' ||
+    user.roleCode === 'saas_owner' ||
+    user.roleCode?.startsWith('saas_') ||
+    user.email === 'contato.ativeads@gmail.com'
+  ) {
+    return true; // Dono do SaaS e super admins já são autenticados no topo da hierarquia
+  }
   if (!isElevatedAdmin(user)) return false;
   try {
     const raw = sessionStorage.getItem(UNLOCK_KEY);

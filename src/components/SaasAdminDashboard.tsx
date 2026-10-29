@@ -28,13 +28,17 @@ import {
   Box,
   Sliders,
   MessageSquare,
-  Phone
+  Phone,
+  Mail,
+  UserPlus
 } from 'lucide-react';
 import { apiJson } from '../services/apiClient';
 import type { TenantAccount } from '../types/rbac';
 import type { Invoice, TenantSubscription } from '../types/billing';
 import { ConfiguracaoFiscalContratoModal } from './ConfiguracaoFiscalContratoModal';
 import { ContratoLgpdModal } from './ContratoLgpdModal';
+import { CadastroClienteModal } from './CadastroClienteModal';
+import { AcessoEnviadoModal } from './AcessoEnviadoModal';
 
 interface Props {
   onNavigate: (view: string) => void;
@@ -56,6 +60,44 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedFiscalTenant, setSelectedFiscalTenant] = useState<TenantAccount | null>(null);
   const [selectedLgpdTenant, setSelectedLgpdTenant] = useState<TenantAccount | null>(null);
+  const [isCadastroClienteOpen, setIsCadastroClienteOpen] = useState(false);
+  const [acessoEnviadoData, setAcessoEnviadoData] = useState<any | null>(null);
+  const [isResendingTenantId, setIsResendingTenantId] = useState<string | null>(null);
+
+  const handleOpenResendClientInvite = async (tenant: TenantAccount) => {
+    setIsResendingTenantId(tenant.id);
+    try {
+      const res = await apiJson<any>('/api/auth/send-client-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId: tenant.id }),
+      });
+      setAcessoEnviadoData({
+        title: 'Dados de Acesso do Cliente',
+        recipientName: tenant.tradeName || tenant.name,
+        recipientEmail: tenant.contactEmail || 'cliente@empresa.com.br',
+        companyName: tenant.tradeName || tenant.name,
+        loginUrl: res.loginUrl || `${window.location.origin}/login`,
+        password: res.plainPassword || 'AcessoInicial@2026!',
+        emailSent: res.emailSent,
+        emailError: res.emailError,
+        formattedAccessText: res.formattedAccessText,
+        whatsappUrl: res.whatsappUrl,
+        onResendEmail: async () => {
+          await apiJson('/api/auth/send-client-invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenantId: tenant.id, resetPassword: true }),
+          });
+        },
+      });
+      onShowNotification?.('Acesso do Cliente', res.message || 'Dados de acesso preparados.', 'success');
+    } catch (err: any) {
+      onShowNotification?.('Falha ao reenviar', err?.message || 'Não foi possível enviar o e-mail de acesso.', 'warning');
+    } finally {
+      setIsResendingTenantId(null);
+    }
+  };
   const [loginLeads, setLoginLeads] = useState<any[]>(() => {
     if (typeof localStorage !== 'undefined') {
       try {
@@ -432,8 +474,18 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
             </div>
             <button
               type="button"
+              onClick={() => setIsCadastroClienteOpen(true)}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-[#0284C7] hover:opacity-95 text-white font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/20 transition cursor-pointer shrink-0"
+              id="btn-cadastrar-novo-cliente-modal"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ Novo Cliente (Enviar Acesso)</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => onNavigate('rbac')}
-              className="px-3.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
             >
               <span>Ver Todos</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -514,6 +566,16 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                     </td>
                     <td className="px-5 py-4 text-right">
                       <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenResendClientInvite(tenant)}
+                          disabled={isResendingTenantId === tenant.id}
+                          className="px-2.5 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          title="Enviar ou reenviar credenciais de acesso por e-mail para este cliente"
+                        >
+                          <Mail className={`w-3.5 h-3.5 ${isResendingTenantId === tenant.id ? 'animate-spin' : ''}`} />
+                          <span>Enviar Acesso</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleToggleTenantStatus(tenant)}
@@ -752,6 +814,58 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
           isOpen={!!selectedLgpdTenant}
           onClose={() => setSelectedLgpdTenant(null)}
           tenantId={selectedLgpdTenant.id}
+          onShowNotification={onShowNotification}
+        />
+      )}
+
+      {/* MODAL DE CADASTRO DE NOVO CLIENTE & ENVIO DE ACESSO */}
+      <CadastroClienteModal
+        isOpen={isCadastroClienteOpen}
+        onClose={() => setIsCadastroClienteOpen(false)}
+        onCreated={(result) => {
+          void loadData();
+          setAcessoEnviadoData({
+            title: 'Cliente Cadastrado com Sucesso!',
+            recipientName: result.adminName || result.tenant?.tradeName || 'Administrador',
+            recipientEmail: result.adminEmail || result.tenant?.contactEmail || '',
+            companyName: result.tenant?.tradeName || result.tenant?.name || 'Empresa',
+            loginUrl: result.loginUrl || `${window.location.origin}/login`,
+            password: result.plainPassword,
+            emailSent: result.emailSent,
+            emailError: result.emailError,
+            formattedAccessText: result.formattedAccessText,
+            whatsappUrl: result.whatsappUrl,
+            onResendEmail: async () => {
+              if (result.tenant?.id) {
+                await apiJson('/api/auth/send-client-invite', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ tenantId: result.tenant.id }),
+                });
+              }
+            },
+          });
+        }}
+        onShowNotification={onShowNotification}
+      />
+
+      {/* MODAL DE DETALHES DE ACESSO ENVIADO / COMPARTILHAMENTO */}
+      {acessoEnviadoData && (
+        <AcessoEnviadoModal
+          isOpen={!!acessoEnviadoData}
+          onClose={() => setAcessoEnviadoData(null)}
+          title={acessoEnviadoData.title}
+          recipientName={acessoEnviadoData.recipientName}
+          recipientEmail={acessoEnviadoData.recipientEmail}
+          companyName={acessoEnviadoData.companyName}
+          roleName={acessoEnviadoData.roleName}
+          loginUrl={acessoEnviadoData.loginUrl}
+          password={acessoEnviadoData.password}
+          emailSent={acessoEnviadoData.emailSent}
+          emailError={acessoEnviadoData.emailError}
+          formattedAccessText={acessoEnviadoData.formattedAccessText}
+          whatsappUrl={acessoEnviadoData.whatsappUrl}
+          onResendEmail={acessoEnviadoData.onResendEmail}
           onShowNotification={onShowNotification}
         />
       )}

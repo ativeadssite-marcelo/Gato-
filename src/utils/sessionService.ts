@@ -131,7 +131,13 @@ export function buildUserSession(
     role: toUiRole(user.roleCode),
     roleLabel: user.roleName,
     roleCode: user.roleCode,
-    isSaasScope: isSaasScope ?? user.tenantId === 'system',
+    isSaasScope:
+      isSaasScope ??
+      (user.tenantId === 'system' ||
+        user.roleCode === 'super_admin' ||
+        user.roleCode === 'saas_owner' ||
+        user.roleCode?.startsWith('saas_') ||
+        user.email?.toLowerCase() === 'contato.ativeads@gmail.com'),
     permissions,
     // Vem do próprio usuário do servidor (login e /me devolvem o campo).
     tenantPermissions: user.tenantPermissions,

@@ -33,6 +33,8 @@ import { RBAC_USERS_DATA, ROLE_DEFINITIONS, TENANTS_DATA, SAAS_PLANS, maskCnpj, 
 import { appendAuditLog } from "./auditStore";
 import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
 import { RbacRoleCode, RbacUser, TenantAccount } from "../src/types/rbac";
+import { sendTransactionalEmail } from "./notifications/email";
+import { renderTemplate } from "./notifications/templates";
 
 export const authRouter = Router();
 
@@ -298,6 +300,260 @@ authRouter.post("/register-company", (req: Request, res: Response) => {
     tenant: tenantId,
     company,
     message: `Empresa "${tradeName}" cadastrada com sucesso. Teste grátis de 14 dias ativo.`,
+  });
+});
+
+// =========================================================================
+// 2.1 CADASTRO DE NOVO CLIENTE (TENANT) COM ENVIO DE ACESSO POR E-MAIL
+// =========================================================================
+authRouter.post("/register-client-with-invite", async (req: Request, res: Response) => {
+  const tradeName = String(req.body?.tradeName || "").trim().slice(0, 120);
+  const corporateName = String(req.body?.corporateName || "").trim().slice(0, 160);
+  const cnpjRaw = onlyDigits(String(req.body?.cnpj || "")).slice(0, 14);
+  const stateRegistration = String(req.body?.stateRegistration || "").trim().slice(0, 30);
+  const segment = String(req.body?.segment || "Autopeças & Serviços").trim().slice(0, 120);
+  const adminName = String(req.body?.adminName || "").trim().slice(0, 120);
+  const email = String(req.body?.email || "").trim().toLowerCase().slice(0, MAX_EMAIL_LENGTH);
+  const plainPassword = String(req.body?.password || "AcessoInicial@2026!").slice(0, MAX_PASSWORD_LENGTH);
+  const planId = String(req.body?.planId || "plan_pro");
+  const phone = String(req.body?.phone || "").trim().slice(0, 30);
+  const city = String(req.body?.city || "São Paulo").trim().slice(0, 80);
+  const uf = String(req.body?.uf || "SP").trim().toUpperCase().slice(0, 2);
+  const sendEmail = req.body?.sendEmail !== false;
+  const isTrial = Boolean(req.body?.isTrial);
+
+  if (!tradeName || !adminName || !email) {
+    return res.status(400).json({ success: false, error: "Nome fantasia, administrador e e-mail são obrigatórios." });
+  }
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ success: false, error: "Informe um e-mail válido para o cliente." });
+  }
+
+  if (plainPassword.length < 8) {
+    return res.status(400).json({ success: false, error: "A senha inicial deve ter no mínimo 8 caracteres." });
+  }
+
+  if (cnpjRaw && cnpjRaw.length !== 14) {
+    return res.status(400).json({ success: false, error: "CNPJ inválido: informe os 14 dígitos." });
+  }
+
+  // Verifica se o e-mail já existe
+  const emailTaken = isEmailRegistered(email) || RBAC_USERS_DATA.some((u) => u.email.trim().toLowerCase() === email);
+  if (emailTaken) {
+    return res.status(409).json({ success: false, error: "Este e-mail já está cadastrado no sistema." });
+  }
+
+  const tenantId = `tnt_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
+  const selectedPlan = SAAS_PLANS.find((p) => p.id === planId || p.code === planId) || SAAS_PLANS[1] || SAAS_PLANS[0];
+
+  const tenant: TenantAccount = {
+    id: tenantId,
+    name: (corporateName || tradeName).slice(0, 160),
+    tradeName,
+    cnpj: cnpjRaw ? maskCnpj(cnpjRaw) : "não informado",
+    planId: selectedPlan.id,
+    planName: selectedPlan.name,
+    status: isTrial ? "trial" : "active",
+    contactEmail: email,
+    contactPhone: phone || "não informado",
+    city,
+    uf,
+    createdAt: new Date().toISOString(),
+    mfaRequired: false,
+    sessionTimeoutMinutes: 480,
+    ipAllowlist: [],
+    softBlockEnabled: true,
+  };
+  TENANTS_DATA.unshift(tenant);
+
+  const userId = `usr_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  const roleCode: RbacRoleCode = "tenant_admin";
+  const newUser: RbacUser = {
+    id: userId,
+    tenantId,
+    tenantName: tradeName,
+    name: adminName,
+    email,
+    roleCode,
+    roleName: ROLE_DEFINITIONS[roleCode].name,
+    department: "Diretoria / Proprietário",
+    active: true,
+    avatarInitials: adminName.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase(),
+    mfaEnabled: ROLE_DEFINITIONS[roleCode].requiresMfa,
+    mfaEnforced: ROLE_DEFINITIONS[roleCode].requiresMfa,
+    lastLoginAt: "Nunca",
+    lastLoginIp: "N/A",
+    createdAt: new Date().toISOString(),
+    sessionTimeoutMinutes: tenant.sessionTimeoutMinutes,
+    mustChangePassword: true,
+  };
+  RBAC_USERS_DATA.unshift(newUser);
+
+  // Grava credencial criptografada e persiste em disco
+  setCredential(userId, email, plainPassword);
+
+  mirrorTenantUpsert(tenant);
+  mirrorRbacUserUpsert(newUser);
+
+  const loginUrl = `${req.headers.origin || "https://gato-autopecas.com.br"}/login`;
+  let emailSent = false;
+  let emailError: string | null = null;
+
+  if (sendEmail) {
+    try {
+      const rendered = renderTemplate("client_access_invitation", {
+        adminName,
+        companyName: tradeName,
+        planName: tenant.planName,
+        loginUrl,
+        email,
+        password: plainPassword,
+        tenantName: tradeName,
+        amount: String(selectedPlan.priceMonthly || "0"),
+        dueDate: new Date(Date.now() + 15 * 86400000).toLocaleDateString("pt-BR"),
+      });
+
+      if (rendered) {
+        await sendTransactionalEmail({
+          to: email,
+          subject: rendered.subject,
+          text: rendered.text,
+          templateCode: "client_access_invitation",
+          tenantId,
+          dedupeKey: `client_invite_${tenantId}_${Date.now()}`,
+        });
+        emailSent = true;
+      }
+    } catch (err: any) {
+      console.warn("[GATO Email] Erro ao disparar e-mail de acesso para o novo cliente:", err?.message || err);
+      emailError = err?.message || "Falha ao enviar e-mail";
+    }
+  }
+
+  const formattedAccessText = [
+    `*Seja Bem-vindo ao GATO SaaS!*`,
+    `Sua empresa ${tradeName} foi cadastrada com sucesso.`,
+    `👤 Responsável: ${adminName}`,
+    `📦 Plano: ${tenant.planName}`,
+    `🌐 Link de Acesso: ${loginUrl}`,
+    `📧 E-mail: ${email}`,
+    `🔑 Senha Inicial: ${plainPassword}`,
+    `Instruções: Acesse o link acima, faça login e defina sua senha definitiva.`,
+  ].join("\n");
+
+  const whatsappUrl = `https://wa.me/${phone ? onlyDigits(phone) : ""}?text=${encodeURIComponent(formattedAccessText)}`;
+
+  appendAuditLog({
+    id: `aud_client_reg_${Date.now()}`,
+    tenantId,
+    userId: "saas_admin",
+    userName: "Administrador Geral",
+    userRole: "super_admin",
+    ipAddress: getClientIp(req),
+    action: "REGISTER_CLIENT_ACCOUNT",
+    resource: "manage_accounts",
+    entityId: tenantId,
+    timestamp: new Date().toISOString(),
+    justification: `Novo cliente cadastrado com envio de acesso (${tradeName} - ${email}).`,
+    status: "success",
+  });
+
+  res.status(201).json({
+    success: true,
+    tenant,
+    user: newUser,
+    plainPassword,
+    emailSent,
+    emailError,
+    loginUrl,
+    formattedAccessText,
+    whatsappUrl,
+    message: `Cliente "${tradeName}" cadastrado com sucesso! ${emailSent ? "E-mail de acesso enviado com sucesso para " + email : "Dados de acesso gerados."}`,
+  });
+});
+
+// =========================================================================
+// 2.2 REENVIAR E-MAIL DE ACESSO PARA UM CLIENTE (TENANT)
+// =========================================================================
+authRouter.post("/send-client-invite", async (req: Request, res: Response) => {
+  const tenantId = String(req.body?.tenantId || "").trim();
+  const tenant = TENANTS_DATA.find((t) => t.id === tenantId);
+
+  if (!tenant) {
+    return res.status(404).json({ success: false, error: "Empresa cliente não encontrada." });
+  }
+
+  const adminUser = RBAC_USERS_DATA.find((u) => u.tenantId === tenantId && u.roleCode === "tenant_admin") ||
+    RBAC_USERS_DATA.find((u) => u.tenantId === tenantId);
+
+  if (!adminUser) {
+    return res.status(404).json({ success: false, error: "Administrador da empresa não encontrado." });
+  }
+
+  const recipientEmail = String(req.body?.email || adminUser.email).trim().toLowerCase();
+  const plainPassword = String(req.body?.tempPassword || "AcessoInicial@2026!").slice(0, MAX_PASSWORD_LENGTH);
+  const resetPassword = Boolean(req.body?.resetPassword);
+
+  if (resetPassword) {
+    setCredential(adminUser.id, adminUser.email, plainPassword);
+    adminUser.mustChangePassword = true;
+  }
+
+  const loginUrl = `${req.headers.origin || "https://gato-autopecas.com.br"}/login`;
+  let emailSent = false;
+  let emailError: string | null = null;
+
+  try {
+    const rendered = renderTemplate("client_access_invitation", {
+      adminName: adminUser.name,
+      companyName: tenant.tradeName || tenant.name,
+      planName: tenant.planName || "GATO SaaS",
+      loginUrl,
+      email: recipientEmail,
+      password: plainPassword,
+      tenantName: tenant.tradeName || tenant.name,
+      amount: "0",
+      dueDate: "N/A",
+    });
+
+    if (rendered) {
+      await sendTransactionalEmail({
+        to: recipientEmail,
+        subject: rendered.subject,
+        text: rendered.text,
+        templateCode: "client_access_invitation",
+        tenantId,
+        dedupeKey: `resend_client_invite_${tenantId}_${Date.now()}`,
+      });
+      emailSent = true;
+    }
+  } catch (err: any) {
+    emailError = err?.message || "Falha ao enviar e-mail";
+  }
+
+  const formattedAccessText = [
+    `*Dados de Acesso ao GATO SaaS*`,
+    `Empresa: ${tenant.tradeName || tenant.name}`,
+    `👤 Responsável: ${adminUser.name}`,
+    `🌐 Link de Acesso: ${loginUrl}`,
+    `📧 E-mail: ${recipientEmail}`,
+    `🔑 Senha de Acesso: ${plainPassword}`,
+  ].join("\n");
+
+  const whatsappUrl = `https://wa.me/${tenant.contactPhone ? onlyDigits(tenant.contactPhone) : ""}?text=${encodeURIComponent(formattedAccessText)}`;
+
+  res.json({
+    success: true,
+    message: emailSent
+      ? `E-mail de acesso enviado com sucesso para ${recipientEmail}.`
+      : `E-mail registrado. Credenciais prontas para envio.`,
+    emailSent,
+    emailError,
+    plainPassword,
+    loginUrl,
+    formattedAccessText,
+    whatsappUrl,
   });
 });
 

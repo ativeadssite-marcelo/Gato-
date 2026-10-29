@@ -292,6 +292,9 @@ export default function App() {
       })();
       const verifiedSession = buildUserSession(context.user, branchList, savedBranchId, context.role?.permissions, context.isSaasScope);
       setUserSession(verifiedSession);
+      if (hasValidAdminUnlock(verifiedSession) || verifiedSession.isSaasScope || isElevatedAdmin(verifiedSession)) {
+        setAdminUnlocked(true);
+      }
       try {
         localStorage.setItem('gato_user_session', JSON.stringify(verifiedSession));
       } catch {
@@ -322,11 +325,21 @@ export default function App() {
   }, []);
 
   // Toda navegação de view passa por aqui — aplica a política de acesso e isolamento das Camadas.
-  const handleSelectView = (view: string) => {
+  const handleSelectView = (rawView: string) => {
     // Sem sessão autenticada: redireciona sempre para o login
     if (!userSession) {
       setCurrentView('login');
       return;
+    }
+
+    // Normalização de rotas e aliases amigáveis
+    let view = rawView;
+    if (rawView === 'contratos' || rawView === 'contrato' || rawView === 'assinaturas-saas' || rawView === 'mrr') {
+      view = userSession?.isSaasScope ? 'financeiro-saas' : 'assinatura';
+    } else if (rawView === 'acesso' || rawView === 'acessos' || rawView === 'admin-rbac') {
+      view = userSession?.isSaasScope || isElevatedAdmin(userSession) ? 'rbac' : 'equipe-acessos';
+    } else if (rawView === 'camadas' || rawView === 'camada' || rawView === 'permissoes') {
+      view = 'camadas-acesso';
     }
 
     // Isolamento da CAMADA 1: O catálogo do cliente NUNCA fica visível ao Super Admin.
@@ -356,13 +369,23 @@ export default function App() {
       return;
     }
 
-    // Se o usuário saiu da área admin, derruba a elevação
+    // Se o usuário saiu da área admin, derruba a elevação pendente
     if (!isRestrictedView(view)) {
       if (pendingRestrictedView) setPendingRestrictedView(null);
     }
 
     if (isRestrictedView(view)) {
-      // Sem papel de admin: nem tenta — nega silenciosamente (item nem aparece no menu)
+      // Camadas de acesso é explicativa da arquitetura e acessível para administradores e gerentes
+      if (view === 'camadas-acesso') {
+        setCurrentView(view);
+        return;
+      }
+      // Super Admin ou conta oficial
+      if (userSession.isSaasScope || userSession.roleCode === 'super_admin' || userSession.email === 'contato.ativeads@gmail.com') {
+        setCurrentView(view);
+        return;
+      }
+      // Sem papel de admin: nem tenta — nega silenciosamente
       if (!isElevatedAdmin(userSession)) {
         showNotification('Acesso Negado', 'Área administrativa restrita a administradores.', 'warning');
         return;
@@ -1495,7 +1518,14 @@ export default function App() {
             />
           )}
 
-          {((adminUnlocked || userSession?.isSaasScope) && (currentView === 'rbac' || currentView === 'admin-rbac' || currentView === 'governanca' || currentView === 'tenants' || currentView === 'seguranca')) && (
+          {((adminUnlocked || userSession?.isSaasScope || isElevatedAdmin(userSession)) && (
+            currentView === 'rbac' || 
+            currentView === 'admin-rbac' || 
+            currentView === 'governanca' || 
+            currentView === 'tenants' || 
+            currentView === 'seguranca' ||
+            (userSession?.isSaasScope && (currentView === 'acesso' || currentView === 'acessos'))
+          )) && (
             <AdminRbacMultiTenant
               onNotify={(msg, type) => showNotification(msg, '', type === 'error' ? 'warning' : (type || 'info'))}
             />
@@ -1504,7 +1534,7 @@ export default function App() {
           {/* Construtor flexível do admin do tenant. Deliberadamente SEM
               `adminUnlocked`: é uma view comum, não uma tela /superadmin —
               senão o tenant_admin (papel 'gerente' na UI) ficaria de fora. */}
-          {currentView === 'equipe-acessos' && (
+          {(currentView === 'equipe-acessos' || (!userSession?.isSaasScope && (currentView === 'acesso' || currentView === 'acessos'))) && (
             <EquipeAcessos userSession={userSession} onShowNotification={showNotification} />
           )}
 
@@ -1534,11 +1564,14 @@ export default function App() {
             />
           )}
 
-          {currentView === 'assinatura' && (
+          {(currentView === 'assinatura' || (!userSession?.isSaasScope && (currentView === 'contratos' || currentView === 'contrato'))) && (
             <AssinaturaFaturas onShowNotification={showNotification} />
           )}
 
-          {((adminUnlocked || userSession?.isSaasScope) && currentView === 'financeiro-saas') && (
+          {((adminUnlocked || userSession?.isSaasScope || isElevatedAdmin(userSession)) && (
+            currentView === 'financeiro-saas' || 
+            (userSession?.isSaasScope && (currentView === 'contratos' || currentView === 'contrato' || currentView === 'assinaturas-saas' || currentView === 'mrr'))
+          )) && (
             <DashboardFinanceiroSaaS />
           )}
 
@@ -1546,7 +1579,7 @@ export default function App() {
             <ConfiguracaoBancoDados onShowNotification={showNotification} />
           )}
 
-          {((adminUnlocked || userSession?.isSaasScope) && currentView === 'camadas-acesso') && (
+          {(currentView === 'camadas-acesso' || currentView === 'camadas' || currentView === 'camada' || currentView === 'permissoes') && (
             <CamadasAcesso onShowNotification={showNotification} />
           )}
 

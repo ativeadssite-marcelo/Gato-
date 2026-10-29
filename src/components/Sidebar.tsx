@@ -149,14 +149,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'rbac',
       label: 'Governança & RBAC',
       icon: Shield,
-      aliases: ['rbac', 'admin-rbac', 'governanca', 'tenants', 'acesso', 'seguranca'],
+      aliases: ['rbac', 'admin-rbac', 'governanca', 'tenants', 'acesso', 'acessos', 'seguranca'],
       badge: 'Multi-Tenant',
     },
     {
       id: 'financeiro-saas',
       label: 'Financeiro SaaS',
       icon: DollarSign,
-      aliases: ['financeiro-saas', 'mrr', 'churn'],
+      aliases: ['financeiro-saas', 'contratos', 'contrato', 'mrr', 'churn', 'assinaturas-saas'],
       badge: 'MRR',
     },
     {
@@ -170,14 +170,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'camadas-acesso',
       label: 'Camadas de Acesso',
       icon: Layers,
-      aliases: ['camadas-acesso', 'acessos', 'permissoes'],
+      aliases: ['camadas-acesso', 'camadas', 'camada', 'acessos', 'permissoes'],
       badge: 'RBAC',
     },
     {
       id: 'equipe-acessos',
       label: 'Equipe & Acessos',
       icon: Users,
-      aliases: ['equipe-acessos', 'equipe', 'acessos', 'usuarios', 'permissoes-equipe'],
+      aliases: ['equipe-acessos', 'equipe', 'acesso', 'acessos', 'usuarios', 'permissoes-equipe'],
       // Só o admin do tenant define acessos da própria equipe. Não é view
       // restrita (não exige senha master) — ver RESTRICTED_VIEWS.
       tenantAdminOnly: true,
@@ -196,9 +196,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'assinatura',
-      label: 'Assinatura & Faturas',
+      label: 'Assinatura & Contratos',
       icon: CreditCard,
-      aliases: ['assinatura', 'faturas'],
+      aliases: ['assinatura', 'contratos', 'contrato', 'faturas', 'meu-plano'],
     },
   ];
 
@@ -243,21 +243,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'financeiro-saas',
       label: 'Contratos & Assinaturas SaaS',
       icon: DollarSign,
-      aliases: ['financeiro-saas', 'mrr', 'churn', 'assinaturas-saas'],
+      aliases: ['financeiro-saas', 'contratos', 'contrato', 'mrr', 'churn', 'assinaturas-saas'],
       badge: 'MRR',
     },
     {
       id: 'rbac',
       label: 'Empresas & Clientes (Tenants)',
       icon: Shield,
-      aliases: ['rbac', 'admin-rbac', 'governanca', 'tenants', 'acesso', 'seguranca'],
+      aliases: ['rbac', 'admin-rbac', 'governanca', 'tenants', 'acesso', 'acessos', 'seguranca'],
       badge: 'Clientes',
     },
     {
       id: 'camadas-acesso',
       label: 'Camadas de Acesso (RBAC)',
       icon: Layers,
-      aliases: ['camadas-acesso', 'acessos', 'permissoes'],
+      aliases: ['camadas-acesso', 'camadas', 'camada', 'acessos', 'permissoes'],
       badge: '3 Camadas',
     },
     {
@@ -296,12 +296,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const visiblePrimaryNavItems = isSaas
     ? saasNavItems
     : primaryNavItems.filter((item) => {
-        // Telas de gestão do próprio SaaS pertencem exclusivamente à Camada 1
-        if (['admin', 'rbac', 'financeiro-saas', 'banco-dados', 'camadas-acesso'].includes(item.id)) return false;
+        // Camadas de Acesso é explicativa da arquitetura multi-tenant de 3 camadas
+        if (item.id === 'camadas-acesso') {
+          return adminVisible || userSession?.roleCode === 'tenant_admin' || userSession?.role === 'gerente' || userSession?.role === 'admin';
+        }
+        // Telas de infra e governança exclusiva da Camada 1
+        if (['financeiro-saas', 'banco-dados'].includes(item.id)) return false;
+        if (['admin', 'rbac'].includes(item.id)) return adminVisible;
         // Telas administrativas do tenant só aparecem para admins elevados.
         if (!adminVisible && RESTRICTED_VIEWS.includes(item.id)) return false;
         // Itens exclusivos do admin do tenant (gestão da própria equipe).
-        if (item.tenantAdminOnly && userSession?.roleCode !== 'tenant_admin') return false;
+        if (item.tenantAdminOnly && userSession?.roleCode !== 'tenant_admin' && !adminVisible) return false;
         // Demais itens seguem a permissão RBAC do papel (camada de acesso).
         return isMenuVisible(item.id, userSession);
       });

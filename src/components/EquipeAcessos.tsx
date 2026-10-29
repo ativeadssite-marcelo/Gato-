@@ -11,12 +11,14 @@ import {
   KeyRound,
   AlertTriangle,
   Info,
+  Mail,
 } from 'lucide-react';
 import type { RbacRoleCode, RbacUser, TenantPermissionDefinition, TenantPermissionKey } from '../types/rbac';
 import type { UserSession } from '../types';
 import { apiJson } from '../services/apiClient';
 import { generateStrongPassword } from '../utils/passwordGenerator';
 import { TenantPermissionMatrix } from './TenantPermissionMatrix';
+import { AcessoEnviadoModal } from './AcessoEnviadoModal';
 import { MENU_ITEM_LABELS, MENU_TENANT_PERMISSION, isMenuVisible } from '../utils/menuAccess';
 
 /**
@@ -74,6 +76,9 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
   const [formDepartment, setFormDepartment] = useState('Operacional');
   const [formPassword, setFormPassword] = useState('');
   const [formPasswordConfirm, setFormPasswordConfirm] = useState('');
+  const [formSendEmail, setFormSendEmail] = useState(true);
+  const [acessoEnviadoData, setAcessoEnviadoData] = useState<any | null>(null);
+  const [resendingUserId, setResendingUserId] = useState<string | null>(null);
 
   const mismatch = formPassword.length > 0 && formPassword !== formPasswordConfirm;
 
@@ -126,6 +131,7 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
     setFormDepartment('Operacional');
     setFormPassword('');
     setFormPasswordConfirm('');
+    setFormSendEmail(true);
     setDraft([]);
     setModal({ mode: 'create' });
   };
@@ -138,6 +144,46 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
   const closeModal = () => {
     setModal(null);
     setDraft([]);
+  };
+
+  const handleSendUserInvite = async (user: RbacUser) => {
+    setResendingUserId(user.id);
+    try {
+      const res = await apiJson<any>(`/api/rbac/users/${user.id}/send-invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetPassword: false }),
+      });
+      if (res.success) {
+        setAcessoEnviadoData({
+          title: 'Dados de Acesso do Usuário',
+          recipientName: user.name,
+          recipientEmail: user.email,
+          companyName: user.tenantName || userSession?.tenantName || 'Empresa',
+          roleName: user.roleName,
+          loginUrl: res.loginUrl || `${window.location.origin}/login`,
+          password: res.plainPassword,
+          emailSent: res.emailSent,
+          emailError: res.emailError,
+          formattedAccessText: res.formattedAccessText,
+          whatsappUrl: res.whatsappUrl,
+          onResendEmail: async () => {
+            await apiJson(`/api/rbac/users/${user.id}/send-invite`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ resetPassword: true }),
+            });
+          },
+        });
+        notify('Acesso Preparado', `Dados de acesso preparados para ${user.name}.`, 'success');
+      } else {
+        notify('Falha ao enviar', res.error || 'Não foi possível enviar o convite.', 'warning');
+      }
+    } catch (err: any) {
+      notify('Falha ao enviar', err?.message || 'Erro ao comunicar com o servidor.', 'warning');
+    } finally {
+      setResendingUserId(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -159,7 +205,7 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
           notify('Senhas diferentes', 'A confirmação não confere com a senha digitada.', 'warning');
           return;
         }
-        await apiJson('/api/rbac/users', {
+        const res = await apiJson<any>('/api/rbac/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           // Sem `tenantId`: o servidor força o tenant do chamador. Enviar outro
@@ -171,9 +217,33 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
             department: formDepartment.trim() || 'Operacional',
             tenantPermissions: draft,
             password: formPassword,
+            sendEmail: formSendEmail,
           }),
         });
         notify('Usuário cadastrado', `${formName.trim()} agora tem ${draft.length} capacidade(s) liberada(s).`);
+
+        if (res.user) {
+          setAcessoEnviadoData({
+            title: 'Membro da Equipe Cadastrado com Sucesso!',
+            recipientName: res.user.name,
+            recipientEmail: res.user.email,
+            companyName: userSession?.tenantName || 'Nossa Empresa',
+            roleName: res.user.roleName,
+            loginUrl: res.loginUrl || `${window.location.origin}/login`,
+            password: res.plainPassword || formPassword,
+            emailSent: res.emailSent,
+            emailError: res.emailError,
+            formattedAccessText: res.formattedAccessText,
+            whatsappUrl: res.whatsappUrl,
+            onResendEmail: async () => {
+              await apiJson(`/api/rbac/users/${res.user.id}/send-invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resetPassword: false }),
+              });
+            },
+          });
+        }
       } else {
         await apiJson(`/api/rbac/users/${modal.user.id}/role`, {
           method: 'PUT',
@@ -315,18 +385,33 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
                         <span className="block">{user.lastLoginAt?.slice(0, 10) || 'Nunca'}</span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => openEdit(user)}
-                          disabled={isAdmin}
-                          title={
-                            isAdmin
-                              ? 'O admin do tenant possui todas as capacidades por definição.'
-                              : 'Editar as capacidades deste usuário'
-                          }
-                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1.5"
-                        >
-                          <Pencil className="w-3.5 h-3.5" /> Editar acessos
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleSendUserInvite(user)}
+                            disabled={resendingUserId === user.id}
+                            title="Enviar ou reenviar dados de acesso por e-mail e WhatsApp"
+                            className="px-2.5 py-1 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1.5"
+                          >
+                            {resendingUserId === user.id ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Mail className="w-3.5 h-3.5" />
+                            )}
+                            <span>Enviar Acesso</span>
+                          </button>
+                          <button
+                            onClick={() => openEdit(user)}
+                            disabled={isAdmin}
+                            title={
+                              isAdmin
+                                ? 'O admin do tenant possui todas as capacidades por definição.'
+                                : 'Editar as capacidades deste usuário'
+                            }
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1.5"
+                          >
+                            <Pencil className="w-3.5 h-3.5" /> Editar acessos
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -449,6 +534,25 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
                       Anote antes de salvar — depois disso o sistema guarda só o hash e ninguém mais consegue lê-la.
                     </p>
                   </div>
+
+                  {/* OPÇÃO DE ENVIO AUTOMÁTICO DE ACESSO */}
+                  <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="formSendEmailCheckbox"
+                      checked={formSendEmail}
+                      onChange={(e) => setFormSendEmail(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-700 bg-slate-900 cursor-pointer"
+                    />
+                    <label htmlFor="formSendEmailCheckbox" className="text-xs text-slate-300 cursor-pointer select-none">
+                      <span className="font-semibold text-white flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-indigo-400" /> Enviar e-mail de acesso e credenciais de login imediatamente
+                      </span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5">
+                        Dispara uma notificação com o link de acesso ao sistema ({window.location.origin}/login), e-mail corporativo e senha temporária gerada.
+                      </span>
+                    </label>
+                  </div>
                 </>
               ) : (
                 <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
@@ -527,6 +631,27 @@ export const EquipeAcessos: React.FC<EquipeAcessosProps> = ({ userSession, onSho
             </form>
           </div>
         </div>
+      )}
+
+      {/* MODAL DE DETALHES DE ACESSO ENVIADO / COMPARTILHAMENTO VIA EMAIL E WHATSAPP */}
+      {acessoEnviadoData && (
+        <AcessoEnviadoModal
+          isOpen={!!acessoEnviadoData}
+          onClose={() => setAcessoEnviadoData(null)}
+          title={acessoEnviadoData.title}
+          recipientName={acessoEnviadoData.recipientName}
+          recipientEmail={acessoEnviadoData.recipientEmail}
+          companyName={acessoEnviadoData.companyName}
+          roleName={acessoEnviadoData.roleName}
+          loginUrl={acessoEnviadoData.loginUrl}
+          password={acessoEnviadoData.password}
+          emailSent={acessoEnviadoData.emailSent}
+          emailError={acessoEnviadoData.emailError}
+          formattedAccessText={acessoEnviadoData.formattedAccessText}
+          whatsappUrl={acessoEnviadoData.whatsappUrl}
+          onResendEmail={acessoEnviadoData.onResendEmail}
+          onShowNotification={notify}
+        />
       )}
     </div>
   );
