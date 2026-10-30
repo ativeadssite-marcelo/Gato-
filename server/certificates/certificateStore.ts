@@ -18,6 +18,35 @@ const __dirname = path.dirname(__filename);
 
 const PERSISTENCE_FILE = path.join(__dirname, "../.certificates_store.json");
 const PFX_FILES_DIR = path.join(__dirname, "../.certificates_pfx");
+const ENC_MAGIC = Buffer.from("GATO_ENC_V1:");
+
+function getVaultKey(): Buffer {
+  const secret =
+    process.env.GATO_CERTIFICATE_MASTER_KEY ||
+    process.env.GATO_SESSION_SECRET ||
+    "gato-cert-vault-local-dev-key-2026";
+  return crypto.createHash("sha256").update(secret).digest();
+}
+
+export function encryptPfxBuffer(plain: Buffer): Buffer {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", getVaultKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([ENC_MAGIC, iv, tag, encrypted]);
+}
+
+export function decryptPfxBuffer(stored: Buffer): Buffer {
+  if (stored.length < ENC_MAGIC.length + 28 || !stored.subarray(0, ENC_MAGIC.length).equals(ENC_MAGIC)) {
+    return stored;
+  }
+  const iv = stored.subarray(ENC_MAGIC.length, ENC_MAGIC.length + 12);
+  const tag = stored.subarray(ENC_MAGIC.length + 12, ENC_MAGIC.length + 28);
+  const ciphertext = stored.subarray(ENC_MAGIC.length + 28);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", getVaultKey(), iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+}
 
 // Garantir diretório de PFX seguro
 try {
@@ -288,8 +317,9 @@ class CertificateStore {
     cert.updatedAt = new Date().toISOString();
 
     if (pfxBuffer && pfxBuffer.length > 0) {
-      const filePath = path.join(PFX_FILES_DIR, `${cert.id}.pfx`);
-      fs.writeFileSync(filePath, pfxBuffer);
+      const safeId = path.basename(String(cert.id));
+      const filePath = path.join(PFX_FILES_DIR, `${safeId}.pfx`);
+      fs.writeFileSync(filePath, encryptPfxBuffer(pfxBuffer), { mode: 0o600 });
       cert.hasFile = true;
       cert.fileSizeBytes = pfxBuffer.length;
     }
@@ -305,7 +335,8 @@ class CertificateStore {
 
     // Remover arquivo físico se existir
     try {
-      const filePath = path.join(PFX_FILES_DIR, `${id}.pfx`);
+      const safeId = path.basename(String(id));
+      const filePath = path.join(PFX_FILES_DIR, `${safeId}.pfx`);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
@@ -320,9 +351,10 @@ class CertificateStore {
 
   public getPfxBuffer(id: string): Buffer | null {
     try {
-      const filePath = path.join(PFX_FILES_DIR, `${id}.pfx`);
+      const safeId = path.basename(String(id));
+      const filePath = path.join(PFX_FILES_DIR, `${safeId}.pfx`);
       if (fs.existsSync(filePath)) {
-        return fs.readFileSync(filePath);
+        return decryptPfxBuffer(fs.readFileSync(filePath));
       }
     } catch {
       /* noop */

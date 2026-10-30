@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { certificateStore } from "./certificateStore.ts";
+import express from "express";
+import { certificateStore, encryptPfxBuffer, decryptPfxBuffer } from "./certificateStore.ts";
+import { certificateRouter } from "./certificateRoutes.ts";
+import { issueSessionToken } from "../auth.ts";
+import { RBAC_USERS_DATA } from "../rbacEngine.ts";
 import type { DigitalCertificateRecord } from "../../src/types/certificate.ts";
 
 test("certificateStore inicializa e lista certificados da plataforma e dos clientes", () => {
@@ -68,4 +72,56 @@ test("certificateStore salva novo certificado A1 e A3 com cálculo de dias e sta
   assert.equal(deleted, true);
   const found = certificateStore.getCertificateById(saved.id);
   assert.equal(found, undefined);
+});
+
+test("arquivo PFX é criptografado com AES-256-GCM no disco e decriptado na leitura", () => {
+  const rawPfx = Buffer.from("CONTEUDO_SECRETO_CHAVE_PRIVADA_ICP_BRASIL_PFX");
+  const encrypted = encryptPfxBuffer(rawPfx);
+  assert.ok(!encrypted.includes(rawPfx), "O buffer criptografado não pode conter o texto plano");
+  assert.deepEqual(decryptPfxBuffer(encrypted), rawPfx);
+});
+
+test("rotas de certificados bloqueiam acesso entre tenants (a3-ping/DELETE) e escrita por operador comum", async () => {
+  const app = express();
+  app.use(express.json());
+  app.use("/api/certificates", certificateRouter);
+  const server = app.listen(0);
+  const port = (server.address() as { port: number }).port;
+  const baseUrl = `http://127.0.0.1:${port}/api/certificates`;
+
+  try {
+    // 1. Operador comum (tenant_user) não pode cadastrar nem excluir certificado (403)
+    const tenantUser = RBAC_USERS_DATA.find((u) => u.roleCode === "tenant_user")!;
+    const userSession = issueSessionToken(tenantUser);
+
+    const postRes = await fetch(baseUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${userSession.token}`,
+      },
+      body: JSON.stringify({ type: "A1", alias: "Tentativa Operador", cnpj: "12.345.678/0001-90" }),
+    });
+    assert.equal(postRes.status, 403);
+
+    // 2. Admin do tenant MGN não pode dar a3-ping nem DELETE em certificado do Pantanal Diesel (403)
+    const mgnAdmin = RBAC_USERS_DATA.find(
+      (u) => u.roleCode === "tenant_admin" && u.tenantId === "cmtt58e6o0000ju346a0g6s32",
+    )!;
+    const mgnSession = issueSessionToken(mgnAdmin);
+
+    const pingOtherRes = await fetch(`${baseUrl}/cert_pantanal_a1/a3-ping`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${mgnSession.token}` },
+    });
+    assert.equal(pingOtherRes.status, 403);
+
+    const deleteOtherRes = await fetch(`${baseUrl}/cert_pantanal_a1`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${mgnSession.token}` },
+    });
+    assert.equal(deleteOtherRes.status, 403);
+  } finally {
+    server.close();
+  }
 });

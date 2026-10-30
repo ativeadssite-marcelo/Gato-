@@ -134,10 +134,20 @@ certificateRouter.get("/", requireAuth, (req: Request, res: Response) => {
   });
 });
 
+function canManageCertificates(req: Request): boolean {
+  return !!req.auth?.isSaasScope || req.auth?.user?.roleCode === "tenant_admin";
+}
+
 // -------------------------------------------------------------------------
 // 3. ADICIONAR NOVO CERTIFICADO (A1 ou A3)
 // -------------------------------------------------------------------------
 certificateRouter.post("/", requireAuth, (req: Request, res: Response) => {
+  if (!canManageCertificates(req)) {
+    return res.status(403).json({
+      success: false,
+      error: "Apenas administradores da empresa ou da plataforma podem cadastrar certificados fiscais.",
+    });
+  }
   const isSaas = !!req.auth?.isSaasScope;
   const callerTenantId = req.auth?.tenantId || "";
   
@@ -203,6 +213,9 @@ certificateRouter.post("/", requireAuth, (req: Request, res: Response) => {
     try {
       const cleanBase64 = pfxBase64.includes(",") ? pfxBase64.split(",")[1] : pfxBase64;
       pfxBuffer = Buffer.from(cleanBase64, "base64");
+      if (pfxBuffer.length > 512 * 1024) {
+        return res.status(400).json({ success: false, error: "Arquivo .pfx excede o limite máximo de 512 KB." });
+      }
     } catch {
       /* noop */
     }
@@ -302,10 +315,16 @@ certificateRouter.post("/:id/test-sefaz", requireAuth, (req: Request, res: Respo
 // -------------------------------------------------------------------------
 certificateRouter.post("/:id/a3-ping", requireAuth, (req: Request, res: Response) => {
   const { id } = req.params;
+  const isSaas = !!req.auth?.isSaasScope;
+  const userTenantId = req.auth?.tenantId || "";
   const cert = certificateStore.getCertificateById(id);
 
   if (!cert) {
     return res.status(404).json({ success: false, error: "Certificado não encontrado." });
+  }
+
+  if (!isSaas && cert.tenantId !== userTenantId) {
+    return res.status(403).json({ success: false, error: "Sem permissão para testar este certificado." });
   }
 
   if (cert.type !== 'A3') {
@@ -336,6 +355,12 @@ certificateRouter.post("/:id/a3-ping", requireAuth, (req: Request, res: Response
 // 6. EXCLUIR CERTIFICADO
 // -------------------------------------------------------------------------
 certificateRouter.delete("/:id", requireAuth, (req: Request, res: Response) => {
+  if (!canManageCertificates(req)) {
+    return res.status(403).json({
+      success: false,
+      error: "Apenas administradores da empresa ou da plataforma podem excluir certificados fiscais.",
+    });
+  }
   const { id } = req.params;
   const isSaas = !!req.auth?.isSaasScope;
   const userTenantId = req.auth?.tenantId || "";
