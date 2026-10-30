@@ -309,15 +309,17 @@ export const ConfiguracaoBancoDados: React.FC<Props> = ({ onShowNotification }) 
 
   const applySupabasePooler = (region: 'sa-east-1' | 'us-east-1') => {
     const clean = sanitizeInputHost(host);
-    const m = clean.match(/(?:db\.)?([a-z0-9_-]{12,35})\.supabase\.(?:co|com)/i);
-    const ref = m ? m[1] : (clean.length >= 15 ? clean : 'efguegtvculrueolkwyb');
-    setHost(`aws-0-${region}.pooler.supabase.com`);
+    const mHost = clean.match(/(?:db\.)?([a-z0-9_-]{12,35})\.supabase\.(?:co|com)/i);
+    const mUser = user.match(/^postgres\.([a-z0-9_-]{12,35})$/i);
+    const ref = mHost ? mHost[1] : (mUser ? mUser[1] : 'efguegtvculrueolkwyb');
+    const prefix = region === 'sa-east-1' ? 'aws-1' : 'aws-0';
+    setHost(`${prefix}-${region}.pooler.supabase.com`);
     setPort('6543');
     setUser(`postgres.${ref}`);
     setDatabase('postgres');
     setSslDisable(false);
     setSslRejectUnauthorized(false);
-    setAutoFixedTip(`Configurado para Pooler IPv4 Supabase (${region === 'sa-east-1' ? 'São Paulo' : 'EUA'}, porta 6543, usuário postgres.${ref}).`);
+    setAutoFixedTip(`Configurado para Pooler IPv4 Supabase (${region === 'sa-east-1' ? 'São Paulo · aws-1' : 'EUA · aws-0'}, porta 6543, usuário postgres.${ref}).`);
   };
 
   const inputCls = 'w-full rounded-xl bg-slate-800/70 border border-slate-700/50 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500/40 transition-colors';

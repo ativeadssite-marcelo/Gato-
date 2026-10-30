@@ -106,37 +106,44 @@ function requireAdminAccess(req: Request, res: Response, next: NextFunction) {
 
 adminDatabaseRouter.use(requireAuth, requireAdminAccess);
 
-/** Extrai a referência do projeto Supabase a partir do host */
-function extractSupabaseProjectRef(host: string): string | null {
-  const m = host.match(/(?:db\.)?([a-z0-9_-]{12,30})\.supabase\.(?:co|com)/i);
-  return m ? m[1] : null;
+/** Extrai a referência do projeto Supabase a partir do host ou do usuário (postgres.<ref>) */
+function extractSupabaseProjectRef(host: string, user?: string): string | null {
+  const mHost = host.match(/(?:db\.)?([a-z0-9_-]{12,30})\.supabase\.(?:co|com)/i);
+  if (mHost) return mHost[1];
+  const mUser = String(user || "").match(/^postgres\.([a-z0-9_-]{12,30})$/i);
+  return mUser ? mUser[1] : null;
 }
 
-/** Tenta fallbacks de pooler IPv4 para Supabase se a conexão direta falhar */
+/** Tenta fallbacks de pooler IPv4 (aws-1 e aws-0) para Supabase se a conexão direta falhar */
 async function trySupabasePoolerFallback(baseConfig: any, projectRef: string) {
-  const poolerRegions = ["sa-east-1", "us-east-1", "us-east-2", "eu-central-1", "sa-east-1"];
-  const poolerPorts = [6543, 5432];
-  const userCandidates = [
-    `postgres.${projectRef}`,
-    baseConfig.user || "postgres",
+  const poolerHosts = [
+    { host: "aws-1-sa-east-1.pooler.supabase.com", region: "sa-east-1 (aws-1)" },
+    { host: "aws-0-sa-east-1.pooler.supabase.com", region: "sa-east-1 (aws-0)" },
+    { host: "aws-1-us-east-1.pooler.supabase.com", region: "us-east-1 (aws-1)" },
+    { host: "aws-0-us-east-1.pooler.supabase.com", region: "us-east-1 (aws-0)" },
+    { host: "aws-1-us-east-2.pooler.supabase.com", region: "us-east-2 (aws-1)" },
+    { host: "aws-0-us-east-2.pooler.supabase.com", region: "us-east-2 (aws-0)" },
+    { host: "aws-1-eu-central-1.pooler.supabase.com", region: "eu-central-1 (aws-1)" },
+    { host: "aws-0-eu-central-1.pooler.supabase.com", region: "eu-central-1 (aws-0)" },
   ];
+  const user = `postgres.${projectRef}`;
 
-  for (const region of poolerRegions) {
-    const poolerHost = `aws-0-${region}.pooler.supabase.com`;
-    for (const port of poolerPorts) {
-      for (const user of userCandidates) {
-        const candidate = {
-          ...baseConfig,
-          host: poolerHost,
-          port,
-          user,
-          sslDisable: false,
-          sslRejectUnauthorized: false,
-        };
-        const test = await testDbConnection(candidate);
-        if (test.ok) {
-          return { ok: true, config: candidate, test, poolerUsed: true, region };
-        }
+  for (const { host: poolerHost, region } of poolerHosts) {
+    for (const port of [6543, 5432]) {
+      const candidate = {
+        ...baseConfig,
+        host: poolerHost,
+        port,
+        user,
+        sslDisable: false,
+        sslRejectUnauthorized: false,
+      };
+      const test = await testDbConnection(candidate);
+      if (test.ok) {
+        return { ok: true, config: candidate, test, poolerUsed: true, region };
+      }
+      if (String(test.error || "").toLowerCase().includes("password authentication failed")) {
+        return { ok: false, config: candidate, test, region };
       }
     }
   }
@@ -192,16 +199,18 @@ adminDatabaseRouter.post(["/test", "/test/"], async (req: Request, res: Response
   let poolerNotice: string | undefined;
 
   // Se falhou e é Supabase, tenta o pooler IPv4 automaticamente
-  const projectRef = extractSupabaseProjectRef(host);
+  const projectRef = extractSupabaseProjectRef(host, user);
   if (!result.ok && projectRef) {
     const fallback = await trySupabasePoolerFallback(config, projectRef);
-    if (fallback.ok && fallback.config && fallback.test) {
+    if (fallback.config && fallback.test) {
       config = fallback.config;
       result = fallback.test;
       host = config.host;
       port = config.port;
       user = config.user;
-      poolerNotice = `Conectado com sucesso via Supabase Pooler IPv4 (${fallback.region}, porta ${port}).`;
+      if (fallback.ok) {
+        poolerNotice = `Conectado com sucesso via Supabase Pooler IPv4 (${fallback.region}, porta ${port}).`;
+      }
     }
   }
 
@@ -256,10 +265,10 @@ adminDatabaseRouter.post(["/configure", "/configure/"], async (req: Request, res
   let test = await testDbConnection(config);
 
   // Fallback para pooler IPv4 do Supabase caso a conexão direta falhe
-  const projectRef = extractSupabaseProjectRef(host);
+  const projectRef = extractSupabaseProjectRef(host, user);
   if (!test.ok && projectRef) {
     const fallback = await trySupabasePoolerFallback(config, projectRef);
-    if (fallback.ok && fallback.config && fallback.test) {
+    if (fallback.config && fallback.test) {
       config = fallback.config;
       test = fallback.test;
       host = config.host;
