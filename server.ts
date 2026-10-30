@@ -67,7 +67,7 @@ app.disable("x-powered-by");
 // Security: HTTP Hardening Headers (OWASP recommendations)
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  // Permite renderização dentro do iFrame do preview no AI Studio (não envia SAMEORIGIN restritivo)
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
@@ -183,6 +183,9 @@ app.use("/api/caixa", caixaRouter);
 
 // Configuração do banco (cadastro de credenciais em runtime — Super Admin)
 app.use("/api/admin/database", adminDatabaseRouter);
+app.use("/api/admin/db", adminDatabaseRouter);
+app.use("/api/database", adminDatabaseRouter);
+app.use("/api/db-config", adminDatabaseRouter);
 
 // Gestão das credenciais de integração do tenant (chave de API e licença)
 app.use("/api/credentials", credentialsRouter);
@@ -2627,6 +2630,15 @@ async function startServer() {
   await hydrateAuditStore();
 
   startBillingCron();
+
+  // Resposta JSON para rotas de API não encontradas (nunca deixa cair no Vite ou retornar HTML 404)
+  app.use("/api", (req, res) => {
+    res.status(404).json({
+      success: false,
+      error: `Rota da API não encontrada: ${req.method} ${req.originalUrl || req.path}`,
+      code: "GATO_API_NOT_FOUND",
+    });
+  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

@@ -310,6 +310,7 @@ export default function App() {
   // Sessão recusada pelo servidor (401): derruba o estado local e volta ao login.
   useEffect(() => {
     const dispose = onUnauthorized(() => {
+      const hadSession = !!userSession;
       setUserSession(null);
       setAdminUnlocked(false);
       setPendingRestrictedView(null);
@@ -320,10 +321,13 @@ export default function App() {
         /* noop */
       }
       setCurrentView('login');
-      showNotification('Sessão Expirada', 'Sua sessão foi encerrada por segurança. Faça login novamente.', 'warning');
+      // Só exibe notificação se o usuário estava de fato navegando em uma sessão ativa
+      if (hadSession) {
+        showNotification('Sessão Expirada', 'Sua sessão foi encerrada por segurança. Faça login novamente.', 'warning');
+      }
     });
     return dispose;
-  }, []);
+  }, [userSession]);
 
   // Toda navegação de view passa por aqui — aplica a política de acesso e isolamento das Camadas.
   const handleSelectView = (rawView: string) => {

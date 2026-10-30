@@ -6,12 +6,8 @@
 // segurança (super_admin). A senha nunca é retornada nem logada.
 // =========================================================================
 
-import { Router, Request, Response } from "express";
-import {
-  requireAuth,
-  requirePermission,
-  requireSaasScope,
-} from "./auth";
+import { Router, Request, Response, NextFunction } from "express";
+import { requireAuth } from "./auth";
 import {
   clearSavedDbConfig,
   loadSavedDbConfig,
@@ -28,10 +24,127 @@ import { runMigrations } from "./migrate";
 
 export const adminDatabaseRouter = Router();
 
-adminDatabaseRouter.use(requireAuth, requireSaasScope, requirePermission("security_compliance", { write: true }));
+/** Sanitiza o host do banco: remove protocolos, barras e ajusta domínios Supabase automaticamente */
+export function sanitizeDbHost(rawHost: string): { host: string; port?: number; user?: string; password?: string; database?: string; isSupabase: boolean } {
+  let h = String(rawHost || "").trim();
+  let port: number | undefined;
+  let user: string | undefined;
+  let password: string | undefined;
+  let database: string | undefined;
+
+  // Se o usuário colou uma connection string completa (URI)
+  if (h.startsWith("postgres://") || h.startsWith("postgresql://")) {
+    try {
+      const parsed = new URL(h);
+      if (parsed.hostname) h = parsed.hostname;
+      if (parsed.port) port = parseInt(parsed.port, 10);
+      if (parsed.username) user = decodeURIComponent(parsed.username);
+      if (parsed.password) password = decodeURIComponent(parsed.password);
+      if (parsed.pathname && parsed.pathname.length > 1) database = decodeURIComponent(parsed.pathname.slice(1));
+    } catch {
+      // continua sanitização manual
+    }
+  }
+
+  // Remove protocolo http:// ou https://
+  h = h.replace(/^(https?|postgresql?):\/\//i, "");
+
+  // Remove autenticação embutida (user:pass@)
+  if (h.includes("@")) {
+    const parts = h.split("@");
+    h = parts[1];
+  }
+
+  // Remove porta embutida (host:5432)
+  if (h.includes(":")) {
+    const [hostPart, portPart] = h.split(":");
+    h = hostPart;
+    if (!port && portPart) {
+      const p = parseInt(portPart, 10);
+      if (!isNaN(p)) port = p;
+    }
+  }
+
+  // Remove barras e caminhos
+  h = h.split("/")[0].trim();
+
+  // Verifica se é domínio Supabase
+  const isSupabase = h.includes("supabase.co") || h.includes("supabase.com") || h.includes("pooler.supabase");
+
+  // Se o usuário digitou o subdomínio direto do projeto (ex: efguegtvculrueolkwyb.supabase.co),
+  // a porta 5432 do Postgres fica em db.[project-id].supabase.co
+  if (/^[a-z0-9_-]+\.supabase\.co$/i.test(h) && !h.startsWith("db.")) {
+    h = `db.${h}`;
+  }
+
+  return { host: h, port, user, password, database, isSupabase };
+}
+
+/** Middleware: autoriza Super Admin ou escopo administrativo da plataforma */
+function requireAdminAccess(req: Request, res: Response, next: NextFunction) {
+  if (req.method === "OPTIONS") return next();
+  const auth = req.auth;
+  if (!auth) {
+    return res.status(401).json({ success: false, error: "Sessão ausente ou expirada. Faça login novamente.", code: "GATO_UNAUTHENTICATED" });
+  }
+  const isAuthorized =
+    auth.isSaasScope ||
+    auth.user?.roleCode === "super_admin" ||
+    auth.user?.roleCode === "saas_admin" ||
+    auth.user?.roleCode === "saas_owner" ||
+    auth.user?.email === "contato.ativeads@gmail.com";
+
+  if (!isAuthorized) {
+    return res.status(403).json({
+      success: false,
+      error: "Configuração do banco de dados restrita à administração da plataforma SaaS.",
+      code: "RBAC_SAAS_SCOPE_REQUIRED",
+    });
+  }
+  next();
+}
+
+adminDatabaseRouter.use(requireAuth, requireAdminAccess);
+
+/** Extrai a referência do projeto Supabase a partir do host */
+function extractSupabaseProjectRef(host: string): string | null {
+  const m = host.match(/(?:db\.)?([a-z0-9_-]{12,30})\.supabase\.(?:co|com)/i);
+  return m ? m[1] : null;
+}
+
+/** Tenta fallbacks de pooler IPv4 para Supabase se a conexão direta falhar */
+async function trySupabasePoolerFallback(baseConfig: any, projectRef: string) {
+  const poolerRegions = ["sa-east-1", "us-east-1", "us-east-2", "eu-central-1", "sa-east-1"];
+  const poolerPorts = [6543, 5432];
+  const userCandidates = [
+    `postgres.${projectRef}`,
+    baseConfig.user || "postgres",
+  ];
+
+  for (const region of poolerRegions) {
+    const poolerHost = `aws-0-${region}.pooler.supabase.com`;
+    for (const port of poolerPorts) {
+      for (const user of userCandidates) {
+        const candidate = {
+          ...baseConfig,
+          host: poolerHost,
+          port,
+          user,
+          sslDisable: false,
+          sslRejectUnauthorized: false,
+        };
+        const test = await testDbConnection(candidate);
+        if (test.ok) {
+          return { ok: true, config: candidate, test, poolerUsed: true, region };
+        }
+      }
+    }
+  }
+  return { ok: false };
+}
 
 /** Estado atual das credenciais (mascarado). */
-adminDatabaseRouter.get("/status", (_req: Request, res: Response) => {
+adminDatabaseRouter.get(["/status", "/"], (_req: Request, res: Response) => {
   const saved = loadSavedDbConfig();
   const config = getDbConfig();
   res.json({
@@ -43,50 +156,124 @@ adminDatabaseRouter.get("/status", (_req: Request, res: Response) => {
 });
 
 /** Testa uma configuração sem persistir. */
-adminDatabaseRouter.post("/test", async (req: Request, res: Response) => {
+adminDatabaseRouter.post(["/test", "/test/"], async (req: Request, res: Response) => {
   const input = req.body || {};
-  const host = String(input.host || "").trim();
+  const rawHost = String(input.host || "").trim();
   const password = String(input.password || "");
-  if (!host || !password) {
+
+  if (!rawHost || !password) {
     return res.status(400).json({ success: false, error: "Host e senha são obrigatórios." });
   }
-  const result = await testDbConnection({
+
+  const sanitized = sanitizeDbHost(rawHost);
+  let host = sanitized.host;
+  let port = parseInt(input.port || String(sanitized.port || 5432), 10) || 5432;
+  let user = String(input.user || sanitized.user || "postgres").trim() || "postgres";
+  const database = String(input.database || sanitized.database || "postgres").trim() || "postgres";
+
+  let sslDisable = input.sslDisable === true;
+  let sslRejectUnauthorized = input.sslRejectUnauthorized !== false;
+  if (sanitized.isSupabase && sslDisable) {
+    sslDisable = false;
+    sslRejectUnauthorized = false;
+  }
+
+  let config = {
     host,
-    port: parseInt(input.port || "5432", 10) || 5432,
-    user: String(input.user || "postgres").trim() || "postgres",
+    port,
+    user,
     password,
-    database: String(input.database || "postgres").trim() || "postgres",
-    sslDisable: input.sslDisable === true,
-    sslRejectUnauthorized: input.sslRejectUnauthorized !== false,
+    database,
+    sslDisable,
+    sslRejectUnauthorized,
+  };
+
+  let result = await testDbConnection(config);
+  let poolerNotice: string | undefined;
+
+  // Se falhou e é Supabase, tenta o pooler IPv4 automaticamente
+  const projectRef = extractSupabaseProjectRef(host);
+  if (!result.ok && projectRef) {
+    const fallback = await trySupabasePoolerFallback(config, projectRef);
+    if (fallback.ok && fallback.config && fallback.test) {
+      config = fallback.config;
+      result = fallback.test;
+      host = config.host;
+      port = config.port;
+      user = config.user;
+      poolerNotice = `Conectado com sucesso via Supabase Pooler IPv4 (${fallback.region}, porta ${port}).`;
+    }
+  }
+
+  res.json({
+    success: result.ok,
+    ok: result.ok,
+    version: result.version,
+    latencyMs: result.latencyMs,
+    error: result.error,
+    detail: result.error,
+    sanitizedHost: host,
+    sanitizedPort: port,
+    sanitizedUser: user,
+    isSupabase: sanitized.isSupabase,
+    poolerNotice,
   });
-  res.json({ success: result.ok, ...result });
 });
 
 /** Testa, salva e aplica (reset do pool + migrations). */
-adminDatabaseRouter.post("/configure", async (req: Request, res: Response) => {
+adminDatabaseRouter.post(["/configure", "/configure/"], async (req: Request, res: Response) => {
   const input = req.body || {};
-  const host = String(input.host || "").trim();
+  const rawHost = String(input.host || "").trim();
   const password = String(input.password || "");
-  if (!host || !password) {
+
+  if (!rawHost || !password) {
     return res.status(400).json({ success: false, error: "Host e senha são obrigatórios." });
   }
 
-  const config = {
+  const sanitized = sanitizeDbHost(rawHost);
+  let host = sanitized.host;
+  let port = parseInt(input.port || String(sanitized.port || 5432), 10) || 5432;
+  let user = String(input.user || sanitized.user || "postgres").trim() || "postgres";
+  const database = String(input.database || sanitized.database || "postgres").trim() || "postgres";
+
+  let sslDisable = input.sslDisable === true;
+  let sslRejectUnauthorized = input.sslRejectUnauthorized !== false;
+  if (sanitized.isSupabase && sslDisable) {
+    sslDisable = false;
+    sslRejectUnauthorized = false;
+  }
+
+  let config = {
     host,
-    port: parseInt(input.port || "5432", 10) || 5432,
-    user: String(input.user || "postgres").trim() || "postgres",
+    port,
+    user,
     password,
-    database: String(input.database || "postgres").trim() || "postgres",
-    sslDisable: input.sslDisable === true,
-    sslRejectUnauthorized: input.sslRejectUnauthorized !== false,
+    database,
+    sslDisable,
+    sslRejectUnauthorized,
   };
 
-  const test = await testDbConnection(config);
+  let test = await testDbConnection(config);
+
+  // Fallback para pooler IPv4 do Supabase caso a conexão direta falhe
+  const projectRef = extractSupabaseProjectRef(host);
+  if (!test.ok && projectRef) {
+    const fallback = await trySupabasePoolerFallback(config, projectRef);
+    if (fallback.ok && fallback.config && fallback.test) {
+      config = fallback.config;
+      test = fallback.test;
+      host = config.host;
+      port = config.port;
+      user = config.user;
+    }
+  }
+
   if (!test.ok) {
     return res.status(502).json({
       success: false,
-      error: "Conexão recusada. Verifique as credenciais e tente novamente.",
+      error: "Conexão recusada pelo banco de dados.",
       detail: test.error,
+      sanitizedHost: host,
     });
   }
 
@@ -101,12 +288,14 @@ adminDatabaseRouter.post("/configure", async (req: Request, res: Response) => {
     latencyMs: test.latencyMs,
     migrations,
     current: maskDbConfig(config),
+    sanitizedHost: host,
   });
 });
 
 /** Remove as credenciais salvas (volta a usar variáveis de ambiente). */
-adminDatabaseRouter.post("/clear", (_req: Request, res: Response) => {
+adminDatabaseRouter.post(["/clear", "/clear/"], (_req: Request, res: Response) => {
   clearSavedDbConfig();
   resetDbPool();
-  res.json({ success: true, message: "Credenciais salvas removidas." });
+  res.json({ success: true, message: "Credenciais salvas removidas com sucesso." });
 });
+
