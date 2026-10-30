@@ -24,32 +24,51 @@ function safeSessionStorage(): Storage | null {
   }
 }
 
+function safeLocalStorage(): Storage | null {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Define (ou limpa) o token de sessão atual. */
 export function setSessionToken(token: string | null): void {
   memoryToken = token && token.trim() ? token.trim() : null;
   unauthorizedNotified = false;
-  const storage = safeSessionStorage();
-  if (!storage) return;
+  const sStorage = safeSessionStorage();
+  const lStorage = safeLocalStorage();
   try {
-    if (memoryToken) storage.setItem(TOKEN_KEY, memoryToken);
-    else storage.removeItem(TOKEN_KEY);
+    if (memoryToken) {
+      sStorage?.setItem(TOKEN_KEY, memoryToken);
+      lStorage?.setItem(TOKEN_KEY, memoryToken);
+    } else {
+      sStorage?.removeItem(TOKEN_KEY);
+      lStorage?.removeItem(TOKEN_KEY);
+    }
   } catch {
     /* storage indisponível: mantém apenas em memória */
   }
 }
 
-/** Recupera o token de sessão atual (memória → sessionStorage). */
+/** Recupera o token de sessão atual (memória → sessionStorage → localStorage). */
 export function getSessionToken(): string | null {
   if (memoryToken) return memoryToken;
-  const storage = safeSessionStorage();
-  if (!storage) return null;
   try {
-    const stored = storage.getItem(TOKEN_KEY);
-    memoryToken = stored && stored.trim() ? stored.trim() : null;
-    return memoryToken;
+    const sStored = safeSessionStorage()?.getItem(TOKEN_KEY);
+    if (sStored && sStored.trim()) {
+      memoryToken = sStored.trim();
+      return memoryToken;
+    }
+    const lStored = safeLocalStorage()?.getItem(TOKEN_KEY);
+    if (lStored && lStored.trim()) {
+      memoryToken = lStored.trim();
+      return memoryToken;
+    }
   } catch {
-    return null;
+    /* noop */
   }
+  return null;
 }
 
 export function hasSessionToken(): boolean {
@@ -79,9 +98,9 @@ export function isSessionVerified(): boolean {
 
 export function clearSessionToken(): void {
   setSessionToken(null);
-  const storage = safeSessionStorage();
   try {
-    storage?.removeItem(VERIFIED_SESSION_KEY);
+    safeSessionStorage()?.removeItem(VERIFIED_SESSION_KEY);
+    safeLocalStorage()?.removeItem(VERIFIED_SESSION_KEY);
   } catch {
     /* noop */
   }
