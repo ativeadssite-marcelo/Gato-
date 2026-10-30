@@ -165,8 +165,13 @@ adminDatabaseRouter.get(["/status", "/"], (_req: Request, res: Response) => {
 /** Testa uma configuração sem persistir. */
 adminDatabaseRouter.post(["/test", "/test/"], async (req: Request, res: Response) => {
   const input = req.body || {};
-  const rawHost = String(input.host || "").trim();
-  const password = String(input.password || "");
+  const saved = loadSavedDbConfig();
+  const rawHostInput = String(input.host || "").trim();
+  const rawHost =
+    (!rawHostInput || rawHostInput.includes("***")) && saved?.host
+      ? saved.host
+      : rawHostInput.replace(".***.supabase.com", ".pooler.supabase.com");
+  const password = String(input.password || "") || saved?.password || "";
 
   if (!rawHost || !password) {
     return res.status(400).json({ success: false, error: "Host e senha são obrigatórios." });
@@ -232,8 +237,13 @@ adminDatabaseRouter.post(["/test", "/test/"], async (req: Request, res: Response
 /** Testa, salva e aplica (reset do pool + migrations). */
 adminDatabaseRouter.post(["/configure", "/configure/"], async (req: Request, res: Response) => {
   const input = req.body || {};
-  const rawHost = String(input.host || "").trim();
-  const password = String(input.password || "");
+  const saved = loadSavedDbConfig();
+  const rawHostInput = String(input.host || "").trim();
+  const rawHost =
+    (!rawHostInput || rawHostInput.includes("***")) && saved?.host
+      ? saved.host
+      : rawHostInput.replace(".***.supabase.com", ".pooler.supabase.com");
+  const password = String(input.password || "") || saved?.password || "";
 
   if (!rawHost || !password) {
     return res.status(400).json({ success: false, error: "Host e senha são obrigatórios." });

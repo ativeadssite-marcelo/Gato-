@@ -131,7 +131,8 @@ export const ConfiguracaoBancoDados: React.FC<Props> = ({ onShowNotification }) 
       );
       setStatus(s);
       if (s.current) {
-        setHost(s.current.host);
+        const displayHost = s.current.host.replace('.***.supabase.com', '.pooler.supabase.com');
+        setHost((prev) => (prev && !prev.includes('***') ? prev : displayHost));
         setPort(String(s.current.port));
         setUser(s.current.user);
         setDatabase(s.current.database);
