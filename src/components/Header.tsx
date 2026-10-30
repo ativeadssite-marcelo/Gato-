@@ -142,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FAFAFA] border-b border-[#D4D4D4] shadow-2xs" id="gato-app-header">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#EAECF0] shadow-[0_2px_12px_-2px_rgba(16,24,40,0.04)]" id="gato-app-header">
       <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-10 h-16 flex items-center justify-between gap-4">
         {/* Left: Mobile Toggle & Brand */}
         <div className="flex items-center gap-3">
@@ -150,10 +150,10 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             id="mobile-menu-btn"
             onClick={onToggleMobileMenu}
-            className="lg:hidden p-2 rounded-lg bg-[#FFFFFF] border border-[#D4D4D4] text-[#111111] hover:bg-[#E5E5E5] transition"
+            className="lg:hidden p-2 rounded-xl bg-[#F6F7F9] border border-[#EAECF0] text-[#1E232A] hover:bg-[#EAECF0] transition"
             aria-label="Abrir Menu"
           >
-            <Menu className="w-5 h-5 text-[#111111]" />
+            <Menu className="w-5 h-5 text-[#1E232A]" />
           </button>
 
           <div className="cursor-pointer" onClick={() => onNavigate('dashboard')}>
@@ -172,10 +172,10 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               id="header-company-trade-name-btn"
               onClick={() => onNavigate('empresa-filiais')}
-              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F0F0F0] hover:bg-[#E5E5E5] border border-[#D4D4D4] text-[#111111] transition cursor-pointer text-left shadow-2xs group"
+              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] text-[#1E232A] transition cursor-pointer text-left group"
               title="Clique para gerenciar dados da Empresa & Baixar Logotipo"
             >
-              <div className="w-6 h-6 rounded-md overflow-hidden bg-[#FFFFFF] border border-[#D4D4D4] text-[#111111] flex items-center justify-center group-hover:scale-105 transition shrink-0">
+              <div className="w-6 h-6 rounded-full overflow-hidden bg-[#D1F4E0] text-[#216E4E] flex items-center justify-center group-hover:scale-105 transition shrink-0">
                 {companyProfile.logoUrl ? (
                   <img src={companyProfile.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
@@ -184,16 +184,16 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-black text-[#111111] truncate max-w-[150px] xl:max-w-[210px]">
+                  <span className="text-xs font-extrabold text-[#1E232A] truncate max-w-[150px] xl:max-w-[210px]">
                     {companyProfile.tradeName}
                   </span>
                   {companyProfile.isTrial && (
-                    <span className="text-[9px] font-black bg-[#E5E5E5] text-[#111111] border border-[#BDBDBD] px-1 rounded uppercase shrink-0">
+                    <span className="text-[9px] font-extrabold bg-[#F97B72] text-white px-1.5 py-0.5 rounded-full uppercase shrink-0">
                       {companyProfile.trialDaysRemaining}d Teste
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] font-medium text-[#333333] block truncate">
+                <span className="text-[10px] font-medium text-[#475467] block truncate">
                   {companyProfile.segment || 'Autopeças'}
                 </span>
               </div>
@@ -208,14 +208,14 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             id="header-branch-cd-selector"
             onClick={onOpenTrocaFilial}
-            className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-[#F0F0F0] hover:bg-[#E5E5E5] border border-[#D4D4D4] text-[#111111] transition cursor-pointer text-xs font-bold"
+            className="flex items-center gap-1.5 py-1.5 px-3 rounded-2xl bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] text-[#1E232A] transition cursor-pointer text-xs font-bold"
             title="Alternar Loja / Filial"
           >
-            <ShoppingCart className="w-4 h-4 text-[#111111] shrink-0" />
+            <ShoppingCart className="w-4 h-4 text-[#529471] shrink-0" />
             <span className="hidden sm:inline">
               {activeBranch.isMatriz ? 'Loja Matriz' : activeBranch.name}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#262626] shrink-0" />
+            <ChevronDown className="w-3.5 h-3.5 text-[#475467] shrink-0" />
           </button>
 
           {/* Notifications Trigger */}
@@ -224,12 +224,12 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               id="notifications-toggle-btn"
               onClick={() => setShowNotifs(!showNotifs)}
-              className="relative p-2 rounded-xl bg-[#FAFAFA] hover:bg-[#E5E5E5] border border-[#D4D4D4] text-[#111111] transition focus:outline-none cursor-pointer"
+              className="relative p-2 rounded-2xl bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] text-[#1E232A] transition focus:outline-none cursor-pointer"
               aria-label="Notificações"
             >
-              <Bell className="w-5 h-5 text-[#111111]" />
+              <Bell className="w-5 h-5 text-[#1E232A]" />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#111111] rounded-full ring-2 ring-white" />
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#F97B72] rounded-full ring-2 ring-white" />
               )}
             </button>
 

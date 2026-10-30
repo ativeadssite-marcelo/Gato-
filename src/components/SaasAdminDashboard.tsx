@@ -206,105 +206,178 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12 font-['Plus_Jakarta_Sans'] animate-in fade-in duration-300">
-      {/* HEADER PRINCIPAL — CAMADA 1: DONO DO SAAS */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-purple-950/80 to-slate-900 p-6 md:p-8 border border-purple-500/30 shadow-2xl text-white">
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-black uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4 text-purple-400" />
-              Camada 1 — Super Admin (Dono do SaaS)
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+      {/* HEADER PRINCIPAL — CAMADA 1: DONO DO SAAS (ESTILO DE REFERÊNCIA) */}
+      <div className="bg-white rounded-3xl p-6 md:p-7 border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-[#1E232A]">
               Painel Central de Gestão do SaaS
             </h1>
-            <p className="text-sm text-purple-200/80 max-w-2xl leading-relaxed">
-              Você gerencia a plataforma inteira: planos de assinatura, contratos de clientes, liberação de acesso e suporte técnico aos sistemas.
+            <p className="text-xs sm:text-sm text-[#475467] mt-0.5">
+              Gestão global de planos de assinatura, contratos de clientes, liberação de acesso e suporte técnico.
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onNavigate('planos-pacotes')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-black text-xs shadow-lg shadow-purple-600/30 transition transform hover:-translate-y-0.5 cursor-pointer"
-            >
-              <Package className="w-4 h-4 text-purple-200" />
-              Pacotes & Preços
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('conectores')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/40 border border-purple-500/40 text-purple-200 font-extrabold text-xs transition cursor-pointer"
-            >
-              <Cable className="w-4 h-4 text-purple-400" />
-              Conectores do SaaS
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('financeiro-saas')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-lg shadow-purple-600/30 transition cursor-pointer"
-            >
-              <DollarSign className="w-4 h-4" />
-              Contratos & Assinaturas
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('rbac')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-purple-500/30 text-purple-200 font-bold text-xs transition cursor-pointer"
-            >
-              <Building2 className="w-4 h-4" />
-              Empresas & Suporte
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('certificados')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900/80 border border-indigo-500/40 text-indigo-200 font-bold text-xs transition cursor-pointer"
-            >
-              <FolderLock className="w-4 h-4 text-indigo-400" />
-              Cofre de Certificados (A1/A3)
-            </button>
-            <button
-              type="button"
-              onClick={loadData}
-              disabled={loading}
-              className="p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700 text-slate-300 transition cursor-pointer disabled:opacity-50"
-              title="Recarregar Métricas"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F97B72] text-white text-xs font-extrabold uppercase tracking-wider shadow-xs">
+            <ShieldCheck className="w-4 h-4 text-white" />
+            Camada 1 — Super Admin
+          </span>
         </div>
 
-        {/* BANNER DE PRIVACIDADE E ISOLAMENTO DE DADOS */}
-        <div className="mt-6 pt-5 border-t border-purple-500/20 flex items-start gap-3 text-xs bg-purple-950/40 p-4 rounded-2xl border border-purple-500/20">
-          <Lock className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          <div className="leading-snug">
-            <span className="font-extrabold text-emerald-300 mr-1">
-              Isolamento Total do Catálogo por Contrato (LGPD & Multi-Tenant):
-            </span>
-            <span className="text-purple-200/90">
-              O catálogo de produtos, estoques, custos, preços de venda e faturamento dos clientes <strong>NUNCA ficam visíveis ao Super Admin</strong>. Cada contrato gera dados 100% separados e isolados para cada empresa cliente. O Super Admin gerencia exclusivamente contratos, planos, infraestrutura e governança da plataforma.
-            </span>
+        {/* Banner Coral-Peach igual ao topo da imagem de referência */}
+        <div className="ref-banner-coral rounded-2xl p-5 md:p-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+            <div className="space-y-1.5">
+              <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                Receita Recorrente Ativa (MRR)
+              </span>
+              <div className="text-2xl md:text-3xl font-black text-white font-mono">
+                R$ {metrics.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <p className="text-xs text-white/90 max-w-2xl leading-relaxed">
+                Isolamento total LGPD & Multi-Tenant: os catálogos, estoques e faturamento comercial dos clientes permanecem 100% isolados em cada contrato.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => onNavigate('planos-pacotes')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1E1E2D] hover:bg-[#11111A] text-white font-extrabold text-xs shadow-sm transition cursor-pointer"
+              >
+                <Package className="w-4 h-4 text-white" />
+                Pacotes & Preços
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('conectores')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6E7BF2] hover:bg-[#5B68E6] text-white font-extrabold text-xs shadow-sm transition cursor-pointer"
+              >
+                <Cable className="w-4 h-4 text-white" />
+                Conectores do SaaS
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('financeiro-saas')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#529471] hover:bg-[#448261] text-white font-extrabold text-xs shadow-sm transition cursor-pointer"
+              >
+                <DollarSign className="w-4 h-4 text-white" />
+                Contratos & Assinaturas
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('rbac')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition cursor-pointer"
+              >
+                <Building2 className="w-4 h-4 text-white" />
+                Empresas & Suporte
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('certificados')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition cursor-pointer"
+              >
+                <FolderLock className="w-4 h-4 text-white" />
+                Cofre de Certificados (A1/A3)
+              </button>
+              <button
+                type="button"
+                onClick={loadData}
+                disabled={loading}
+                className="p-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white transition cursor-pointer disabled:opacity-50"
+                title="Recarregar Métricas"
+              >
+                <RefreshCw className={`w-4 h-4 text-white ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* METRICAS PRINCIPAIS DO SAAS — CARDS COLORIDOS DA REFERÊNCIA */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* MRR — Sage Green (#529471) */}
+        <div className="ref-card-sage p-5 rounded-3xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-white/90">MRR (Assinaturas)</span>
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+              <DollarSign className="w-4 h-4 text-white" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white font-mono">
+            R$ {metrics.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <p className="text-[11px] text-white/85 mt-1">
+            Receita Recorrente Mensal de contratos
+          </p>
+        </div>
+
+        {/* Empresas Ativas — Coral Peach (#FB925A) */}
+        <div className="ref-card-peach p-5 rounded-3xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-white/90">Empresas Clientes</span>
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-white" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white font-mono">
+            {metrics.totalTenants} empresas
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-white mt-1 font-bold">
+            <span>{metrics.activeTenants} ativas</span>
+            <span>•</span>
+            <span>{metrics.trialTenants} em teste</span>
+          </div>
+        </div>
+
+        {/* Contratos Vigentes — Periwinkle Blue (#6E7BF2) */}
+        <div className="ref-card-blue p-5 rounded-3xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-white/90">Contratos SaaS</span>
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+              <CreditCard className="w-4 h-4 text-white" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white font-mono">
+            {subscriptions.length || metrics.totalTenants} assinaturas
+          </div>
+          <p className="text-[11px] text-white/85 mt-1">
+            ARR estimado: R$ {(metrics.arr).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
+
+        {/* Status Infra & Segurança — Charcoal Dark (#1E1E2D) */}
+        <div className="ref-card-charcoal p-5 rounded-3xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-white/90">Status do Sistema</span>
+            <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4 text-white" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white flex items-center gap-2">
+            100% Online
+          </div>
+          <p className="text-[11px] text-white/80 mt-1">
+            Isolamento multi-tenant ativo & seguro
+          </p>
+        </div>
+      </div>
+
       {/* ARQUITETURA VISUAL DAS 3 CAMADAS DE ACESSO */}
-      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-6 md:p-8 text-white shadow-xl">
+      <div className="rounded-3xl bg-white border border-[#EAECF0] p-6 md:p-8 text-[#1E232A] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)]">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
           <div>
-            <h2 className="text-lg font-black text-white flex items-center gap-2">
-              <Layers className="w-5 h-5 text-purple-400" />
+            <h2 className="text-lg font-black text-[#1E232A] flex items-center gap-2">
+              <Layers className="w-5 h-5 text-[#F97B72]" />
               Hierarquia das 3 Camadas de Acesso
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-[#475467]">
               Separação estrita de responsabilidades entre o dono do software, a empresa assinante e os colaboradores.
             </p>
           </div>
           <button
             type="button"
             onClick={() => onNavigate('camadas-acesso')}
-            className="text-xs font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+            className="text-xs font-extrabold text-[#6E7BF2] hover:underline flex items-center gap-1 cursor-pointer"
           >
             Configurar Permissões das Camadas <ArrowRight className="w-3.5 h-3.5" />
           </button>
@@ -312,148 +385,79 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* CAMADA 1 */}
-          <div className="p-5 rounded-2xl bg-gradient-to-b from-purple-950/40 to-slate-900 border-2 border-purple-500/50 relative overflow-hidden">
-            <div className="absolute top-3 right-3 px-2 py-0.5 rounded text-[10px] font-black uppercase bg-purple-500 text-white">
+          <div className="p-5 rounded-2xl bg-[#F6F7F9] border-2 border-[#F97B72]/50 relative overflow-hidden">
+            <div className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#F97B72] text-white">
               Você está aqui
             </div>
-            <div className="flex items-center gap-2 text-purple-300 font-extrabold text-xs uppercase mb-1">
+            <div className="flex items-center gap-2 text-[#C25E2E] font-extrabold text-xs uppercase mb-1">
               <span>Camada 1</span>
             </div>
-            <h3 className="text-base font-black text-white mb-2">ADMIN (Dono do SaaS)</h3>
-            <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+            <h3 className="text-base font-black text-[#1E232A] mb-2">ADMIN (Dono do SaaS)</h3>
+            <p className="text-xs text-[#475467] mb-3 leading-relaxed">
               Gerencia a plataforma, contratos de assinaturas, planos, liberação e suspensão de contas e suporte ao sistema.
             </p>
-            <div className="p-2.5 rounded-xl bg-slate-950/60 border border-purple-500/20 text-[11px] text-purple-200 space-y-1.5">
-              <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+            <div className="p-3 rounded-xl bg-white border border-[#EAECF0] text-[11px] space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Gestão de Planos & Assinaturas
               </div>
-              <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Suporte & Liberação de Clientes
               </div>
-              <div className="flex items-center gap-1.5 font-bold text-rose-300">
-                <Lock className="w-3.5 h-3.5 text-rose-400" /> Catálogo de Clientes 100% Oculto ao Admin
+              <div className="flex items-center gap-1.5 font-bold text-[#C94A4A]">
+                <Lock className="w-3.5 h-3.5" /> Catálogo de Clientes 100% Oculto ao Admin
               </div>
-              <div className="flex items-center gap-1.5 font-medium text-slate-400">
-                <ShieldCheck className="w-3.5 h-3.5 text-purple-400" /> Dados 100% Segregados por Contrato (LGPD)
+              <div className="flex items-center gap-1.5 font-medium text-[#475467]">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#6E7BF2]" /> Dados 100% Segregados por Contrato (LGPD)
               </div>
             </div>
           </div>
 
           {/* CAMADA 2 */}
-          <div className="p-5 rounded-2xl bg-gradient-to-b from-sky-950/30 to-slate-900 border border-sky-500/30">
-            <div className="flex items-center gap-2 text-sky-400 font-extrabold text-xs uppercase mb-1">
+          <div className="p-5 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0]">
+            <div className="flex items-center gap-2 text-[#4A56C8] font-extrabold text-xs uppercase mb-1">
               <span>Camada 2</span>
             </div>
-            <h3 className="text-base font-black text-white mb-2">EMPRESA / CLIENTE (Quem Assina)</h3>
-            <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+            <h3 className="text-base font-black text-[#1E232A] mb-2">EMPRESA / CLIENTE (Quem Assina)</h3>
+            <p className="text-xs text-[#475467] mb-3 leading-relaxed">
               Painel do cliente contratante: gerencia o próprio produto, colaboradores, permissões da equipe, filiais e faturamento da loja.
             </p>
-            <div className="p-2.5 rounded-xl bg-slate-950/60 border border-sky-500/20 text-[11px] text-sky-200 space-y-1.5">
-              <div className="flex items-center gap-1.5 font-bold text-sky-300">
+            <div className="p-3 rounded-xl bg-white border border-[#EAECF0] text-[11px] space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-[#4A56C8]">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Catálogo Próprio & Gestão de Estoque
               </div>
-              <div className="flex items-center gap-1.5 font-bold text-sky-300">
+              <div className="flex items-center gap-1.5 font-bold text-[#4A56C8]">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Faturamento, Vendas & Contas Privadas
               </div>
-              <div className="flex items-center gap-1.5 font-medium text-slate-400">
-                <Lock className="w-3.5 h-3.5 text-emerald-400" /> Banco de Dados Isolado e Exclusivo do Contrato
+              <div className="flex items-center gap-1.5 font-medium text-[#475467]">
+                <Lock className="w-3.5 h-3.5 text-[#2E6F4E]" /> Banco de Dados Isolado e Exclusivo do Contrato
               </div>
-              <div className="flex items-center gap-1.5 font-bold text-sky-300">
+              <div className="flex items-center gap-1.5 font-bold text-[#4A56C8]">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Gestão de Faturas da Assinatura
               </div>
             </div>
           </div>
 
           {/* CAMADA 3 */}
-          <div className="p-5 rounded-2xl bg-gradient-to-b from-emerald-950/30 to-slate-900 border border-emerald-500/30">
-            <div className="flex items-center gap-2 text-emerald-400 font-extrabold text-xs uppercase mb-1">
+          <div className="p-5 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0]">
+            <div className="flex items-center gap-2 text-[#2E6F4E] font-extrabold text-xs uppercase mb-1">
               <span>Camada 3</span>
             </div>
-            <h3 className="text-base font-black text-white mb-2">USUÁRIOS / COLABORADORES</h3>
-            <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+            <h3 className="text-base font-black text-[#1E232A] mb-2">USUÁRIOS / COLABORADORES</h3>
+            <p className="text-xs text-[#475467] mb-3 leading-relaxed">
               Operadores da empresa: utilizam o sistema no balcão e no dia a dia estritamente conforme as permissões delegadas pela empresa.
             </p>
-            <div className="p-2.5 rounded-xl bg-slate-950/60 border border-emerald-500/20 text-[11px] text-emerald-200 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-emerald-300">
+            <div className="p-3 rounded-xl bg-white border border-[#EAECF0] text-[11px] space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Balcão de Vendas & Cotações
               </div>
-              <div className="flex items-center gap-1.5 font-bold text-emerald-300">
+              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
                 <CheckCircle2 className="w-3.5 h-3.5" /> PDV Caixa & Emissão de NF-e
               </div>
-              <div className="flex items-center gap-1.5 font-bold text-emerald-300">
+              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Separação de Estoque & Balcão
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* METRICAS PRINCIPAIS DO SAAS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* MRR */}
-        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">MRR (Assinaturas)</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-              <DollarSign className="w-4 h-4 text-emerald-400" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-white">
-            R$ {metrics.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Receita Recorrente Mensal de contratos
-          </p>
-        </div>
-
-        {/* Empresas Ativas */}
-        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Empresas Clientes</span>
-            <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-sky-400" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-white">
-            {metrics.totalTenants} empresas
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-emerald-400 mt-1 font-bold">
-            <span>{metrics.activeTenants} ativas</span>
-            <span className="text-slate-500">•</span>
-            <span className="text-amber-400">{metrics.trialTenants} em teste</span>
-          </div>
-        </div>
-
-        {/* Contratos Vigentes */}
-        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Contratos SaaS</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-              <CreditCard className="w-4 h-4 text-purple-400" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-white">
-            {subscriptions.length || metrics.totalTenants} assinaturas
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            ARR estimado: R$ {(metrics.arr).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-        </div>
-
-        {/* Status Infra & Segurança */}
-        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Status do Sistema</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-emerald-400 flex items-center gap-2">
-            100% Online
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Isolamento multi-tenant ativo & seguro
-          </p>
         </div>
       </div>
 

@@ -346,15 +346,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Navigation Drawer — Escala Cinza Neutra (#FAFAFA -> #F0F0F0 / #E5E5E5 / #D4D4D4) e Letras de Fácil Leitura */}
+      {/* Navigation Drawer — Estilo Editorial Soft da Referência */}
       <aside 
         id="gato-sidebar"
-        className={`fixed lg:sticky top-0 lg:top-20 left-0 z-50 lg:z-10 h-full lg:h-[calc(100vh-6.5rem)] bg-[#FAFAFA] text-[#111111] flex flex-col border border-[#D4D4D4] shadow-xl shadow-black/5 transition-all duration-300 ease-in-out lg:rounded-3xl overflow-hidden ${
+        className={`fixed lg:sticky top-0 lg:top-20 left-0 z-50 lg:z-10 h-full lg:h-[calc(100vh-6.5rem)] bg-white text-[#1E232A] flex flex-col border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] transition-all duration-300 ease-in-out lg:rounded-3xl overflow-hidden ${
           isOpenMobile ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-[76px]' : 'lg:w-64'}`}
       >
         {/* Sidebar Brand Header */}
-        <div className={`p-3 flex items-center shrink-0 border-b border-[#E5E5E5] bg-white transition-all rounded-t-3xl ${
+        <div className={`p-3.5 flex items-center shrink-0 border-b border-[#F2F4F8] bg-white transition-all rounded-t-3xl ${
           isCollapsed ? 'flex-col justify-center gap-2' : 'justify-between'
         }`}>
           <div 
@@ -377,7 +377,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={externalOnToggleCollapse}
-                className="hidden lg:flex p-2 rounded-xl text-[#262626] hover:text-black bg-[#FAFAFA] hover:bg-[#E5E5E5] border border-[#D4D4D4] cursor-pointer transition-colors shadow-2xs"
+                className="hidden lg:flex p-2 rounded-xl text-[#475467] hover:text-[#1E232A] bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] cursor-pointer transition-colors"
                 title={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
                 aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
                 aria-expanded={!isCollapsed}
@@ -391,15 +391,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={onCloseMobile}
-              className="lg:hidden p-2 rounded-xl text-[#262626] hover:text-black bg-[#FAFAFA] hover:bg-[#E5E5E5] border border-[#D4D4D4] cursor-pointer transition-colors"
+              className="lg:hidden p-2 rounded-xl text-[#475467] hover:text-[#1E232A] bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] cursor-pointer transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
+        {/* Top Quick Pills (como no topo da Sidebar da imagem de referência: Mint + Coral) */}
+        {!isCollapsed && activeBranch && (
+          <div className="px-3.5 pt-2.5 pb-1 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenTrocaFilial}
+              className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-2xl bg-[#F4F6F9] hover:bg-[#EAECF0] transition cursor-pointer min-w-0 text-left"
+              title="Trocar Filial / CD Ativo"
+            >
+              <span className="w-6 h-6 rounded-full bg-[#D1F4E0] text-[#216E4E] flex items-center justify-center shrink-0">
+                <Store className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-bold text-[#1E232A] truncate">
+                {activeBranch.name}
+              </span>
+            </button>
+            <span className="px-2.5 py-1.5 rounded-xl bg-[#F97B72] text-white text-[10px] font-extrabold shrink-0 shadow-2xs">
+              {activeBranch.uf}
+            </span>
+          </div>
+        )}
+
         {/* Primary Navigation Links */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-1.5 custom-scrollbar">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2.5 space-y-1 custom-scrollbar">
           {visiblePrimaryNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = isItemActive(item);
@@ -410,30 +432,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 id={`sidebar-nav-${item.id}`}
                 onClick={() => handleSelect(item.id)}
                 title={isCollapsed ? item.label : undefined}
-                className={`w-full text-left flex items-center rounded-2xl text-sm transition-all duration-200 cursor-pointer relative group ${
+                className={`w-full text-left flex items-center rounded-2xl text-xs transition-all duration-200 cursor-pointer relative group ${
                   isCollapsed ? 'lg:justify-center lg:p-2.5' : 'justify-between px-3 py-2'
                 } ${
                   isActive 
-                    ? 'bg-[#E5E5E5] text-[#111111] shadow-xs font-extrabold border border-[#BDBDBD]' 
-                    : 'text-[#1F1F1F] font-semibold hover:bg-[#EFEFEF] hover:text-black border border-transparent hover:border-[#D4D4D4]'
+                    ? 'bg-[#F2F4F8] text-[#1E232A] font-extrabold' 
+                    : 'text-[#344054] font-semibold hover:bg-[#F6F7F9] hover:text-[#1E232A]'
                 }`}
               >
                 <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-3'}`}>
-                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all ${
                     isActive
-                      ? 'bg-[#FFFFFF] text-[#111111] border border-[#BDBDBD] shadow-2xs'
-                      : 'bg-[#FAFAFA] text-[#262626] border border-[#D4D4D4] group-hover:border-[#A3A3A3] group-hover:text-black'
+                      ? 'bg-[#F97B72] text-white shadow-xs'
+                      : 'bg-[#F2F4F8] text-[#475467] group-hover:bg-[#E6E9EF] group-hover:text-[#1E232A]'
                   }`}>
-                    <Icon className="w-4 h-4 shrink-0" />
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
                   </span>
                   <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                 </div>
 
                 {item.badge && (
-                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-extrabold px-2 py-0.5 rounded-full border shadow-2xs ${
+                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                     isActive
-                      ? 'bg-[#FFFFFF] text-[#111111] border-[#BDBDBD]'
-                      : 'bg-[#EFEFEF] text-[#1F1F1F] border-[#D4D4D4]'
+                      ? 'bg-[#F97B72] text-white'
+                      : 'bg-[#F2F4F8] text-[#344054]'
                   }`}>
                     {item.badge}
                   </span>
@@ -441,15 +463,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Collapsed dot badge indicator */}
                 {isCollapsed && item.badge && (
-                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#262626] ring-2 ring-[#FAFAFA] shadow-xs" />
+                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#F97B72] ring-2 ring-white shadow-xs" />
                 )}
               </button>
             );
           })}
 
           {/* Quick utility divider */}
-          <div className="pt-2 pb-1 px-1">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#D4D4D4] to-transparent rounded-full" />
+          <div className="pt-2 pb-1 px-2">
+            <div className="h-px bg-[#EAECF0] rounded-full" />
           </div>
 
           {visibleSecondaryNavItems.map((item) => {
@@ -465,111 +487,86 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   isCollapsed ? 'lg:justify-center lg:p-2' : 'justify-between px-3 py-2'
                 } ${
                   isActive 
-                    ? 'bg-[#E5E5E5] text-[#111111] font-extrabold border border-[#BDBDBD] shadow-2xs' 
-                    : 'text-[#262626] font-semibold hover:bg-[#EFEFEF] hover:text-black border border-transparent hover:border-[#D4D4D4]'
+                    ? 'bg-[#F2F4F8] text-[#1E232A] font-extrabold' 
+                    : 'text-[#475467] font-semibold hover:bg-[#F6F7F9] hover:text-[#1E232A]'
                 }`}
               >
                 <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-2.5'}`}>
-                  <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all ${
                     isActive
-                      ? 'bg-[#FFFFFF] text-[#111111] border border-[#BDBDBD] shadow-2xs'
-                      : 'bg-[#FAFAFA] text-[#262626] border border-[#D4D4D4] group-hover:border-[#A3A3A3] group-hover:text-black'
+                      ? 'bg-[#6E7BF2] text-white shadow-xs'
+                      : 'bg-[#F2F4F8] text-[#475467] group-hover:bg-[#E6E9EF] group-hover:text-[#1E232A]'
                   }`}>
                     <Icon className="w-3.5 h-3.5 shrink-0" />
                   </span>
                   <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EFEFEF] text-[#111111] border border-[#D4D4D4] shadow-2xs`}>
+                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EEF0FF] text-[#4A56C8]`}>
                     {item.badge}
                   </span>
                 )}
                 {isCollapsed && item.badge && (
-                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#262626] ring-2 ring-[#FAFAFA] shadow-xs" />
+                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#6E7BF2] ring-2 ring-white shadow-xs" />
                 )}
               </button>
             );
           })}
         </nav>
 
-        {/* Bottom Status matching Store & Operator */}
-        <div className="p-3 border-t border-[#E5E5E5] bg-[#F2F2F2] text-xs space-y-2.5 rounded-b-3xl">
-          {/* Botão de Login / Trocar Conta */}
-          {onOpenLogin && (
-            <button
-              type="button"
-              id="sidebar-btn-login"
-              onClick={onOpenLogin}
-              className={`w-full p-2 rounded-2xl flex items-center transition-all duration-200 cursor-pointer ${
-                isCollapsed ? 'justify-center' : 'justify-between'
-              } ${
-                userSession 
-                  ? 'bg-[#FAFAFA] hover:bg-[#E5E5E5] border border-[#D4D4D4] text-[#111111] shadow-2xs' 
-                  : 'bg-[#E5E5E5] hover:bg-[#D4D4D4] border border-[#BDBDBD] text-[#111111] font-bold shadow-xs'
-              }`}
-              title={userSession ? `Sessão ativa: ${userSession.name} (${userSession.roleLabel}) — Trocar Usuário` : 'Fazer Login / Acessar as 3 Camadas'}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 bg-[#FFFFFF] text-[#111111] border border-[#D4D4D4]">
-                  <LogIn className="w-3.5 h-3.5" />
-                </div>
-                {!isCollapsed && (
-                  <div className="truncate text-left">
-                    <p className="font-extrabold text-xs text-[#111111] truncate">
-                      {userSession ? userSession.name.split(' ')[0] : 'Fazer Login'}
-                    </p>
-                    <p className="text-[10px] font-medium text-[#333333] truncate">
-                      {userSession ? userSession.roleLabel : 'Acessar 3 Camadas'}
-                    </p>
+        {/* Bottom Status Card (como o card inferior da Sidebar na referência) */}
+        <div className="p-3 bg-white text-xs space-y-2 rounded-b-3xl">
+          <div className="p-3 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0] space-y-2">
+            {/* Botão de Login / Trocar Conta */}
+            {onOpenLogin && (
+              <button
+                type="button"
+                id="sidebar-btn-login"
+                onClick={onOpenLogin}
+                className={`w-full p-2 rounded-xl flex items-center transition-all duration-200 cursor-pointer ${
+                  isCollapsed ? 'justify-center' : 'justify-between'
+                } bg-white hover:bg-[#EAECF0]/60 border border-[#EAECF0] text-[#1E232A] shadow-2xs`}
+                title={userSession ? `Sessão ativa: ${userSession.name} (${userSession.roleLabel}) — Trocar Usuário` : 'Fazer Login / Acessar as 3 Camadas'}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-[#F2F4F8] text-[#1E232A]">
+                    <LogIn className="w-3.5 h-3.5" />
                   </div>
-                )}
-              </div>
-              {!isCollapsed && <ChevronRight className="w-3.5 h-3.5 text-[#333333] shrink-0" />}
-            </button>
-          )}
-
-          {activeBranch && (
-            <div 
-              onClick={onOpenTrocaFilial}
-              className={`p-2.5 bg-[#FAFAFA] hover:bg-[#E5E5E5] rounded-2xl border border-[#D4D4D4] flex items-center cursor-pointer transition-all duration-200 shadow-2xs group ${
-                isCollapsed ? 'justify-center' : 'justify-between'
-              }`}
-              title={isCollapsed ? `${activeBranch.name} (${activeBranch.uf}) - Trocar Loja` : 'Trocar Loja / CD Ativo'}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-[#FFFFFF] border border-[#D4D4D4] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
-                  <Store className="w-3.5 h-3.5 text-[#111111]" />
+                  {!isCollapsed && (
+                    <div className="truncate text-left">
+                      <p className="font-extrabold text-xs text-[#1E232A] truncate">
+                        {userSession ? userSession.name.split(' ')[0] : 'Fazer Login'}
+                      </p>
+                      <p className="text-[10px] font-medium text-[#475467] truncate">
+                        {userSession ? userSession.roleLabel : 'Acessar 3 Camadas'}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                {!isCollapsed && (
-                  <div className="truncate">
-                    <p className="font-bold text-[#111111] text-xs truncate">{activeBranch.name}</p>
-                    <p className="text-[10px] font-medium text-[#333333] truncate">SEFAZ {activeBranch.uf} • {activeBranch.cdCode}</p>
-                  </div>
-                )}
-              </div>
-              {!isCollapsed && <ChevronRight className="w-4 h-4 text-[#333333] group-hover:text-black transition-colors shrink-0" />}
-            </div>
-          )}
+                {!isCollapsed && <ChevronRight className="w-3.5 h-3.5 text-[#475467] shrink-0" />}
+              </button>
+            )}
 
-          {!isCollapsed ? (
-            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-[#FAFAFA] border border-[#D4D4D4] text-[11px] text-[#262626]">
-              <span className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+            {!isCollapsed ? (
+              <div className="flex items-center justify-between px-2 py-1 text-[11px] text-[#475467]">
+                <span className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#529471] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#529471]"></span>
+                  </span>
+                  <span className="font-bold text-[#1E232A]">SEFAZ Online</span>
                 </span>
-                <span className="font-bold text-[#111111]">SEFAZ Online</span>
-              </span>
-              <span className="text-[#262626] font-semibold">v2.6 Web</span>
-            </div>
-          ) : (
-            <div className="flex justify-center py-1.5" title="SEFAZ Online v2.6">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
-              </span>
-            </div>
-          )}
+                <span className="text-[#475467] font-semibold">v2.6 Web</span>
+              </div>
+            ) : (
+              <div className="flex justify-center py-1" title="SEFAZ Online v2.6">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#529471] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#529471]"></span>
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
     </>

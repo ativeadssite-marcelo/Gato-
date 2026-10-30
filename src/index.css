@@ -2,369 +2,326 @@
 
 @theme {
   --radius-none: 0px;
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 5px;
-  --radius-lg: 6px;
-  --radius-xl: 7px;
-  --radius-2xl: 8px;
-  --radius-3xl: 8px;
-  --radius-4xl: 10px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 22px;
+  --radius-4xl: 26px;
   --radius-full: 9999px;
-  --radius: 6px;
+  --radius: 14px;
 
   /* =========================================================================
-     ESCALA CINZA NEUTRO PURA (SEM TONS ROXOS / AZULADOS)
-     Branco Gelo (#FAFAFA) -> Cinza Claro (#F5F5F5 / #E5E5E5 / #D4D4D4)
-     Tipografia de Alto Contraste (#111111 / #262626 / #404040)
+     PALETA DE REFERÊNCIA (EDITORIAL SOFT DASHBOARD)
+     Canvas: #F2F4F8 | Card: #FFFFFF | Surface 2: #F6F7F9 | Border: #EAECF0
+     Accents: Coral (#F97B72), Terracotta (#FB925A), Sage (#529471),
+              Soft Blue (#6E7BF2), Charcoal (#1E1E2D)
      ========================================================================= */
-  --color-ice-white: #FAFAFA;
-  --color-ice-surface: #FFFFFF;
-  --color-gray-scale-100: #F5F5F5;
-  --color-gray-scale-200: #E5E5E5;
-  --color-gray-scale-300: #D4D4D4;
-  --color-gray-scale-400: #A3A3A3;
-  --color-text-strong: #111111;
-  --color-text-body: #262626;
-  --color-text-muted: #404040;
+  --color-ref-canvas: #F2F4F8;
+  --color-ref-card: #FFFFFF;
+  --color-ref-subtle: #F6F7F9;
+  --color-ref-border: #EAECF0;
+  --color-ref-coral: #F97B72;
+  --color-ref-peach: #FB925A;
+  --color-ref-sage: #529471;
+  --color-ref-blue: #6E7BF2;
+  --color-ref-charcoal: #1E1E2D;
+  --color-ref-text-main: #1E232A;
+  --color-ref-text-body: #475467;
 }
 
 [role="dialog"],
 .modal-container {
-  border-radius: 8px;
+  border-radius: 18px;
 }
 
 /* =========================================================================
-   BASE DO DOCUMENTO — BRANCO GELO COM LETRAS PRETAS / CINZA ESCURO NÍTIDAS
+   BASE DO DOCUMENTO — CANVAS #F2F4F8 COM CARDS BRANCOS FLUTUANTES
    ========================================================================= */
 
 html,
 body {
   overflow-x: hidden;
   scrollbar-gutter: stable;
-  background-color: #F5F5F5 !important;
-  color: #111111 !important;
+  background-color: #F2F4F8 !important;
+  color: #1E232A !important;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 /* =========================================================================
-   1. REMOÇÃO TOTAL DE TONS ROXOS / VIOLETAS / ÍNDIGO -> ESCALA CINZA
+   CARDS E PAINÉIS PRINCIPAIS — BRANCO PURO (#FFFFFF) COM SOMBRA SUAVE
    ========================================================================= */
 
-/* Fundos roxos/violetas/índigo claros ou translúcidos viram Cinza Claro (#F5F5F5 / #E5E5E5) */
-[class*="bg-purple-950"],
-[class*="bg-purple-900"],
-[class*="bg-purple-500/"],
-[class*="bg-purple-600/"],
-[class*="bg-purple-50"],
-[class*="bg-purple-100"],
-[class*="bg-violet-950"],
-[class*="bg-violet-900"],
-[class*="bg-violet-500/"],
-[class*="bg-violet-600/"],
-[class*="bg-violet-50"],
-[class*="bg-violet-100"],
-[class*="bg-indigo-950"],
-[class*="bg-indigo-900"],
-[class*="bg-indigo-500/"],
-[class*="bg-indigo-600/"],
-[class*="bg-indigo-50"],
-[class*="bg-indigo-100"],
-[class*="bg-fuchsia-"] {
-  background-color: #F0F0F0 !important;
+main [class*="bg-slate-900"]:not(.ref-card-charcoal),
+main [class*="bg-slate-950"]:not(.ref-card-charcoal),
+[role="dialog"] [class*="bg-slate-900"]:not(.ref-card-charcoal),
+[role="dialog"] [class*="bg-slate-950"]:not(.ref-card-charcoal),
+.fixed [class*="bg-slate-900"]:not(.ref-card-charcoal),
+.fixed [class*="bg-slate-950"]:not(.ref-card-charcoal) {
+  background-color: #FFFFFF !important;
   background-image: none !important;
-  color: #111111 !important;
+  color: #1E232A !important;
+  border-color: #EAECF0 !important;
+  box-shadow: 0 4px 20px -2px rgba(16, 24, 40, 0.05) !important;
 }
 
-/* Botões sólidos roxos/violetas/índigo viram Cinza Grafite Escuro (#262626) com letra branca nítida */
-:is(button, a, span)[class*="bg-purple-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-purple-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-purple-700"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-violet-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-violet-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-violet-700"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-indigo-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-indigo-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-indigo-700"]:not([class*="/"]),
-:is(button, a, span)[class*="from-purple-"],
-:is(button, a, span)[class*="from-violet-"],
-:is(button, a, span)[class*="from-indigo-"] {
-  background-color: #262626 !important;
+/* Superfícies internas secundárias (antigo slate-800 / slate-700) -> #F6F7F9 */
+main [class*="bg-slate-800"]:not(.ref-card-charcoal),
+[role="dialog"] [class*="bg-slate-800"]:not(.ref-card-charcoal),
+.fixed [class*="bg-slate-800"]:not(.ref-card-charcoal) {
+  background-color: #F6F7F9 !important;
   background-image: none !important;
-  border-color: #171717 !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12) !important;
-}
-
-:is(button, a)[class*="bg-purple-"]:not([class*="/"]):hover,
-:is(button, a)[class*="bg-violet-"]:not([class*="/"]):hover,
-:is(button, a)[class*="bg-indigo-"]:not([class*="/"]):hover,
-:is(button, a)[class*="from-purple-"]:hover,
-:is(button, a)[class*="from-violet-"]:hover,
-:is(button, a)[class*="from-indigo-"]:hover {
-  background-color: #171717 !important;
-}
-
-/* Containers com gradiente roxo (ex: banners Camada 1) viram Branco Gelo / Cinza Claro */
-div[class*="via-purple-"],
-div[class*="from-purple-"],
-div[class*="to-purple-"],
-div[class*="via-indigo-"],
-div[class*="from-indigo-"],
-div[class*="to-indigo-"],
-div[class*="via-violet-"],
-div[class*="from-violet-"],
-div[class*="to-violet-"] {
-  background-color: #FAFAFA !important;
-  background-image: linear-gradient(180deg, #FFFFFF 0%, #F2F2F2 100%) !important;
-  color: #111111 !important;
-}
-
-/* Bordas roxas/violetas/índigo viram Cinza Claro estrutural (#D4D4D4) */
-[class*="border-purple-"],
-[class*="border-violet-"],
-[class*="border-indigo-"],
-[class*="border-fuchsia-"] {
-  border-color: #D4D4D4 !important;
-}
-
-/* Textos roxos/violetas/índigo viram Cinza Escuro de fácil leitura (#171717) */
-[class*="text-purple-"],
-[class*="text-violet-"],
-[class*="text-indigo-"],
-[class*="text-fuchsia-"] {
-  color: #171717 !important;
-}
-
-/* =========================================================================
-   2. ESCALA BRANCO GELO (#FAFAFA) -> CINZA CLARO (#F5F5F5 / #E5E5E5 / #D4D4D4)
-   ========================================================================= */
-
-/* Superfícies primárias (antigo slate-900 / slate-950) -> Branco Gelo (#FAFAFA / #FFFFFF) */
-main [class*="bg-slate-900"],
-main [class*="bg-slate-950"],
-[role="dialog"] [class*="bg-slate-900"],
-[role="dialog"] [class*="bg-slate-950"],
-.fixed [class*="bg-slate-900"],
-.fixed [class*="bg-slate-950"] {
-  background-color: #FAFAFA !important;
-  background-image: none !important;
-  color: #111111 !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
-}
-
-/* Superfícies secundárias (antigo slate-800 / slate-700) -> Cinza Claro (#F0F0F0 / #E5E5E5) */
-main [class*="bg-slate-800"],
-[role="dialog"] [class*="bg-slate-800"],
-.fixed [class*="bg-slate-800"] {
-  background-color: #F0F0F0 !important;
-  background-image: none !important;
-  color: #111111 !important;
+  color: #1E232A !important;
 }
 
 main [class*="bg-slate-700"],
 [role="dialog"] [class*="bg-slate-700"] {
-  background-color: #E5E5E5 !important;
-  color: #111111 !important;
+  background-color: #ECEEF2 !important;
+  color: #1E232A !important;
 }
 
 main button[class*="bg-slate-800"]:hover,
 main [class*="hover:bg-slate-800"]:hover,
 main [class*="hover:bg-slate-700"]:hover {
-  background-color: #E0E0E0 !important;
-  color: #000000 !important;
-}
-
-/* Gradientes escuros legados (from-sky-950, from-slate-900, etc.) -> Cinza Claro limpo */
-main div[class*="from-sky-950"],
-main div[class*="from-emerald-950"],
-main div[class*="from-amber-950"],
-main div[class*="from-slate-900"],
-main div[class*="to-slate-900"],
-[role="dialog"] div[class*="from-slate-900"],
-[role="dialog"] div[class*="to-slate-900"] {
-  background-color: #F7F7F7 !important;
-  background-image: none !important;
-  color: #111111 !important;
-}
-
-/* Bordas e divisórias na escala Cinza Claro (#D4D4D4 / #BDBDBD) */
-main [class*="border-slate-800"],
-main [class*="border-slate-900"],
-[role="dialog"] [class*="border-slate-800"],
-[role="dialog"] [class*="border-slate-900"],
-.fixed [class*="border-slate-800"] {
-  border-color: #D4D4D4 !important;
-}
-
-main [class*="border-slate-700"],
-[role="dialog"] [class*="border-slate-700"],
-.fixed [class*="border-slate-700"] {
-  border-color: #C4C4C4 !important;
-}
-
-main [class*="divide-slate-800"] > :not([hidden]) ~ :not([hidden]),
-main [class*="divide-slate-700"] > :not([hidden]) ~ :not([hidden]) {
-  border-color: #DFDFDF !important;
+  background-color: #E6E9EF !important;
+  color: #111827 !important;
 }
 
 /* =========================================================================
-   3. LETRAS FÁCEIS DE VER (ALTO CONTRASTE E NITIDEZ EM TODAS AS TELAS)
+   CLASSES UTILITÁRIAS DO ESTILO DE REFERÊNCIA (CARDS COLORIDOS E ESCUROS)
    ========================================================================= */
 
-/* Qualquer texto branco solto em fundos claros vira Preto Nítido (#111111) */
-main [class*="text-white"],
-[role="dialog"] [class*="text-white"],
-.fixed [class*="text-white"] {
-  color: #111111 !important;
+.ref-banner-coral {
+  background: linear-gradient(135deg, #F97B72 0%, #FB925A 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 10px 25px -5px rgba(249, 123, 114, 0.35) !important;
 }
 
-/* Textos secundários e auxiliares (antes apagados em slate-200/300/400/500) viram Cinza Escuro forte */
-[class*="text-slate-100"],
-[class*="text-slate-200"],
-[class*="text-slate-300"] {
-  color: #1F1F1F !important;
+.ref-card-sage {
+  background: linear-gradient(145deg, #529471 0%, #448261 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 8px 20px -4px rgba(82, 148, 113, 0.3) !important;
 }
 
-[class*="text-slate-400"] {
-  color: #333333 !important;
+.ref-card-peach {
+  background: linear-gradient(145deg, #FB925A 0%, #F97B72 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 8px 20px -4px rgba(251, 146, 90, 0.3) !important;
 }
 
-[class*="text-slate-500"],
-[class*="text-slate-600"] {
-  color: #404040 !important;
+.ref-card-blue {
+  background: linear-gradient(145deg, #6E7BF2 0%, #5B68E6 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 8px 20px -4px rgba(110, 123, 242, 0.3) !important;
 }
 
-/* Textos coloridos claros (200/300/400) ficam escuros e legíveis no fundo claro */
-[class*="text-emerald-200"],
-[class*="text-emerald-300"],
-[class*="text-emerald-400"] {
-  color: #065F46 !important;
+.ref-card-charcoal {
+  background: linear-gradient(145deg, #232333 0%, #181824 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid #2E2E42 !important;
+  box-shadow: 0 8px 20px -4px rgba(24, 24, 36, 0.25) !important;
 }
 
-[class*="text-amber-200"],
-[class*="text-amber-300"],
-[class*="text-amber-400"] {
-  color: #92400E !important;
+.ref-banner-coral *,
+.ref-card-sage *,
+.ref-card-peach *,
+.ref-card-blue *,
+.ref-card-charcoal * {
+  color: #FFFFFF !important;
 }
 
-[class*="text-orange-200"],
-[class*="text-orange-300"],
-[class*="text-orange-400"] {
-  color: #9A3412 !important;
+/* =========================================================================
+   HARMONIZAÇÃO DE TONS LEGADOS PARA A PALETA DE REFERÊNCIA
+   ========================================================================= */
+
+/* Fundos translúcidos legados viram pílulas suaves do estilo de referência */
+[class*="bg-purple-950"],
+[class*="bg-purple-900"],
+[class*="bg-purple-500/"],
+[class*="bg-purple-600/"],
+[class*="bg-violet-950"],
+[class*="bg-violet-900"],
+[class*="bg-violet-500/"],
+[class*="bg-indigo-950"],
+[class*="bg-indigo-900"],
+[class*="bg-indigo-500/"] {
+  background-color: #EEF0FF !important;
+  background-image: none !important;
+  color: #3E4AB8 !important;
 }
 
-[class*="text-rose-200"],
-[class*="text-rose-300"],
-[class*="text-rose-400"],
-[class*="text-red-200"],
-[class*="text-red-300"],
-[class*="text-red-400"] {
-  color: #9F1239 !important;
-}
-
-[class*="text-sky-200"],
-[class*="text-sky-300"],
-[class*="text-sky-400"],
-[class*="text-blue-200"],
-[class*="text-blue-300"],
-[class*="text-blue-400"] {
-  color: #075985 !important;
-}
-
-/* Preserva letra branca nítida (#FFFFFF) DENTRO de botões e badges de fundo sólido escuro/colorido */
-:is(button, a, span)[class*="bg-orange-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-orange-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-orange-700"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-emerald-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-emerald-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-emerald-700"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-sky-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-sky-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-sky-700"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-blue-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-rose-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-rose-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-red-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-neutral-800"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-neutral-900"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-[#EA580C]"],
-:is(button, a, span)[class*="bg-[#0C4A6E]"],
-:is(button, a, span)[class*="bg-[#0284C7]"],
-:is(button, a, span)[class*="bg-[#262626]"],
-:is(button, a, span)[class*="bg-[#171717]"],
-:is(button, a, span)[class*="from-orange-"],
-:is(button, a, span)[class*="from-emerald-"],
-:is(button, a, span)[class*="from-sky-"],
-:is(button, a, span)[class*="from-[#0C4A6E]"],
+/* Botões sólidos roxos/índigo viram o Azul Periwinkle (#6E7BF2) ou Coral (#F97B72) da referência */
 :is(button, a, span)[class*="bg-purple-500"]:not([class*="/"]),
 :is(button, a, span)[class*="bg-purple-600"]:not([class*="/"]),
 :is(button, a, span)[class*="bg-violet-600"]:not([class*="/"]),
 :is(button, a, span)[class*="bg-indigo-600"]:not([class*="/"]),
 :is(button, a, span)[class*="from-purple-"],
-:is(button, a, span)[class*="from-violet-"],
 :is(button, a, span)[class*="from-indigo-"] {
+  background-color: #6E7BF2 !important;
+  background-image: none !important;
+  border-color: #5B68E6 !important;
   color: #FFFFFF !important;
 }
 
+:is(button, a, span)[class*="bg-orange-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-orange-600"]:not([class*="/"]),
+:is(button, a, span)[class*="from-orange-"] {
+  background-color: #F97B72 !important;
+  background-image: linear-gradient(135deg, #F97B72 0%, #FB925A 100%) !important;
+  border-color: #F97B72 !important;
+  color: #FFFFFF !important;
+}
+
+:is(button, a, span)[class*="bg-emerald-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-emerald-600"]:not([class*="/"]),
+:is(button, a, span)[class*="from-emerald-"] {
+  background-color: #529471 !important;
+  background-image: none !important;
+  border-color: #448261 !important;
+  color: #FFFFFF !important;
+}
+
+/* Containers com gradiente escuro legado viram superfície clara */
+div[class*="via-purple-"]:not(.ref-banner-coral),
+div[class*="from-purple-"]:not(.ref-banner-coral),
+div[class*="from-sky-950"],
+div[class*="from-emerald-950"],
+div[class*="from-amber-950"],
+div[class*="from-slate-900"],
+div[class*="to-slate-900"] {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+  color: #1E232A !important;
+}
+
+/* Bordas suaves como na referência (#EAECF0 / #DCE0E8) */
+main [class*="border-slate-800"],
+main [class*="border-slate-900"],
+main [class*="border-slate-700"],
+[role="dialog"] [class*="border-slate-800"],
+[role="dialog"] [class*="border-slate-700"],
+[class*="border-purple-"],
+[class*="border-violet-"],
+[class*="border-indigo-"] {
+  border-color: #EAECF0 !important;
+}
+
+main [class*="divide-slate-800"] > :not([hidden]) ~ :not([hidden]),
+main [class*="divide-slate-700"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #EAECF0 !important;
+}
+
+/* =========================================================================
+   TIPOGRAFIA DE ALTO CONTRASTE (LETRAS FÁCEIS DE VER)
+   ========================================================================= */
+
+main [class*="text-white"]:not(.ref-banner-coral *):not(.ref-card-sage *):not(.ref-card-peach *):not(.ref-card-blue *):not(.ref-card-charcoal *),
+[role="dialog"] [class*="text-white"] {
+  color: #1E232A !important;
+}
+
+[class*="text-slate-100"],
+[class*="text-slate-200"],
+[class*="text-slate-300"] {
+  color: #2B323B !important;
+}
+
+[class*="text-slate-400"],
+[class*="text-slate-500"] {
+  color: #475467 !important;
+}
+
+[class*="text-emerald-200"],
+[class*="text-emerald-300"],
+[class*="text-emerald-400"] {
+  color: #2E6F4E !important;
+}
+
+[class*="text-amber-200"],
+[class*="text-amber-300"],
+[class*="text-amber-400"],
+[class*="text-orange-200"],
+[class*="text-orange-300"],
+[class*="text-orange-400"] {
+  color: #C25E2E !important;
+}
+
+[class*="text-rose-200"],
+[class*="text-rose-300"],
+[class*="text-rose-400"] {
+  color: #C94A4A !important;
+}
+
+[class*="text-sky-200"],
+[class*="text-sky-300"],
+[class*="text-sky-400"],
+[class*="text-purple-200"],
+[class*="text-purple-300"],
+[class*="text-purple-400"],
+[class*="text-indigo-200"],
+[class*="text-indigo-300"],
+[class*="text-indigo-400"] {
+  color: #4A56C8 !important;
+}
+
+/* Garante texto branco nítido dentro de botões sólidos */
 :is(button, a, span)[class*="bg-orange-500"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-orange-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-orange-700"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-emerald-500"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-emerald-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-emerald-700"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-sky-500"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-sky-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-sky-700"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-blue-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-rose-500"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-rose-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-red-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-neutral-800"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-neutral-900"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-purple-500"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-purple-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-indigo-600"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-[#EA580C]"] *,
 :is(button, a, span)[class*="bg-[#0C4A6E]"] *,
 :is(button, a, span)[class*="bg-[#0284C7]"] *,
-:is(button, a, span)[class*="bg-[#262626]"] *,
-:is(button, a, span)[class*="bg-[#171717]"] *,
+:is(button, a, span)[class*="bg-[#1E1E2D]"] *,
+:is(button, a, span)[class*="bg-[#F97B72]"] *,
+:is(button, a, span)[class*="bg-[#529471]"] *,
+:is(button, a, span)[class*="bg-[#6E7BF2]"] *,
 :is(button, a, span)[class*="from-orange-"] *,
-:is(button, a, span)[class*="from-emerald-"] *,
-:is(button, a, span)[class*="from-sky-"] *,
-:is(button, a, span)[class*="from-[#0C4A6E]"] *,
-:is(button, a, span)[class*="bg-purple-500"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-purple-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-violet-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-indigo-600"]:not([class*="/"]) *,
 :is(button, a, span)[class*="from-purple-"] *,
-:is(button, a, span)[class*="from-violet-"] *,
-:is(button, a, span)[class*="from-indigo-"] * {
+:is(button, a, span)[class*="from-indigo-"] *,
+:is(button, a, span)[class*="from-sky-"] * {
   color: #FFFFFF !important;
 }
 
 /* =========================================================================
-   4. CAMPOS DE FORMULÁRIO (INPUT, SELECT, TEXTAREA) — LEITURA IMEDIATA
+   INPUTS, SELECTS E TEXTAREAS — ESTILO SOFT PILL / CARD DA REFERÊNCIA
    ========================================================================= */
 
 :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
-  background-color: #FFFFFF !important;
-  border: 1px solid #BDBDBD !important;
-  color: #111111 !important;
+  background-color: #F6F7F9 !important;
+  border: 1px solid #DCE0E8 !important;
+  color: #1E232A !important;
   font-weight: 500;
 }
 
 :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):focus {
-  border-color: #525252 !important;
+  background-color: #FFFFFF !important;
+  border-color: #6E7BF2 !important;
+  box-shadow: 0 0 0 3px rgba(110, 123, 242, 0.15) !important;
   outline: none !important;
 }
 
 :is(input, select, textarea)::placeholder {
-  color: #666666 !important;
+  color: #7A8699 !important;
   opacity: 1;
 }
 
 /* =========================================================================
-   5. SCROLLBARS EM ESCALA CINZA NEUTRA
+   SCROLLBARS SUAVES
    ========================================================================= */
 
 ::-webkit-scrollbar {
@@ -373,21 +330,21 @@ main [class*="text-white"],
 }
 
 ::-webkit-scrollbar-track {
-  background: #EFEFEF;
+  background: #F2F4F8;
   border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #BDBDBD;
+  background: #CFD5E0;
   border-radius: 6px;
-  border: 2px solid #EFEFEF;
+  border: 2px solid #F2F4F8;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8C8C8C;
+  background: #98A2B3;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #BDBDBD #EFEFEF;
+  scrollbar-color: #CFD5E0 #F2F4F8;
 }
