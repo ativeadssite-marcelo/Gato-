@@ -99,6 +99,39 @@ export function hasConfiguredTenantPermissions(user?: UserSession | null): boole
   return Array.isArray(user.tenantPermissions);
 }
 
+export const ROLE_OVERRIDES_STORAGE_KEY = 'gato_rbac_role_overrides';
+
+export function readLocalRoleOverrides(): Record<string, Record<string, string>> {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(ROLE_OVERRIDES_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function writeLocalRoleOverrides(overrides: Record<string, Record<string, string>>): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(ROLE_OVERRIDES_STORAGE_KEY, JSON.stringify(overrides));
+  } catch {
+    /* noop */
+  }
+}
+
+function resolveEffectiveResourceLevel(resource: string, user: UserSession): string | undefined {
+  const roleCode = user.roleCode === 'saas_owner' ? 'super_admin' : user.roleCode;
+  if (roleCode) {
+    const localOverride = readLocalRoleOverrides()[roleCode]?.[resource];
+    if (localOverride) return localOverride;
+  }
+  const perms = user.permissions || {};
+  return perms[resource] ?? (perms['*'] ? 'full' : undefined);
+}
+
 /**
  * Nível de acesso suficiente para o item aparecer no menu.
  *
@@ -112,7 +145,7 @@ export function isMenuVisible(itemId: string, user?: UserSession | null): boolea
 
   const resource = MENU_RESOURCE[itemId];
   if (resource) {
-    const level = (user.permissions || {})[resource];
+    const level = resolveEffectiveResourceLevel(resource, user);
     if (level === 'none' || !level) return false;
   }
 
@@ -129,5 +162,5 @@ export function menuAccessLevel(itemId: string, user?: UserSession | null): stri
   if (!user) return undefined;
   const resource = MENU_RESOURCE[itemId];
   if (!resource) return undefined;
-  return (user.permissions || {})[resource];
+  return resolveEffectiveResourceLevel(resource, user);
 }

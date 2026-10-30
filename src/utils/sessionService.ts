@@ -76,6 +76,7 @@ interface LoginApiResponse {
  */
 const RBAC_TO_UI_ROLE: Record<string, UserRole> = {
   super_admin: 'administrador',
+  saas_owner: 'administrador',
   saas_financeiro: 'administrador',
   saas_fiscal: 'administrador',
   saas_suporte: 'administrador',

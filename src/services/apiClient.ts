@@ -129,7 +129,7 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
     credentials: 'same-origin',
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && !token?.startsWith('client_token_')) {
     clearSessionToken();
     if (!unauthorizedNotified && typeof window !== 'undefined') {
       unauthorizedNotified = true;
@@ -155,6 +155,9 @@ export async function apiJson<T = any>(input: string, init: RequestInit = {}): P
       body?.code,
       retryAfter
     );
+  }
+  if (!isJson && response.status !== 204) {
+    throw new ApiError('Serviço de API indisponível (404).', 404, 'API_UNAVAILABLE');
   }
   return body as T;
 }
