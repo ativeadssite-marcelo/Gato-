@@ -13,7 +13,6 @@
 
 import crypto from "node:crypto";
 import { getDbPool, isDatabaseConfigured } from "./db";
-import { mirror } from "./dbMirror";
 import type {
   CredentialKind,
   MachineActivation,
@@ -48,6 +47,15 @@ const byIndex = new Map<string, string>();
 let hydrated = false;
 
 type Row = Record<string, unknown>;
+
+function mirror(sql: string, params: unknown[] = []): void {
+  if (!isDatabaseConfigured()) return;
+  getDbPool()
+    .query(sql, params)
+    .catch((err) =>
+      console.warn("[GATO Credenciais] Espelho Postgres indisponível:", err?.message || err),
+    );
+}
 
 function rowToCredential(r: Row): TenantCredential {
   return {

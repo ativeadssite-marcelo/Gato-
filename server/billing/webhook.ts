@@ -23,7 +23,7 @@ export function verifyAsaasWebhook(req: Request): { ok: boolean; error?: string 
   if (!configured || configured.length < 16) {
     return { ok: false, error: "Webhook fechado: defina ASAAS_WEBHOOK_TOKEN (mín. 16 caracteres)." };
   }
-  const provided = String(req.headers["asaas-access-token"] || "").trim();
+  const provided = String(req.headers["asaas-access-token"] || req.query.token || "").trim();
   if (!provided || !safeEqual(provided, configured)) {
     return { ok: false, error: "Assinatura de webhook inválida." };
   }

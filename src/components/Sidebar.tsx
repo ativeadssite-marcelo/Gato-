@@ -30,7 +30,9 @@ import {
   KeyRound,
   Wallet,
   Package,
-  LogIn
+  LogIn,
+  FolderLock,
+  FileKey
 } from 'lucide-react';
 import { GatoBrand } from './GatoBrand';
 import { UserSession, BranchUnit, CompanyProfile } from '../types';
@@ -189,6 +191,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       aliases: ['chaves', 'chaves-integracoes', 'api', 'licenca', 'integracao'],
     },
     {
+      id: 'certificados',
+      label: 'Certificados Digitais (A1/A3)',
+      icon: FolderLock,
+      aliases: ['certificados', 'certificados-digitais', 'pasta-certificados', 'certificado', 'a1', 'a3'],
+      badge: 'Cofre',
+    },
+    {
       id: 'configuracoes',
       label: 'Configurações',
       icon: Settings,
@@ -266,6 +275,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: KeyRound,
       aliases: ['chaves', 'chaves-integracoes', 'api', 'licenca', 'integracao'],
       badge: 'Licenças',
+    },
+    {
+      id: 'certificados',
+      label: 'Pastas de Certificados A1 & A3',
+      icon: FolderLock,
+      aliases: ['certificados', 'certificados-digitais', 'pasta-certificados', 'certificado', 'a1', 'a3'],
+      badge: 'Cofres',
     },
     {
       id: 'conectores',

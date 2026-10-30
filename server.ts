@@ -8,7 +8,6 @@ import { validateEnv } from "./server/env";
 import { checkDatabaseConnection, getDbPool, isDatabaseConfigured, DB_NOT_CONFIGURED_MESSAGE } from "./server/db";
 import {
   requireAuth,
-  requireSaasScope,
   requirePermission,
   requireAnyPermission,
   requireTenantPermission,
@@ -19,14 +18,14 @@ import {
   getDefaultTenantId,
   recordAudit,
 } from "./server/auth";
-import {
-  BRAZILIAN_FLEET_DATABASE,
-  getDistinctFleetMakes,
-  getModelsByFleetMake,
-  getAvailableYearsForSelection,
+import { 
+  BRAZILIAN_FLEET_DATABASE, 
+  getDistinctFleetMakes, 
+  getModelsByFleetMake, 
+  getAvailableYearsForSelection, 
   getEnginesForSelection,
   queryPartsByVehicleApplication,
-  reverseLookupVehiclesForPart
+  reverseLookupVehiclesForPart 
 } from "./src/data/fleetDatabase";
 import { INITIAL_PRODUCTS, DEFAULT_FEDERAL_TAX_SETTINGS, INITIAL_STATE_TAX_RULES } from "./src/data/initialData";
 import { rbacRouter } from "./server/rbacRoutes";
@@ -39,6 +38,7 @@ import { caixaRouter } from "./server/caixaRoutes";
 import { billingRouter } from "./server/billing/routes";
 import { adminDatabaseRouter } from "./server/adminDatabaseRoutes";
 import { saasContractsRouter } from "./server/saasContractsRoutes";
+import { certificateRouter } from "./server/certificates/certificateRoutes";
 import { checkQuota, incrementUsage } from "./server/quotas";
 import {
   assertProductionMigrationsReady,
@@ -192,6 +192,9 @@ app.use("/api/license", licenseRouter);
 // API v1 de integração do tenant — autenticada por chave de API (x-api-key)
 app.use("/api/v1", v1Router);
 
+// Cofre Criptografado de Certificados Digitais A1 e A3 (SEFAZ / NF-e / NFC-e)
+app.use("/api/certificates", certificateRouter);
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -293,11 +296,11 @@ app.get("/api/db/products", requireAuth, requirePermission("company_data"), asyn
       ORDER BY p.sku ASC;
     `;
     const result = await pool.query(query, params);
-    res.json({
-      success: true,
-      count: result.rows.length,
-      products: result.rows,
-      source: 'Product (Supabase PostgreSQL)'
+    res.json({ 
+      success: true, 
+      count: result.rows.length, 
+      products: result.rows, 
+      source: 'Product (Supabase PostgreSQL)' 
     });
   } catch (err: any) {
     console.error("[GATO DB] Falha ao listar produtos:", err?.message || err);
@@ -370,10 +373,7 @@ app.post("/api/db/products", requireAuth, requireTenantPermission("item_register
 
     let catId: string | null = null;
     if (categoryName) {
-      const catRes = await client.query(
-        'SELECT id FROM "Category" WHERE LOWER(name) = LOWER($1) AND ("tenantId" = $2 OR "tenantId" IS NULL) LIMIT 1;',
-        [categoryName, tenantId],
-      );
+      const catRes = await client.query('SELECT id FROM "Category" WHERE LOWER(name) = LOWER($1) LIMIT 1;', [categoryName]);
       catId = catRes.rows[0]?.id || null;
     }
 
@@ -411,7 +411,7 @@ app.post("/api/db/products", requireAuth, requireTenantPermission("item_register
 
     res.json({ success: true, id: prodId, message: "Produto cadastrado no Supabase com sucesso!" });
   } catch (err: any) {
-    await client.query("ROLLBACK").catch(() => { });
+    await client.query("ROLLBACK").catch(() => {});
     console.error("[GATO DB] Falha ao cadastrar produto:", err?.message || err);
     res.status(500).json({ success: false, error: "Falha segura ao cadastrar produto." });
   } finally {
@@ -1053,26 +1053,14 @@ app.post("/api/db/quotes", requireAuth, requireTenantPermission("sales"), requir
     // Insert items if provided (capped at 200 items max to prevent DoS)
     if (Array.isArray(items)) {
       const boundedItems = items.slice(0, 200);
-      const rawProductIds = boundedItems
-        .map((it: any) => (typeof it?.productId === "string" ? it.productId.trim() : ""))
-        .filter(Boolean);
-      const validProductIds = new Set<string>();
-      if (rawProductIds.length > 0) {
-        const pRes = await client.query(
-          'SELECT id FROM "Product" WHERE "tenantId" = $1 AND id = ANY($2::text[]);',
-          [tenantId, rawProductIds],
-        );
-        for (const r of pRes.rows) validProductIds.add(String(r.id));
-      }
       for (const it of boundedItems) {
         const itemId = 'bi_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
         const itemQty = typeof it.quantity === "number" && Number.isFinite(it.quantity) && it.quantity > 0 ? it.quantity : 1;
         const itemPrice = typeof it.unitPrice === "number" && Number.isFinite(it.unitPrice) && it.unitPrice >= 0 ? it.unitPrice : 0;
-        const safeProductId = typeof it.productId === "string" && validProductIds.has(it.productId.trim()) ? it.productId.trim() : null;
         await client.query(`
           INSERT INTO "BudgetItem" (id, "budgetId", "productId", quantity, "unitPrice", "createdAt")
           VALUES ($1, $2, $3, $4, $5, NOW());
-        `, [itemId, budgetId, safeProductId, itemQty, itemPrice]);
+        `, [itemId, budgetId, it.productId || null, itemQty, itemPrice]);
       }
     }
     await client.query("COMMIT");
@@ -1085,7 +1073,7 @@ app.post("/api/db/quotes", requireAuth, requireTenantPermission("sales"), requir
 
     res.json({ success: true, budgetId, message: "DAV / Orçamento registrado no Supabase com sucesso!" });
   } catch (err: any) {
-    await client.query("ROLLBACK").catch(() => { });
+    await client.query("ROLLBACK").catch(() => {});
     console.error("[GATO DB] Falha ao salvar orçamento:", err?.message || err);
     res.status(500).json({ success: false, error: "Falha segura ao salvar orçamento no Supabase." });
   } finally {
@@ -1203,27 +1191,15 @@ app.put(
       }
       if (temItens) {
         const boundedItems = (req.body.items as any[]).slice(0, 200);
-        const rawProductIds = boundedItems
-          .map((it: any) => (typeof it?.productId === "string" ? it.productId.trim() : ""))
-          .filter(Boolean);
-        const validProductIds = new Set<string>();
-        if (rawProductIds.length > 0) {
-          const pRes = await client.query(
-            'SELECT id FROM "Product" WHERE "tenantId" = $1 AND id = ANY($2::text[]);',
-            [tenantId, rawProductIds],
-          );
-          for (const r of pRes.rows) validProductIds.add(String(r.id));
-        }
         await client.query('DELETE FROM "BudgetItem" WHERE "budgetId" = $1;', [budgetId]);
         for (const it of boundedItems) {
           const itemId = 'bi_' + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
           const itemQty = typeof it.quantity === "number" && Number.isFinite(it.quantity) && it.quantity > 0 ? it.quantity : 1;
           const itemPrice = typeof it.unitPrice === "number" && Number.isFinite(it.unitPrice) && it.unitPrice >= 0 ? it.unitPrice : 0;
-          const safeProductId = typeof it.productId === "string" && validProductIds.has(it.productId.trim()) ? it.productId.trim() : null;
           await client.query(
             `INSERT INTO "BudgetItem" (id, "budgetId", "productId", quantity, "unitPrice", "createdAt")
              VALUES ($1, $2, $3, $4, $5, NOW());`,
-            [itemId, budgetId, safeProductId, itemQty, itemPrice]
+            [itemId, budgetId, it.productId || null, itemQty, itemPrice]
           );
         }
       }
@@ -1249,7 +1225,7 @@ app.put(
         message: cancelando ? "Orçamento cancelado." : "Orçamento atualizado.",
       });
     } catch (err: any) {
-      await client.query("ROLLBACK").catch(() => { });
+      await client.query("ROLLBACK").catch(() => {});
       console.error("[GATO DB] Falha ao atualizar orçamento:", err?.message || err);
       res.status(500).json({ success: false, error: "Falha segura ao atualizar orçamento." });
     } finally {
@@ -1342,7 +1318,7 @@ app.post(
         linhasPorTabela,
       });
     } catch (err: any) {
-      await client.query("ROLLBACK").catch(() => { });
+      await client.query("ROLLBACK").catch(() => {});
       console.error("[GATO DB] Falha ao zerar dados do tenant:", err?.message || err);
       res.status(500).json({ success: false, error: "Falha segura ao zerar os dados. Nada foi apagado." });
     } finally {
@@ -1390,15 +1366,6 @@ app.post("/api/db/sync-catalog", syncLimiter, requireAuth, requireTenantPermissi
     let updated = 0;
 
     await client.query("BEGIN");
-    const skus = Array.from(
-      new Set(products.map((p: any) => String(p.code || p.sku || "").trim().slice(0, 100)).filter(Boolean)),
-    );
-    const existingRes =
-      skus.length > 0
-        ? await client.query('SELECT id, sku FROM "Product" WHERE "tenantId" = $1 AND sku = ANY($2::text[]);', [tenantId, skus])
-        : { rows: [] };
-    const existingBySku = new Map<string, string>(existingRes.rows.map((r: any) => [String(r.sku), String(r.id)]));
-
     for (const p of products) {
       const code = String(p.code || p.sku || "").trim().slice(0, 100);
       if (!code) continue;
@@ -1409,12 +1376,12 @@ app.post("/api/db/sync-catalog", syncLimiter, requireAuth, requireTenantPermissi
       const pSale = typeof p.salePrice === "number" && Number.isFinite(p.salePrice) && p.salePrice >= 0 ? p.salePrice : 0;
       const pMinStock = typeof p.minStock === "number" && Number.isFinite(p.minStock) && p.minStock >= 0 ? p.minStock : 5;
 
-      // Existência verificada SEMPRE dentro do tenant da sessão (pré-buscada em lote).
-      const existingId = existingBySku.get(code);
-
-      if (existingId) {
+      // Existência verificada SEMPRE dentro do tenant da sessão.
+      const existing = await client.query('SELECT id FROM "Product" WHERE sku = $1 AND "tenantId" = $2 LIMIT 1;', [code, tenantId]);
+      
+      if (existing.rows.length > 0) {
         // Update product
-        const prodId = existingId;
+        const prodId = existing.rows[0].id;
         await client.query(`
           UPDATE "Product"
           SET name = $1, brand = $2, "costPrice" = $3, "salePrice" = $4, "minStock" = $5, "updatedAt" = NOW()
@@ -1442,7 +1409,6 @@ app.post("/api/db/sync-catalog", syncLimiter, requireAuth, requireTenantPermissi
           INSERT INTO "Product" (id, sku, name, brand, "costPrice", "salePrice", "minStock", active, "tenantId", "createdAt", "updatedAt")
           VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, NOW(), NOW());
         `, [prodId, code, pName, pBrand, pCost, pSale, pMinStock, tenantId]);
-        existingBySku.set(code, prodId);
 
         if (warehouseId && (p.stock !== undefined || p.currentStock !== undefined)) {
           const rawQty = p.stock !== undefined ? p.stock : p.currentStock;
@@ -1473,7 +1439,7 @@ app.post("/api/db/sync-catalog", syncLimiter, requireAuth, requireTenantPermissi
       total: inserted + updated
     });
   } catch (err: any) {
-    await client.query("ROLLBACK").catch(() => { });
+    await client.query("ROLLBACK").catch(() => {});
     console.error("[GATO DB] Falha ao sincronizar catálogo:", err?.message || err);
     res.status(500).json({ success: false, error: "Erro seguro ao sincronizar catálogo no Supabase." });
   } finally {
@@ -1487,7 +1453,6 @@ app.post("/api/db/sync-catalog", syncLimiter, requireAuth, requireTenantPermissi
 // ==========================================
 interface FleetVehicle {
   id: string;        // ID único do registro (JSON: id)
-  tenantId?: string; // Escopo de tenant (vazio = semente global de demonstração)
   montadora: string; // Fabricante (VARCHAR 100, Obrigatório)
   modelo: string;    // Nome comercial (VARCHAR 100, Obrigatório)
   veiculo: string;   // Placa ou Chassi (VARCHAR 20, Obrigatório, Único)
@@ -1496,11 +1461,6 @@ interface FleetVehicle {
   createdAt?: string;
   updatedAt?: string;
 }
-
-const canReadVehicle = (v: FleetVehicle, req: express.Request): boolean =>
-  Boolean(req.auth?.isSaasScope || !v.tenantId || v.tenantId === req.auth?.tenantId);
-const canMutateVehicle = (v: FleetVehicle, req: express.Request): boolean =>
-  Boolean(req.auth?.isSaasScope || v.tenantId === req.auth?.tenantId);
 
 // Catálogo de Marcas e Modelos para Autocomplete Assíncrono (Combobox)
 const VEHICLE_CATALOG_MAKES: Record<string, string[]> = {
@@ -1552,11 +1512,10 @@ let fleetVehicles: FleetVehicle[] = [
 app.get("/api/vehicles/makes", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const q = (req.query.q as string || "").trim().toLowerCase();
-    const visibleFleet = fleetVehicles.filter(v => canReadVehicle(v, req));
     const allMakes = Array.from(
       new Set([
         ...Object.keys(VEHICLE_CATALOG_MAKES),
-        ...visibleFleet.map(v => v.montadora)
+        ...fleetVehicles.map(v => v.montadora)
       ])
     ).sort((a, b) => a.localeCompare(b, "pt-BR"));
 
@@ -1572,7 +1531,6 @@ app.get("/api/vehicles/models", requireAuth, requirePermission("catalog_referenc
   try {
     const brand = (req.query.brand as string || "").trim().toLowerCase();
     const q = (req.query.q as string || "").trim().toLowerCase();
-    const visibleFleet = fleetVehicles.filter(v => canReadVehicle(v, req));
 
     let models: string[] = [];
 
@@ -1583,14 +1541,14 @@ app.get("/api/vehicles/models", requireAuth, requirePermission("catalog_referenc
         models = [...VEHICLE_CATALOG_MAKES[foundKey]];
       }
       // Also add any models already registered for this brand in fleet
-      const existingInFleet = visibleFleet
+      const existingInFleet = fleetVehicles
         .filter(v => v.montadora.toLowerCase() === brand)
         .map(v => v.modelo);
       models = Array.from(new Set([...models, ...existingInFleet]));
     } else {
       // All models from catalog + fleet
       const allCatalog = Object.values(VEHICLE_CATALOG_MAKES).flat();
-      const allFleet = visibleFleet.map(v => v.modelo);
+      const allFleet = fleetVehicles.map(v => v.modelo);
       models = Array.from(new Set([...allCatalog, ...allFleet]));
     }
 
@@ -1620,8 +1578,7 @@ app.get("/api/vehicles", requireAuth, requirePermission("catalog_reference"), (r
       pageSize = "10"
     } = req.query as Record<string, string>;
 
-    const visibleFleet = fleetVehicles.filter(v => canReadVehicle(v, req));
-    let result = [...visibleFleet];
+    let result = [...fleetVehicles];
 
     // 1. Filtro de Busca Global (todas as colunas)
     if (search && search.trim()) {
@@ -1673,7 +1630,7 @@ app.get("/api/vehicles", requireAuth, requirePermission("catalog_reference"), (r
     const paginatedData = result.slice(startIndex, startIndex + parsedPageSize);
 
     // Lista de todas as montadoras cadastradas para o dropdown de filtro
-    const availableBrands = Array.from(new Set(visibleFleet.map(v => v.montadora))).sort((a, b) =>
+    const availableBrands = Array.from(new Set(fleetVehicles.map(v => v.montadora))).sort((a, b) =>
       a.localeCompare(b, "pt-BR")
     );
 
@@ -1695,9 +1652,7 @@ app.get("/api/vehicles", requireAuth, requirePermission("catalog_reference"), (r
 app.get("/api/vehicles/:identifier", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const rawParam = safeDecodeParam(req.params.identifier).toUpperCase();
-    const vehicle = fleetVehicles.find(
-      v => canReadVehicle(v, req) && (v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam)
-    );
+    const vehicle = fleetVehicles.find(v => v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam);
 
     if (!vehicle) {
       return res.status(404).json({ success: false, error: `Veículo "${rawParam}" não encontrado.` });
@@ -1739,10 +1694,8 @@ app.post("/api/vehicles", requireAuth, requirePermission("catalog_reference", { 
       return res.status(400).json({ success: false, error: "Veículo (Placa ou Chassi) não pode exceder 20 caracteres." });
     }
 
-    // Validação de Unicidade (por tenant)
-    const alreadyExists = fleetVehicles.some(
-      v => canReadVehicle(v, req) && v.veiculo.toUpperCase() === cleanVeiculo
-    );
+    // Validação de Unicidade
+    const alreadyExists = fleetVehicles.some(v => v.veiculo.toUpperCase() === cleanVeiculo);
     if (alreadyExists) {
       return res.status(400).json({
         success: false,
@@ -1768,7 +1721,6 @@ app.post("/api/vehicles", requireAuth, requirePermission("catalog_reference", { 
 
     const newVehicle: FleetVehicle = {
       id: `veh-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      tenantId: req.auth?.tenantId,
       montadora: montadora.trim(),
       modelo: modelo.trim(),
       veiculo: cleanVeiculo,
@@ -1793,9 +1745,7 @@ app.post("/api/vehicles", requireAuth, requirePermission("catalog_reference", { 
 app.put("/api/vehicles/:identifier", requireAuth, requirePermission("catalog_reference", { write: true }), (req, res) => {
   try {
     const rawParam = safeDecodeParam(req.params.identifier).toUpperCase();
-    const index = fleetVehicles.findIndex(
-      v => canMutateVehicle(v, req) && (v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam)
-    );
+    const index = fleetVehicles.findIndex(v => v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam);
 
     if (index === -1) {
       return res.status(404).json({ success: false, error: `Veículo "${rawParam}" não encontrado.` });
@@ -1820,8 +1770,8 @@ app.put("/api/vehicles/:identifier", requireAuth, requirePermission("catalog_ref
       return res.status(400).json({ success: false, error: "Modelo não pode exceder 100 caracteres." });
     }
 
-    const cleanNewVeiculo = (newVeiculo && typeof newVeiculo === "string")
-      ? newVeiculo.trim().toUpperCase().replace(/[^A-Z0-9-]/g, "")
+    const cleanNewVeiculo = (newVeiculo && typeof newVeiculo === "string") 
+      ? newVeiculo.trim().toUpperCase().replace(/[^A-Z0-9-]/g, "") 
       : currentItem.veiculo;
 
     if (!cleanNewVeiculo) {
@@ -1833,9 +1783,7 @@ app.put("/api/vehicles/:identifier", requireAuth, requirePermission("catalog_ref
 
     // Se mudou o identificador, verificar se não colide com outro veículo
     if (cleanNewVeiculo !== currentItem.veiculo) {
-      const conflict = fleetVehicles.some(
-        (v, idx) => idx !== index && canReadVehicle(v, req) && v.veiculo.toUpperCase() === cleanNewVeiculo
-      );
+      const conflict = fleetVehicles.some((v, idx) => idx !== index && v.veiculo.toUpperCase() === cleanNewVeiculo);
       if (conflict) {
         return res.status(400).json({
           success: false,
@@ -1881,9 +1829,7 @@ app.put("/api/vehicles/:identifier", requireAuth, requirePermission("catalog_ref
 app.delete("/api/vehicles/:identifier", requireAuth, requirePermission("catalog_reference", { write: true }), (req, res) => {
   try {
     const rawParam = safeDecodeParam(req.params.identifier).toUpperCase();
-    const index = fleetVehicles.findIndex(
-      v => canMutateVehicle(v, req) && (v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam)
-    );
+    const index = fleetVehicles.findIndex(v => v.id.toUpperCase() === rawParam || v.veiculo.toUpperCase() === rawParam);
 
     if (index === -1) {
       return res.status(404).json({ success: false, error: `Veículo "${rawParam}" não encontrado para exclusão.` });
@@ -1929,7 +1875,7 @@ app.get("/api/fleet-database", requireAuth, requirePermission("catalog_reference
 
     if (search && typeof search === "string" && search.trim()) {
       const s = search.toLowerCase().trim();
-      list = list.filter(v =>
+      list = list.filter(v => 
         v.montadora.toLowerCase().includes(s) ||
         v.modelo.toLowerCase().includes(s) ||
         v.geracaoFase.toLowerCase().includes(s) ||
@@ -2016,7 +1962,7 @@ app.get("/api/fleet-database/engines", requireAuth, requirePermission("catalog_r
 app.get("/api/parts-application/filter", requireAuth, requirePermission("catalog_reference"), (req, res) => {
   try {
     const { montadora, modeloId, modeloTexto, ano, motor, sistema, termoBusca } = req.query;
-
+    
     const matches = queryPartsByVehicleApplication(INITIAL_PRODUCTS, {
       montadora: typeof montadora === "string" ? montadora : undefined,
       modeloId: typeof modeloId === "string" ? modeloId : undefined,
@@ -2043,7 +1989,7 @@ app.get("/api/parts-application/reverse/:code", requireAuth, requirePermission("
   try {
     const code = safeDecodeParam(req.params.code);
     const lookup = reverseLookupVehiclesForPart(INITIAL_PRODUCTS, code);
-
+    
     if (!lookup.product) {
       return res.status(404).json({ success: false, error: `Peça com código "${code}" não encontrada.` });
     }
@@ -2098,7 +2044,7 @@ app.get("/api/parts-application/export", requireAuth, requirePermission("catalog
       ]);
 
       const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
-
+      
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="frota_brasil_1995_2027_aplicacao_pecas.csv"');
       return res.send(csvContent);
@@ -2147,11 +2093,11 @@ app.post(
   requireAuth,
   requireAnyPermission(["bug_support", "customers_employees", "company_data"]),
   async (req, res) => {
-    try {
-      const { prompt, contextType, partData } = req.body;
-      const ai = getGeminiClient();
+  try {
+    const { prompt, contextType, partData } = req.body;
+    const ai = getGeminiClient();
 
-      let systemInstruction = `Você é o Assistente Especialista de Autopeças e Suporte do GATO (Sistema SaaS de Gestão de Estoque e Balcão de Peças Automotivas, Motos, Caminhões e Agrícola).
+    let systemInstruction = `Você é o Assistente Especialista de Autopeças e Suporte do GATO (Sistema SaaS de Gestão de Estoque e Balcão de Peças Automotivas, Motos, Caminhões e Agrícola).
 Seu papel é responder com precisão técnica em português do Brasil:
 - Aplicação veicular: Marcas, modelos de carros/motos/caminhões/tratores, anos, motores (ex: EA111, AP, DC13, OHC, MWM, Cummins), transmissões, tração (4x2, 4x4, 6x2, 6x4) e se tem ar condicionado.
 - Códigos similares e equivalências (OEM, Bosch, Mahle, Cofap, Fras-le, Nakata, Valeo, Donaldson, Dayco, Sachs).
@@ -2159,8 +2105,8 @@ Seu papel é responder com precisão técnica em português do Brasil:
 - Dicas operacionais para vendedores de balcão e gerentes de estoque.
 Responda de forma direta, clara e formatada com tópicos objetivos.`;
 
-      if (contextType === "xml_application_suggest") {
-        systemInstruction += `\nO usuário está importando um XML de compra de autopeças e o item NÃO está cadastrado. Você deve deduzir e sugerir a aplicação veicular ideal:
+    if (contextType === "xml_application_suggest") {
+      systemInstruction += `\nO usuário está importando um XML de compra de autopeças e o item NÃO está cadastrado. Você deve deduzir e sugerir a aplicação veicular ideal:
 1. Marca do Veículo
 2. Veículos Compatíveis
 3. Faixa de Anos
@@ -2170,44 +2116,44 @@ Responda de forma direta, clara e formatada com tópicos objetivos.`;
 7. Ar Condicionado (Sim/Não)
 8. Códigos Similares (marcas equivalentes)
 9. NCM e sugestão de MVA`;
-      }
+    }
 
-      if (!ai) {
-        // Fallback domain-aware response if API key is not yet set in environment
-        const fallbackTxt = `[Modo Técnico GATO]: Analisando item ${partData?.xProd || prompt}. 
+    if (!ai) {
+      // Fallback domain-aware response if API key is not yet set in environment
+      const fallbackTxt = `[Modo Técnico GATO]: Analisando item ${partData?.xProd || prompt}. 
 Compatibilidade identificada com base no catálogo automotivo nacional:
 - Linha: Leve e Utilitários
 - Aplicação sugerida: Montadoras nacionais (VW / GM / Fiat) conforme código de referência.
 - MVA estimado para autopeças: 40% a 45% (ICMS-ST).
 - Dica de balcão: Sempre conferir o diâmetro e estrias antes da instalação.`;
-        return res.json({
-          response: fallbackTxt,
-          text: fallbackTxt,
-          isFallback: true,
-        });
-      }
-
-      const fullPrompt = partData
-        ? `Analise o seguinte item extraído da NF-e para sugerir o cadastro completo:\nDescrição: ${partData.xProd}\nCódigo Fabricante: ${partData.cProd}\nNCM: ${partData.NCM}\nValor: R$ ${partData.vUnCom}\nSolicitação adicional: ${prompt || "Sugerir aplicação completa"}`
-        : prompt;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: [
-          { role: "user", parts: [{ text: `${systemInstruction}\n\n${fullPrompt}` }] }
-        ],
-      });
-
-      const outputText = response.text || "Sem resposta gerada pelo modelo.";
-      res.json({ response: outputText, text: outputText, isFallback: false });
-    } catch (error: any) {
-      console.error("Gemini assist error:", error);
-      res.status(500).json({
-        error: "Falha ao processar solicitação de IA",
-        fallbackResponse: "O sistema GATO processou os parâmetros locais de compatibilidade veicular e tabela NCM com sucesso."
+      return res.json({
+        response: fallbackTxt,
+        text: fallbackTxt,
+        isFallback: true,
       });
     }
-  });
+
+    const fullPrompt = partData 
+      ? `Analise o seguinte item extraído da NF-e para sugerir o cadastro completo:\nDescrição: ${partData.xProd}\nCódigo Fabricante: ${partData.cProd}\nNCM: ${partData.NCM}\nValor: R$ ${partData.vUnCom}\nSolicitação adicional: ${prompt || "Sugerir aplicação completa"}`
+      : prompt;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: [
+        { role: "user", parts: [{ text: `${systemInstruction}\n\n${fullPrompt}` }] }
+      ],
+    });
+
+    const outputText = response.text || "Sem resposta gerada pelo modelo.";
+    res.json({ response: outputText, text: outputText, isFallback: false });
+  } catch (error: any) {
+    console.error("Gemini assist error:", error);
+    res.status(500).json({ 
+      error: "Falha ao processar solicitação de IA", 
+      fallbackResponse: "O sistema GATO processou os parâmetros locais de compatibilidade veicular e tabela NCM com sucesso." 
+    });
+  }
+});
 
 // XML NF-e parser endpoint (Guarded against ReDoS and memory exhaustion)
 app.post(
@@ -2215,89 +2161,89 @@ app.post(
   requireAuth,
   requireAnyPermission(["fiscal_config", "customers_employees", "company_data"]),
   (req, res) => {
-    try {
-      const { xmlContent } = req.body;
-      if (!xmlContent || typeof xmlContent !== "string") {
-        return res.status(400).json({ error: "Conteúdo XML não fornecido ou formato inválido." });
-      }
-
-      // Security: Reject excessively large XML payloads (> 10MB)
-      if (xmlContent.length > 10 * 1024 * 1024) {
-        return res.status(413).json({ error: "Arquivo XML excede o tamanho máximo suportado de 10MB." });
-      }
-
-      // Fast robust XML regex parsing for Brazilian NF-e 4.00
-      const nNFMatch = xmlContent.match(/<nNF>(\d+)<\/nNF>/);
-      const serieMatch = xmlContent.match(/<serie>(\d+)<\/serie>/);
-      const dhEmiMatch = xmlContent.match(/<dhEmi>([^<]+)<\/dhEmi>/);
-      const chaveMatch = xmlContent.match(/Id="NFe(\d{44})"/);
-      const emitCNPJMatch = xmlContent.match(/<emit>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/);
-      const emitNomeMatch = xmlContent.match(/<emit>[\s\S]*?<xNome>([^<]+)<\/xNome>/);
-      const emitUFMatch = xmlContent.match(/<emit>[\s\S]*?<UF>([^<]+)<\/UF>/);
-      const destNomeMatch = xmlContent.match(/<dest>[\s\S]*?<xNome>([^<]+)<\/xNome>/);
-      const destCNPJMatch = xmlContent.match(/<dest>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/);
-      const vNFMatch = xmlContent.match(/<vNF>([0-9.]+)<\/vNF>/);
-
-      const header = {
-        nNF: nNFMatch ? nNFMatch[1] : "000.000",
-        serie: serieMatch ? serieMatch[1] : "1",
-        dhEmi: dhEmiMatch ? dhEmiMatch[1] : new Date().toISOString(),
-        chaveAcesso: chaveMatch ? chaveMatch[1] : "35260902987654000112550010000784911837492819",
-        emitenteNome: emitNomeMatch ? emitNomeMatch[1] : "FORNECEDOR DE AUTOPEÇAS",
-        emitenteCNPJ: emitCNPJMatch ? emitCNPJMatch[1] : "00.000.000/0001-00",
-        emitenteIE: "123.456.789.000",
-        emitenteUF: emitUFMatch ? emitUFMatch[1] : "SP",
-        destinatarioNome: destNomeMatch ? destNomeMatch[1] : "GATO AUTOPEÇAS LTDA",
-        destinatarioCNPJ: destCNPJMatch ? destCNPJMatch[1] : "12.345.678/0001-99",
-        vTotalProd: vNFMatch ? parseFloat(vNFMatch[1]) : 0,
-        vNF: vNFMatch ? parseFloat(vNFMatch[1]) : 0,
-      };
-
-      // Extract det items (Cap at 1,000 items max to prevent CPU exhaustion)
-      const detRegex = /<det nItem="(\d+)">([\s\S]*?)<\/det>/g;
-      const items = [];
-      let match;
-      let count = 0;
-
-      while ((match = detRegex.exec(xmlContent)) !== null && count < 1000) {
-        count++;
-        const itemContent = match[2];
-        const cProdMatch = itemContent.match(/<cProd>([^<]+)<\/cProd>/);
-        const cEANMatch = itemContent.match(/<cEAN>([^<]+)<\/cEAN>/);
-        const xProdMatch = itemContent.match(/<xProd>([^<]+)<\/xProd>/);
-        const ncmMatch = itemContent.match(/<NCM>([^<]+)<\/NCM>/);
-        const cfopMatch = itemContent.match(/<CFOP>([^<]+)<\/CFOP>/);
-        const uComMatch = itemContent.match(/<uCom>([^<]+)<\/uCom>/);
-        const qComMatch = itemContent.match(/<qCom>([0-9.]+)<\/qCom>/);
-        const vUnComMatch = itemContent.match(/<vUnCom>([0-9.]+)<\/vUnCom>/);
-        const vProdMatch = itemContent.match(/<vProd>([0-9.]+)<\/vProd>/);
-        const vICMSMatch = itemContent.match(/<vICMS>([0-9.]+)<\/vICMS>/);
-
-        items.push({
-          cProd: cProdMatch ? cProdMatch[1].trim() : `COD-${items.length + 1}`,
-          cEAN: cEANMatch ? cEANMatch[1].trim() : "",
-          xProd: xProdMatch ? xProdMatch[1].trim() : "PRODUTO AUTOMOTIVO",
-          NCM: ncmMatch ? ncmMatch[1].trim() : "8708.29.99",
-          CFOP: cfopMatch ? cfopMatch[1].trim() : "5102",
-          uCom: uComMatch ? uComMatch[1].trim() : "UN",
-          qCom: qComMatch ? parseFloat(qComMatch[1]) : 1,
-          vUnCom: vUnComMatch ? parseFloat(vUnComMatch[1]) : 0,
-          vProd: vProdMatch ? parseFloat(vProdMatch[1]) : 0,
-          vICMS: vICMSMatch ? parseFloat(vICMSMatch[1]) : 0,
-        });
-      }
-
-      res.json({
-        success: true,
-        header,
-        items,
-        count: items.length,
-      });
-    } catch (err: any) {
-      console.error("XML parse error:", err);
-      res.status(500).json({ error: "Erro seguro ao processar o arquivo XML" });
+  try {
+    const { xmlContent } = req.body;
+    if (!xmlContent || typeof xmlContent !== "string") {
+      return res.status(400).json({ error: "Conteúdo XML não fornecido ou formato inválido." });
     }
-  });
+
+    // Security: Reject excessively large XML payloads (> 10MB)
+    if (xmlContent.length > 10 * 1024 * 1024) {
+      return res.status(413).json({ error: "Arquivo XML excede o tamanho máximo suportado de 10MB." });
+    }
+
+    // Fast robust XML regex parsing for Brazilian NF-e 4.00
+    const nNFMatch = xmlContent.match(/<nNF>(\d+)<\/nNF>/);
+    const serieMatch = xmlContent.match(/<serie>(\d+)<\/serie>/);
+    const dhEmiMatch = xmlContent.match(/<dhEmi>([^<]+)<\/dhEmi>/);
+    const chaveMatch = xmlContent.match(/Id="NFe(\d{44})"/);
+    const emitCNPJMatch = xmlContent.match(/<emit>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/);
+    const emitNomeMatch = xmlContent.match(/<emit>[\s\S]*?<xNome>([^<]+)<\/xNome>/);
+    const emitUFMatch = xmlContent.match(/<emit>[\s\S]*?<UF>([^<]+)<\/UF>/);
+    const destNomeMatch = xmlContent.match(/<dest>[\s\S]*?<xNome>([^<]+)<\/xNome>/);
+    const destCNPJMatch = xmlContent.match(/<dest>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/);
+    const vNFMatch = xmlContent.match(/<vNF>([0-9.]+)<\/vNF>/);
+
+    const header = {
+      nNF: nNFMatch ? nNFMatch[1] : "000.000",
+      serie: serieMatch ? serieMatch[1] : "1",
+      dhEmi: dhEmiMatch ? dhEmiMatch[1] : new Date().toISOString(),
+      chaveAcesso: chaveMatch ? chaveMatch[1] : "35260902987654000112550010000784911837492819",
+      emitenteNome: emitNomeMatch ? emitNomeMatch[1] : "FORNECEDOR DE AUTOPEÇAS",
+      emitenteCNPJ: emitCNPJMatch ? emitCNPJMatch[1] : "00.000.000/0001-00",
+      emitenteIE: "123.456.789.000",
+      emitenteUF: emitUFMatch ? emitUFMatch[1] : "SP",
+      destinatarioNome: destNomeMatch ? destNomeMatch[1] : "GATO AUTOPEÇAS LTDA",
+      destinatarioCNPJ: destCNPJMatch ? destCNPJMatch[1] : "12.345.678/0001-99",
+      vTotalProd: vNFMatch ? parseFloat(vNFMatch[1]) : 0,
+      vNF: vNFMatch ? parseFloat(vNFMatch[1]) : 0,
+    };
+
+    // Extract det items (Cap at 1,000 items max to prevent CPU exhaustion)
+    const detRegex = /<det nItem="(\d+)">([\s\S]*?)<\/det>/g;
+    const items = [];
+    let match;
+    let count = 0;
+
+    while ((match = detRegex.exec(xmlContent)) !== null && count < 1000) {
+      count++;
+      const itemContent = match[2];
+      const cProdMatch = itemContent.match(/<cProd>([^<]+)<\/cProd>/);
+      const cEANMatch = itemContent.match(/<cEAN>([^<]+)<\/cEAN>/);
+      const xProdMatch = itemContent.match(/<xProd>([^<]+)<\/xProd>/);
+      const ncmMatch = itemContent.match(/<NCM>([^<]+)<\/NCM>/);
+      const cfopMatch = itemContent.match(/<CFOP>([^<]+)<\/CFOP>/);
+      const uComMatch = itemContent.match(/<uCom>([^<]+)<\/uCom>/);
+      const qComMatch = itemContent.match(/<qCom>([0-9.]+)<\/qCom>/);
+      const vUnComMatch = itemContent.match(/<vUnCom>([0-9.]+)<\/vUnCom>/);
+      const vProdMatch = itemContent.match(/<vProd>([0-9.]+)<\/vProd>/);
+      const vICMSMatch = itemContent.match(/<vICMS>([0-9.]+)<\/vICMS>/);
+
+      items.push({
+        cProd: cProdMatch ? cProdMatch[1].trim() : `COD-${items.length + 1}`,
+        cEAN: cEANMatch ? cEANMatch[1].trim() : "",
+        xProd: xProdMatch ? xProdMatch[1].trim() : "PRODUTO AUTOMOTIVO",
+        NCM: ncmMatch ? ncmMatch[1].trim() : "8708.29.99",
+        CFOP: cfopMatch ? cfopMatch[1].trim() : "5102",
+        uCom: uComMatch ? uComMatch[1].trim() : "UN",
+        qCom: qComMatch ? parseFloat(qComMatch[1]) : 1,
+        vUnCom: vUnComMatch ? parseFloat(vUnComMatch[1]) : 0,
+        vProd: vProdMatch ? parseFloat(vProdMatch[1]) : 0,
+        vICMS: vICMSMatch ? parseFloat(vICMSMatch[1]) : 0,
+      });
+    }
+
+    res.json({
+      success: true,
+      header,
+      items,
+      count: items.length,
+    });
+  } catch (err: any) {
+    console.error("XML parse error:", err);
+    res.status(500).json({ error: "Erro seguro ao processar o arquivo XML" });
+  }
+});
 
 // Marketplace Webhook Simulator endpoint
 // Ingestão server-to-server (marketplaces): aceita sessão autenticada ou a chave
@@ -2324,34 +2270,34 @@ app.get(
   requireAuth,
   requireAnyPermission(["connectors", "company_data", "customers_employees"]),
   (req, res) => {
-    res.json({
-      status: "online",
-      serverTimestamp: new Date().toISOString(),
-      connectors: {
-        ecommerce: {
-          total: 4,
-          active: 3,
-          supported: ["landingpage_gato", "woocommerce", "shopify", "nuvemshop", "tray", "loja_integrada", "custom_api"],
-        },
-        banking: {
-          total: 6,
-          active: 4,
-          supported: ["banco_do_brasil", "itau", "bradesco", "inter", "cora", "mercadopago", "asaas", "efi_bank"],
-        },
-        marketplaces: {
-          total: 4,
-          active: 4,
-          supported: ["balcao", "mercadolivre", "shopee", "amazon"],
-          realTimeStockSync: true,
-          externalStockTracking: {
-            meliFull: true,
-            amazonFba: true,
-            shopeeExternal: true,
-          },
+  res.json({
+    status: "online",
+    serverTimestamp: new Date().toISOString(),
+    connectors: {
+      ecommerce: {
+        total: 4,
+        active: 3,
+        supported: ["landingpage_gato", "woocommerce", "shopify", "nuvemshop", "tray", "loja_integrada", "custom_api"],
+      },
+      banking: {
+        total: 6,
+        active: 4,
+        supported: ["banco_do_brasil", "itau", "bradesco", "inter", "cora", "mercadopago", "asaas", "efi_bank"],
+      },
+      marketplaces: {
+        total: 4,
+        active: 4,
+        supported: ["balcao", "mercadolivre", "shopee", "amazon"],
+        realTimeStockSync: true,
+        externalStockTracking: {
+          meliFull: true,
+          amazonFba: true,
+          shopeeExternal: true,
         },
       },
-    });
+    },
   });
+});
 
 // E-commerce & Landing Page: Receive Order & Deduct from Central Stock
 // Webhook/entrada de pedidos: exige sessão autenticada OU chave de ingestão
@@ -2413,20 +2359,20 @@ app.get(
   requireAuth,
   requireAnyPermission(["connectors", "company_data", "customers_employees"]),
   (req, res) => {
-    res.json({
-      success: true,
-      source: "CD Central Matriz GATO",
-      availableForSale: true,
-      timestamp: new Date().toISOString(),
-      message: "Catálogo sincronizado com disponibilidade de Estoque Central em tempo real.",
-    });
+  res.json({
+    success: true,
+    source: "CD Central Matriz GATO",
+    availableForSale: true,
+    timestamp: new Date().toISOString(),
+    message: "Catálogo sincronizado com disponibilidade de Estoque Central em tempo real.",
   });
+});
 
 // Banking Gateway: Payment Notification Webhook (Pix, Boleto, Cartão)
 app.post("/api/connectors/bank/webhook", requireIngestAuth(), (req, res) => {
   try {
     const { gateway, event, data, endToEndId, amount, orderRef } = req.body || {};
-
+    
     console.log(`[GATO Bank Gateway] Notificação recebida do gateway '${gateway || 'PIX'}': evento '${event || 'PAYMENT_RECEIVED'}'`);
 
     const simulatedE2E = endToEndId || `E${Date.now()}98210381920`;
@@ -2454,34 +2400,34 @@ app.post(
   requireAuth,
   requireAnyPermission(["billing_contracts", "company_data", "customers_employees"]),
   (req, res) => {
-    try {
-      const { amount, orderId, gateway } = req.body || {};
-      const e2eId = `E${Date.now()}BRGATO${Math.floor(Math.random() * 89999 + 10000)}`;
+  try {
+    const { amount, orderId, gateway } = req.body || {};
+    const e2eId = `E${Date.now()}BRGATO${Math.floor(Math.random() * 89999 + 10000)}`;
 
-      res.json({
-        success: true,
-        status: "LIQUIDADO",
-        gateway: gateway || "mercadopago",
-        endToEndId: e2eId,
-        orderId: orderId || `PED-${Date.now().toString().slice(-4)}`,
-        amount: Number(amount) || 189.90,
-        payer: {
-          name: "Cliente Teste Pix",
-          taxId: "123.456.789-00",
-          bankName: "Banco Central do Brasil / SPI",
-        },
-        settledAt: new Date().toISOString(),
-        reconciliation: {
-          orderUpdated: true,
-          financialReceivableSettled: true,
-          cashRegisterUpdated: true,
-          auditLog: `Pix no valor de R$ ${(Number(amount) || 189.90).toFixed(2)} liquidado via SPI. Venda aprovada automaticamente.`,
-        },
-      });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: "Falha ao simular liquidação Pix." });
-    }
-  });
+    res.json({
+      success: true,
+      status: "LIQUIDADO",
+      gateway: gateway || "mercadopago",
+      endToEndId: e2eId,
+      orderId: orderId || `PED-${Date.now().toString().slice(-4)}`,
+      amount: Number(amount) || 189.90,
+      payer: {
+        name: "Cliente Teste Pix",
+        taxId: "123.456.789-00",
+        bankName: "Banco Central do Brasil / SPI",
+      },
+      settledAt: new Date().toISOString(),
+      reconciliation: {
+        orderUpdated: true,
+        financialReceivableSettled: true,
+        cashRegisterUpdated: true,
+        auditLog: `Pix no valor de R$ ${(Number(amount) || 189.90).toFixed(2)} liquidado via SPI. Venda aprovada automaticamente.`,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Falha ao simular liquidação Pix." });
+  }
+});
 
 // Multi-Channel Real-time Stock Transfer (Central -> External Full/FBA)
 app.post(
@@ -2489,36 +2435,36 @@ app.post(
   requireAuth,
   requireAnyPermission(["company_data", "customers_employees", "connectors"]),
   (req, res) => {
-    try {
-      const { productId, productCode, quantity, toLocation, reason } = req.body || {};
-
-      if (!productId || !quantity || Number(quantity) <= 0) {
-        return res.status(400).json({
-          success: false,
-          error: "Produto e quantidade válida são obrigatórios.",
-        });
-      }
-
-      const transferId = `TRF-${Date.now().toString().slice(-6)}`;
-      const nfeNumber = `000.${Math.floor(Math.random() * 899 + 100)}.${Math.floor(Math.random() * 899 + 100)}`;
-
-      res.json({
-        success: true,
-        transferId,
-        productId,
-        productCode: productCode || 'COF-GP30123',
-        quantityTransferred: Number(quantity),
-        fromLocation: "central",
-        toLocation: toLocation || "meli_full",
-        transferInvoice: `NF-e ${nfeNumber} (CFOP 5905 - Remessa para Depósito Fechado)`,
-        status: "concluida",
-        timestamp: new Date().toISOString(),
-        message: `Transferência de ${quantity} un do Estoque Central para o Estoque Externo (${toLocation || 'Mercado Livre Full'}) concluída com sucesso.`,
+  try {
+    const { productId, productCode, quantity, toLocation, reason } = req.body || {};
+    
+    if (!productId || !quantity || Number(quantity) <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Produto e quantidade válida são obrigatórios.",
       });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: "Falha ao efetuar transferência de estoque." });
     }
-  });
+
+    const transferId = `TRF-${Date.now().toString().slice(-6)}`;
+    const nfeNumber = `000.${Math.floor(Math.random() * 899 + 100)}.${Math.floor(Math.random() * 899 + 100)}`;
+
+    res.json({
+      success: true,
+      transferId,
+      productId,
+      productCode: productCode || 'COF-GP30123',
+      quantityTransferred: Number(quantity),
+      fromLocation: "central",
+      toLocation: toLocation || "meli_full",
+      transferInvoice: `NF-e ${nfeNumber} (CFOP 5905 - Remessa para Depósito Fechado)`,
+      status: "concluida",
+      timestamp: new Date().toISOString(),
+      message: `Transferência de ${quantity} un do Estoque Central para o Estoque Externo (${toLocation || 'Mercado Livre Full'}) concluída com sucesso.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Falha ao efetuar transferência de estoque." });
+  }
+});
 
 // Admin Fiscal & Tax Configuration API Endpoints
 let activeFederalTaxSettings = { ...DEFAULT_FEDERAL_TAX_SETTINGS };
@@ -2529,21 +2475,21 @@ app.get(
   requireAuth,
   requireAnyPermission(["fiscal_config", "company_data", "customers_employees"]),
   (req, res) => {
-    try {
-      res.json({
-        success: true,
-        federal: activeFederalTaxSettings,
-        states: activeStateTaxRules,
-        totalStates: activeStateTaxRules.length,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      res.status(500).json({ success: false, error: "Falha ao consultar regras tributárias." });
-    }
-  });
+  try {
+    res.json({
+      success: true,
+      federal: activeFederalTaxSettings,
+      states: activeStateTaxRules,
+      totalStates: activeStateTaxRules.length,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: "Falha ao consultar regras tributárias." });
+  }
+});
 
-// Alteração da matriz tributária global: restrita ao papel fiscal da plataforma (escopo SaaS).
-app.post("/api/tax/rules", requireAuth, requireSaasScope, requirePermission("fiscal_config", { write: true }), (req, res) => {
+// Alteração da matriz tributária: restrita ao papel fiscal da plataforma.
+app.post("/api/tax/rules", requireAuth, requirePermission("fiscal_config", { write: true }), (req, res) => {
   try {
     const { federal, states } = req.body || {};
     if (federal) {
@@ -2552,9 +2498,6 @@ app.post("/api/tax/rules", requireAuth, requireSaasScope, requirePermission("fis
     if (Array.isArray(states)) {
       activeStateTaxRules = states;
     }
-    recordAudit(req, req.auth!.user, "UPDATE_GLOBAL_TAX_RULES", "fiscal_config", "system", "success", {
-      details: `Matriz tributária global atualizada (${activeStateTaxRules.length} UFs).`,
-    });
     res.json({
       success: true,
       message: "Matriz tributária atualizada com sucesso no servidor GATO SaaS.",

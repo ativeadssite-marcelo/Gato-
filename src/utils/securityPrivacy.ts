@@ -88,7 +88,60 @@ export function maskEmail(email: string): string {
 }
 
 /**
- * Inicializa a higiene do escopo global window para evitar exposição acidental de objetos em memória.
+ * Chaves sensíveis que nunca devem ser impressas no console do navegador.
+ */
+const SENSITIVE_KEY_REGEX = /(password|senha|secret|token|authorization|credential|cpf|customerdocument|masterpassword)/i;
+
+/**
+ * Sanitiza recursivamente qualquer objeto ou valor antes de passar para o console.
+ */
+function sanitizeValue(value: any, depth = 0): any {
+  if (depth > 6) return '[MaxDepth]';
+  if (value === null || value === undefined) return value;
+
+  if (typeof value === 'string') {
+    // Detecta se é token JWT ou senha longa
+    if (value.startsWith('ey') && value.length > 50) {
+      return '[JWT_PROTECTED_TOKEN]';
+    }
+    // Remove ocorrências explícitas de senhas de teste
+    if (value.toLowerCase().includes('senha123456')) {
+      return value.replace(/senha123456/gi, '[SENHA_REDACTED]');
+    }
+    return value;
+  }
+
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) {
+      return value.map((item) => sanitizeValue(item, depth + 1));
+    }
+
+    const cleanObj: Record<string, any> = {};
+    for (const key of Object.keys(value)) {
+      const val = value[key];
+      if (SENSITIVE_KEY_REGEX.test(key)) {
+        if (typeof val === 'string' && (key.toLowerCase().includes('password') || key.toLowerCase().includes('senha'))) {
+          cleanObj[key] = '•••••••• [OCULTO POR SEGURANÇA]';
+        } else if (typeof val === 'string' && (key.toLowerCase().includes('cpf') || key.toLowerCase().includes('document'))) {
+          cleanObj[key] = maskDocument(val);
+        } else {
+          cleanObj[key] = '[DADO_SENSIVEL_REDACTED]';
+        }
+      } else {
+        cleanObj[key] = sanitizeValue(val, depth + 1);
+      }
+    }
+    return cleanObj;
+  }
+
+  return value;
+}
+
+/**
+ * Inicializa a blindagem de segurança no DevTools:
+ * 1. Sanitiza métodos do console (log, info, warn, error, dir, table).
+ * 2. Emite aviso formal de conformidade com a LGPD no console.
+ * 3. Limpa referências globais acidentais no objeto window.
  */
 let shieldInitialized = false;
 
@@ -96,14 +149,86 @@ export function initDevToolsSecurityShield(): void {
   if (typeof window === 'undefined' || shieldInitialized) return;
   shieldInitialized = true;
 
-  const dangerousGlobals = ['customers', 'gato_customers', 'users', 'passwords', 'credentials', 'allClients'];
-  for (const prop of dangerousGlobals) {
-    try {
-      if (prop in window) {
-        delete (window as any)[prop];
+  try {
+    // 1. Mensagem de alerta formal de LGPD e Cibersegurança no console
+    const bannerStyle = 'background: #0284C7; color: white; font-weight: bold; font-size: 13px; padding: 6px 12px; border-radius: 6px;';
+    const warnStyle = 'color: #f59e0b; font-weight: bold; font-size: 11px;';
+    
+    // Banner único no console
+    setTimeout(() => {
+      console.info('%c🛡️ GATO SaaS — SEGURANÇA DA INFORMAÇÃO & LGPD (LEI 13.709/2018)', bannerStyle);
+      console.info(
+        '%cEste ambiente opera sob controles rigorosos de privacidade. Senhas, credenciais e documentos de clientes são mascarados por padrão e protegidos contra inspeção não autorizada.',
+        warnStyle
+      );
+    }, 500);
+
+    // 2. Intercepta métodos do console para sanitizar dados sensíveis
+    const originalLog = console.log.bind(console);
+    const originalInfo = console.info.bind(console);
+    const originalWarn = console.warn.bind(console);
+    const originalError = console.error.bind(console);
+    const originalTable = console.table?.bind(console);
+
+    console.log = (...args: any[]) => {
+      try {
+        const sanitized = args.map((arg) => sanitizeValue(arg));
+        originalLog(...sanitized);
+      } catch {
+        originalLog('[Log sanitizado por política de segurança]');
       }
-    } catch {
-      /* noop */
+    };
+
+    console.info = (...args: any[]) => {
+      try {
+        const sanitized = args.map((arg) => sanitizeValue(arg));
+        originalInfo(...sanitized);
+      } catch {
+        originalInfo('[Info sanitizado por política de segurança]');
+      }
+    };
+
+    console.warn = (...args: any[]) => {
+      try {
+        const sanitized = args.map((arg) => sanitizeValue(arg));
+        originalWarn(...sanitized);
+      } catch {
+        originalWarn('[Warn sanitizado por política de segurança]');
+      }
+    };
+
+    console.error = (...args: any[]) => {
+      try {
+        const sanitized = args.map((arg) => sanitizeValue(arg));
+        originalError(...sanitized);
+      } catch {
+        originalError('[Error sanitizado por política de segurança]');
+      }
+    };
+
+    if (originalTable) {
+      console.table = (data: any, properties?: string[]) => {
+        try {
+          originalTable(sanitizeValue(data), properties);
+        } catch {
+          originalLog('[Table sanitizada por política de segurança]');
+        }
+      };
     }
+
+    // 3. Limpeza do escopo global window para evitar exposição de clientes
+    const dangerousGlobals = ['customers', 'gato_customers', 'users', 'passwords', 'credentials', 'allClients'];
+    dangerousGlobals.forEach((prop) => {
+      try {
+        if (prop in window) {
+          delete (window as any)[prop];
+        }
+      } catch {
+        /* noop */
+      }
+    });
+
+  } catch (err) {
+    // Fail-safe
   }
 }

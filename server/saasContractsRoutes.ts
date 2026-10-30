@@ -346,8 +346,7 @@ saasContractsRouter.post("/connectors/:id/test", requireAuth, requireSaasScope, 
     "TEST_SAAS_CONNECTOR",
     "saas_config",
     "system",
-    "success",
-    { details: `Teste de conectividade executado com sucesso para ${connector.name}` }
+    `Teste de conectividade executado com sucesso para ${connector.name}`
   );
 
   res.json({
@@ -380,8 +379,7 @@ saasContractsRouter.patch("/connectors/:id", requireAuth, requireSaasScope, (req
     "UPDATE_SAAS_CONNECTOR",
     "saas_config",
     "system",
-    "success",
-    { details: `Atualização de parâmetros no conector ${connector.name}` }
+    `Atualização de parâmetros no conector ${connector.name}`
   );
 
   res.json({
@@ -470,8 +468,7 @@ saasContractsRouter.put("/contracts/:tenantId/fiscal", requireAuth, requireSaasS
     "UPDATE_CONTRACT_FISCAL_CONFIG",
     "fiscal_rules",
     tenantId,
-    "success",
-    { details: `Configuração fiscal do contrato atualizada: Regime ${updated.regimeTributario}, Limite ${updated.limiteNotasMensal} NFs/mês, Status: ${updated.statusHomologacao}` }
+    `Configuração fiscal do contrato atualizada: Regime ${updated.regimeTributario}, Limite ${updated.limiteNotasMensal} NFs/mês, Status: ${updated.statusHomologacao}`
   );
 
   res.json({
@@ -546,8 +543,7 @@ saasContractsRouter.post("/contracts/:tenantId/lgpd/sign", requireAuth, (req: Re
     "SIGN_LGPD_SAAS_CONTRACT",
     "billing_contracts",
     tenantId,
-    "success",
-    { details: `Contrato LGPD nº ${contract.contractNumber} formalizado digitalmente. Hash: ${newHash}` }
+    `Contrato LGPD nº ${contract.contractNumber} formalizado digitalmente. Hash: ${newHash}`
   );
 
   res.json({

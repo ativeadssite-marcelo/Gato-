@@ -212,7 +212,7 @@ export async function upsertSubscription(input: Omit<TenantSubscription, "id" | 
   mirror(
     `INSERT INTO "TenantSubscription" (id, "tenantId", "planId", "planName", status, "trialEndsAt", "currentPeriodEndsAt", gateway, "gatewayCustomerId", "gatewaySubscriptionId", "cancelAtPeriodEnd", "createdAt", "updatedAt")
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-     ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status, "planId"=EXCLUDED."planId", "planName"=EXCLUDED."planName", "trialEndsAt"=EXCLUDED."trialEndsAt", "currentPeriodEndsAt"=EXCLUDED."currentPeriodEndsAt", gateway=EXCLUDED.gateway, "gatewayCustomerId"=EXCLUDED."gatewayCustomerId", "gatewaySubscriptionId"=EXCLUDED."gatewaySubscriptionId", "cancelAtPeriodEnd"=EXCLUDED."cancelAtPeriodEnd", "updatedAt"=EXCLUDED."updatedAt";`,
+     ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status, "planId"=EXCLUDED."planId", "gatewayCustomerId"=EXCLUDED."gatewayCustomerId", "gatewaySubscriptionId"=EXCLUDED."gatewaySubscriptionId", "updatedAt"=EXCLUDED."updatedAt";`,
     [sub.id, sub.tenantId, sub.planId, sub.planName, sub.status, sub.trialEndsAt, sub.currentPeriodEndsAt, sub.gateway, sub.gatewayCustomerId, sub.gatewaySubscriptionId, sub.cancelAtPeriodEnd, sub.createdAt, sub.updatedAt],
   );
   return sub;

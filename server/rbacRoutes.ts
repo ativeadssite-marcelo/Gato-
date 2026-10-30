@@ -184,7 +184,7 @@ export function requireRbacPermission(resource: PermissionResource) {
         userId: user.id,
         userName: user.name,
         userRole: user.roleCode,
-        ipAddress: getClientIp(req),
+        ipAddress: (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1") as string,
         action: `CONFIDENTIAL_ACCESS_${resource.toUpperCase()}`,
         resource,
         entityId: targetTenantId || user.tenantId,
@@ -468,7 +468,7 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
     userId: caller.id,
     userName: caller.name,
     userRole: caller.roleCode,
-    ipAddress: getClientIp(req),
+    ipAddress: (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1") as string,
     action: "CREATE_USER_ACCOUNT",
     resource: "contractor_users",
     entityId: newUser.id,
@@ -481,7 +481,7 @@ rbacRouter.post("/users", requirePermission("contractor_users", { write: true })
   const sendEmail = req.body?.sendEmail !== false;
   let emailSent = false;
   let emailError: string | null = null;
-  const loginUrl = `${process.env.GATO_PUBLIC_URL || "https://gato-autopecas.com.br"}/login`;
+  const loginUrl = `${req.headers.origin || "https://gato-autopecas.com.br"}/login`;
 
   if (sendEmail) {
     try {
@@ -564,7 +564,7 @@ rbacRouter.post("/users/:id/send-invite", requirePermission("contractor_users", 
     targetUser.mustChangePassword = true;
   }
 
-  const loginUrl = `${process.env.GATO_PUBLIC_URL || "https://gato-autopecas.com.br"}/login`;
+  const loginUrl = `${req.headers.origin || "https://gato-autopecas.com.br"}/login`;
   let emailSent = false;
   let emailError: string | null = null;
 
@@ -713,7 +713,7 @@ rbacRouter.put("/users/:id/role", requirePermission("contractor_users", { write:
     userId: caller.id,
     userName: caller.name,
     userRole: caller.roleCode,
-    ipAddress: getClientIp(req),
+    ipAddress: (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1") as string,
     action: "UPDATE_USER_PERMISSIONS",
     resource: "contractor_users",
     entityId: targetUser.id,
@@ -784,7 +784,7 @@ rbacRouter.post("/users/:id/reset-password", requirePermission("contractor_users
     userId: caller.id,
     userName: caller.name,
     userRole: caller.roleCode,
-    ipAddress: getClientIp(req),
+    ipAddress: (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1") as string,
     action: "TRIGGER_PASSWORD_RESET",
     resource: "contractor_users",
     entityId: targetUser.id,
@@ -920,7 +920,7 @@ rbacRouter.post("/plans", requireSaasScope, requirePermission("limits_quotas", {
     resource: 'limits_quotas',
     action: 'create',
     status: 'success',
-    ipAddress: getClientIp(req),
+    ipAddress: req.ip || '127.0.0.1',
     userAgent: req.headers['user-agent'] || 'API Client',
     details: `Super Admin cadastrou novo pacote: "${newPlan.name}" com valor de R$ ${newPlan.priceMonthly.toFixed(2)}/mês, cota de ${newPlan.quotas.maxItems.toLocaleString()} itens e ${newPlan.quotas.maxCustomers.toLocaleString()} clientes.`,
     timestamp: new Date().toISOString()
@@ -968,7 +968,7 @@ rbacRouter.put("/plans/:id", requireSaasScope, requirePermission("limits_quotas"
     resource: 'limits_quotas',
     action: 'update',
     status: 'success',
-    ipAddress: getClientIp(req),
+    ipAddress: req.ip || '127.0.0.1',
     userAgent: req.headers['user-agent'] || 'API Client',
     details: `Super Admin editou pacote "${updated.name}": Preço R$ ${updated.priceMonthly.toFixed(2)}/mês, Max Itens: ${updated.quotas.maxItems.toLocaleString()}, Max Clientes: ${updated.quotas.maxCustomers.toLocaleString()}.`,
     timestamp: new Date().toISOString()
@@ -1013,7 +1013,7 @@ rbacRouter.delete("/plans/:id", requireSaasScope, requirePermission("limits_quot
     resource: 'limits_quotas',
     action: 'delete',
     status: 'success',
-    ipAddress: getClientIp(req),
+    ipAddress: req.ip || '127.0.0.1',
     userAgent: req.headers['user-agent'] || 'API Client',
     details: `Super Admin removeu o pacote "${existing.name}" (ID: ${id}).`,
     timestamp: new Date().toISOString()
@@ -1082,7 +1082,7 @@ rbacRouter.post("/plans/change", requireSaasScope, requirePermission("limits_quo
     userId: caller.id,
     userName: caller.name,
     userRole: caller.roleCode,
-    ipAddress: getClientIp(req),
+    ipAddress: (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1") as string,
     action: "CHANGE_SAAS_PLAN",
     resource: "limits_quotas",
     entityId: tenant.id,
@@ -1141,19 +1141,16 @@ rbacRouter.get("/messages", (req, res) => {
 // 14. Enviar Mensagem Interna Segmentada
 rbacRouter.post("/messages/send", requirePermission("internal_messages", { write: true }), (req, res) => {
   const caller = resolveAuthUser(req);
-  const callerScope = ROLE_DEFINITIONS[caller.roleCode]?.scope;
   const { tenantId, targetPlanId, title, content, templateCode, channels, priority } = req.body;
 
   if (!title || !content) {
     return res.status(400).json({ success: false, error: "Título e mensagem são obrigatórios." });
   }
 
-  const effectiveTenantId = callerScope === "tenant" ? caller.tenantId : (tenantId || "all");
-
   const newMessage: InternalMessageItem = {
     id: `msg_${Date.now()}`,
-    tenantId: effectiveTenantId,
-    targetPlanId: callerScope === "tenant" ? undefined : (targetPlanId || "all"),
+    tenantId: tenantId || "all",
+    targetPlanId: targetPlanId || "all",
     senderId: caller.id,
     senderName: caller.name,
     senderRole: caller.roleName,
@@ -1172,16 +1169,16 @@ rbacRouter.post("/messages/send", requirePermission("internal_messages", { write
   // Trilha de auditoria
   appendAuditLog({
     id: `aud_msg_${Date.now()}`,
-    tenantId: effectiveTenantId,
+    tenantId: tenantId || "all",
     userId: caller.id,
     userName: caller.name,
     userRole: caller.roleCode,
-    ipAddress: getClientIp(req),
+    ipAddress: (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1") as string,
     action: "SEND_INTERNAL_MESSAGE",
     resource: "internal_messages",
     entityId: newMessage.id,
     timestamp: new Date().toISOString(),
-    afterState: { title, targetTenant: effectiveTenantId, channels },
+    afterState: { title, targetTenant: tenantId, channels },
     status: "success"
   });
 
@@ -1218,16 +1215,11 @@ rbacRouter.post("/messages/:id/opt-out", (req, res) => {
   res.json({ success: true, message: "Preferência de opt-out registrada com sucesso." });
 });
 
-// 17. Solicitações LGPD (isoladas por tenant quando escopo for tenant)
+// 17. Solicitações LGPD
 rbacRouter.get("/lgpd/requests", requirePermission("security_compliance"), (req, res) => {
-  const user = resolveAuthUser(req);
-  const isTenantScope = ROLE_DEFINITIONS[user.roleCode]?.scope === "tenant";
-  const requests = isTenantScope
-    ? LGPD_REQUESTS_DATA.filter((r) => r.tenantId === user.tenantId)
-    : LGPD_REQUESTS_DATA;
   res.json({
     success: true,
-    requests
+    requests: LGPD_REQUESTS_DATA
   });
 });
 

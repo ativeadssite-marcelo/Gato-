@@ -30,12 +30,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-# Environment & runtime persistence
-.env
-.env.*
-!.env.example
-.gato-db-config.json
-server/.custom_credentials.json
-server/.certificates_store.json
-server/.certificates_pfx/

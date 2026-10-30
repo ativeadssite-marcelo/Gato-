@@ -37,6 +37,7 @@ import { SaasConnectorsManager } from './components/SaasConnectorsManager';
 import { CatalogIsolationNotice } from './components/CatalogIsolationNotice';
 import { EquipeAcessos } from './components/EquipeAcessos';
 import { ChavesIntegracoes } from './components/ChavesIntegracoes';
+import { GerenciadorCertificados } from './components/GerenciadorCertificados';
 import { MasterPasswordModal } from './components/MasterPasswordModal';
 import { SubscriptionBlockedScreen } from './components/SubscriptionBlockedScreen';
 import {
@@ -340,6 +341,8 @@ export default function App() {
       view = userSession?.isSaasScope || isElevatedAdmin(userSession) ? 'rbac' : 'equipe-acessos';
     } else if (rawView === 'camadas' || rawView === 'camada' || rawView === 'permissoes') {
       view = 'camadas-acesso';
+    } else if (rawView === 'certificados' || rawView === 'certificados-digitais' || rawView === 'pasta-certificados' || rawView === 'certificado' || rawView === 'a1' || rawView === 'a3') {
+      view = 'certificados';
     }
 
     // Isolamento da CAMADA 1: O catálogo do cliente NUNCA fica visível ao Super Admin.
@@ -1543,6 +1546,11 @@ export default function App() {
               pelo recurso `tenant_credentials`. */}
           {currentView === 'chaves' && (
             <ChavesIntegracoes userSession={userSession} onShowNotification={showNotification} />
+          )}
+
+          {/* Cofre Criptografado de Certificados Digitais A1 e A3 (Pastas de Clientes e SaaS) */}
+          {(currentView === 'certificados' || currentView === 'certificados-digitais' || currentView === 'pasta-certificados' || currentView === 'certificado') && (
+            <GerenciadorCertificados userSession={userSession} onShowNotification={showNotification} />
           )}
 
           {currentView === 'configuracoes' && (
