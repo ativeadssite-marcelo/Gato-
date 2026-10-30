@@ -14,20 +14,20 @@
   --radius: 6px;
 
   /* =========================================================================
-     UI/UX PRO MAX — ESCALA BRANCO GELO (#F8FAFC) → CINZA CLARO (#E2E8F0 / #CBD5E1)
+     ESCALA CINZA NEUTRO PURA (SEM TONS ROXOS / AZULADOS)
+     Branco Gelo (#FAFAFA) -> Cinza Claro (#F5F5F5 / #E5E5E5 / #D4D4D4)
+     Tipografia de Alto Contraste (#111111 / #262626 / #404040)
      ========================================================================= */
-  --color-ice-white: #F8FAFC;
+  --color-ice-white: #FAFAFA;
   --color-ice-surface: #FFFFFF;
-  --color-light-gray-100: #F1F5F9;
-  --color-light-gray-200: #E2E8F0;
-  --color-light-gray-300: #CBD5E1;
-  --color-light-gray-400: #94A3B8;
+  --color-gray-scale-100: #F5F5F5;
+  --color-gray-scale-200: #E5E5E5;
+  --color-gray-scale-300: #D4D4D4;
+  --color-gray-scale-400: #A3A3A3;
+  --color-text-strong: #111111;
+  --color-text-body: #262626;
+  --color-text-muted: #404040;
 }
-
-/* =========================================================================
-   DIRETIVA DE DESIGN EQUILIBRADA (MEIO TERMO):
-   Quinas sutilmente arredondadas (4px a 7px) - estilo moderno, limpo e profissional.
-   ========================================================================= */
 
 [role="dialog"],
 .modal-container {
@@ -35,183 +35,359 @@
 }
 
 /* =========================================================================
-   BARRA DE ROLAGEM GLOBAL & ACESSIBILIDADE DE VIEWPORT
+   BASE DO DOCUMENTO — BRANCO GELO COM LETRAS PRETAS / CINZA ESCURO NÍTIDAS
    ========================================================================= */
 
-html {
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
-  background-color: #F4F7FA;
-  color: #1E293B;
-}
-
+html,
 body {
   overflow-x: hidden;
-  min-height: 100vh;
-  background-color: #F4F7FA;
-  color: #1E293B;
+  scrollbar-gutter: stable;
+  background-color: #F5F5F5 !important;
+  color: #111111 !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /* =========================================================================
-   HARMONIZAÇÃO GLOBAL: BRANCO GELO (#F8FAFC) E ESCALA CINZA CLARO (#F1F5F9 -> #CBD5E1)
-   Converte superfícies escuras legadas para Branco Gelo e Cinza Claro mantendo
-   contraste WCAG AA (>= 4.5:1) em textos, tabelas, formulários e ícones.
+   1. REMOÇÃO TOTAL DE TONS ROXOS / VIOLETAS / ÍNDIGO -> ESCALA CINZA
    ========================================================================= */
 
-/* Superfícies de nível 1 (Cards principais / Painéis) -> Branco Gelo (#F8FAFC) */
+/* Fundos roxos/violetas/índigo claros ou translúcidos viram Cinza Claro (#F5F5F5 / #E5E5E5) */
+[class*="bg-purple-950"],
+[class*="bg-purple-900"],
+[class*="bg-purple-500/"],
+[class*="bg-purple-600/"],
+[class*="bg-purple-50"],
+[class*="bg-purple-100"],
+[class*="bg-violet-950"],
+[class*="bg-violet-900"],
+[class*="bg-violet-500/"],
+[class*="bg-violet-600/"],
+[class*="bg-violet-50"],
+[class*="bg-violet-100"],
+[class*="bg-indigo-950"],
+[class*="bg-indigo-900"],
+[class*="bg-indigo-500/"],
+[class*="bg-indigo-600/"],
+[class*="bg-indigo-50"],
+[class*="bg-indigo-100"],
+[class*="bg-fuchsia-"] {
+  background-color: #F0F0F0 !important;
+  background-image: none !important;
+  color: #111111 !important;
+}
+
+/* Botões sólidos roxos/violetas/índigo viram Cinza Grafite Escuro (#262626) com letra branca nítida */
+:is(button, a, span)[class*="bg-purple-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-purple-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-purple-700"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-violet-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-violet-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-violet-700"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-indigo-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-indigo-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-indigo-700"]:not([class*="/"]),
+:is(button, a, span)[class*="from-purple-"],
+:is(button, a, span)[class*="from-violet-"],
+:is(button, a, span)[class*="from-indigo-"] {
+  background-color: #262626 !important;
+  background-image: none !important;
+  border-color: #171717 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12) !important;
+}
+
+:is(button, a)[class*="bg-purple-"]:not([class*="/"]):hover,
+:is(button, a)[class*="bg-violet-"]:not([class*="/"]):hover,
+:is(button, a)[class*="bg-indigo-"]:not([class*="/"]):hover,
+:is(button, a)[class*="from-purple-"]:hover,
+:is(button, a)[class*="from-violet-"]:hover,
+:is(button, a)[class*="from-indigo-"]:hover {
+  background-color: #171717 !important;
+}
+
+/* Containers com gradiente roxo (ex: banners Camada 1) viram Branco Gelo / Cinza Claro */
+div[class*="via-purple-"],
+div[class*="from-purple-"],
+div[class*="to-purple-"],
+div[class*="via-indigo-"],
+div[class*="from-indigo-"],
+div[class*="to-indigo-"],
+div[class*="via-violet-"],
+div[class*="from-violet-"],
+div[class*="to-violet-"] {
+  background-color: #FAFAFA !important;
+  background-image: linear-gradient(180deg, #FFFFFF 0%, #F2F2F2 100%) !important;
+  color: #111111 !important;
+}
+
+/* Bordas roxas/violetas/índigo viram Cinza Claro estrutural (#D4D4D4) */
+[class*="border-purple-"],
+[class*="border-violet-"],
+[class*="border-indigo-"],
+[class*="border-fuchsia-"] {
+  border-color: #D4D4D4 !important;
+}
+
+/* Textos roxos/violetas/índigo viram Cinza Escuro de fácil leitura (#171717) */
+[class*="text-purple-"],
+[class*="text-violet-"],
+[class*="text-indigo-"],
+[class*="text-fuchsia-"] {
+  color: #171717 !important;
+}
+
+/* =========================================================================
+   2. ESCALA BRANCO GELO (#FAFAFA) -> CINZA CLARO (#F5F5F5 / #E5E5E5 / #D4D4D4)
+   ========================================================================= */
+
+/* Superfícies primárias (antigo slate-900 / slate-950) -> Branco Gelo (#FAFAFA / #FFFFFF) */
 main [class*="bg-slate-900"],
 main [class*="bg-slate-950"],
 [role="dialog"] [class*="bg-slate-900"],
-[role="dialog"] [class*="bg-slate-950"] {
-  background-color: #F8FAFC !important;
-  background-image: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
-  color: #1E293B !important;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+[role="dialog"] [class*="bg-slate-950"],
+.fixed [class*="bg-slate-900"],
+.fixed [class*="bg-slate-950"] {
+  background-color: #FAFAFA !important;
+  background-image: none !important;
+  color: #111111 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
 }
 
-/* Superfícies de nível 2 (Escala acima de Branco Gelo -> Cinza Claro #F1F5F9 / #E2E8F0) */
+/* Superfícies secundárias (antigo slate-800 / slate-700) -> Cinza Claro (#F0F0F0 / #E5E5E5) */
 main [class*="bg-slate-800"],
-[role="dialog"] [class*="bg-slate-800"] {
-  background-color: #F1F5F9 !important;
-  color: #1E293B !important;
+[role="dialog"] [class*="bg-slate-800"],
+.fixed [class*="bg-slate-800"] {
+  background-color: #F0F0F0 !important;
+  background-image: none !important;
+  color: #111111 !important;
+}
+
+main [class*="bg-slate-700"],
+[role="dialog"] [class*="bg-slate-700"] {
+  background-color: #E5E5E5 !important;
+  color: #111111 !important;
 }
 
 main button[class*="bg-slate-800"]:hover,
-main [class*="hover:bg-slate-800"]:hover {
-  background-color: #E2E8F0 !important;
+main [class*="hover:bg-slate-800"]:hover,
+main [class*="hover:bg-slate-700"]:hover {
+  background-color: #E0E0E0 !important;
+  color: #000000 !important;
 }
 
-/* Bordas e divisórias na escala Cinza Claro (#E2E8F0 / #CBD5E1) */
+/* Gradientes escuros legados (from-sky-950, from-slate-900, etc.) -> Cinza Claro limpo */
+main div[class*="from-sky-950"],
+main div[class*="from-emerald-950"],
+main div[class*="from-amber-950"],
+main div[class*="from-slate-900"],
+main div[class*="to-slate-900"],
+[role="dialog"] div[class*="from-slate-900"],
+[role="dialog"] div[class*="to-slate-900"] {
+  background-color: #F7F7F7 !important;
+  background-image: none !important;
+  color: #111111 !important;
+}
+
+/* Bordas e divisórias na escala Cinza Claro (#D4D4D4 / #BDBDBD) */
 main [class*="border-slate-800"],
 main [class*="border-slate-900"],
-[role="dialog"] [class*="border-slate-800"] {
-  border-color: #E2E8F0 !important;
+[role="dialog"] [class*="border-slate-800"],
+[role="dialog"] [class*="border-slate-900"],
+.fixed [class*="border-slate-800"] {
+  border-color: #D4D4D4 !important;
 }
 
 main [class*="border-slate-700"],
-[role="dialog"] [class*="border-slate-700"] {
-  border-color: #CBD5E1 !important;
+[role="dialog"] [class*="border-slate-700"],
+.fixed [class*="border-slate-700"] {
+  border-color: #C4C4C4 !important;
 }
 
-main [class*="divide-slate-800"] > :not([hidden]) ~ :not([hidden]) {
-  border-color: #E2E8F0 !important;
+main [class*="divide-slate-800"] > :not([hidden]) ~ :not([hidden]),
+main [class*="divide-slate-700"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #DFDFDF !important;
 }
 
-/* Tipografia legível sobre Branco Gelo e Cinza Claro */
-main :is(h1, h2, h3, h4, p, span, div, label, td, th)[class*="text-white"]:not(
-    [class*="bg-orange-"],
-    [class*="bg-amber-"],
-    [class*="bg-emerald-"],
-    [class*="bg-violet-"],
-    [class*="bg-purple-"],
-    [class*="bg-indigo-"],
-    [class*="bg-blue-"],
-    [class*="bg-sky-"],
-    [class*="bg-rose-"],
-    [class*="bg-red-"],
-    [class*="from-orange-"],
-    [class*="from-violet-"],
-    [class*="from-indigo-"],
-    [class*="from-sky-"],
-    [class*="from-emerald-"]
-  ) {
-  color: #0F172A !important;
+/* =========================================================================
+   3. LETRAS FÁCEIS DE VER (ALTO CONTRASTE E NITIDEZ EM TODAS AS TELAS)
+   ========================================================================= */
+
+/* Qualquer texto branco solto em fundos claros vira Preto Nítido (#111111) */
+main [class*="text-white"],
+[role="dialog"] [class*="text-white"],
+.fixed [class*="text-white"] {
+  color: #111111 !important;
 }
 
-/* Mantém texto Branco Gelo dentro de botões de ação coloridos */
-main :is(button, a, span)[class*="bg-orange-"] *,
-main :is(button, a, span)[class*="bg-violet-"] *,
-main :is(button, a, span)[class*="bg-indigo-"] *,
-main :is(button, a, span)[class*="bg-emerald-"] *,
-main :is(button, a, span)[class*="bg-sky-"] *,
-main :is(button, a, span)[class*="bg-blue-"] *,
-main :is(button, a, span)[class*="bg-rose-"] *,
-main :is(button, a, span)[class*="from-orange-"] *,
-main :is(button, a, span)[class*="from-violet-"] *,
-main :is(button, a, span)[class*="from-indigo-"] *,
-main :is(button, a, span)[class*="from-sky-"] * {
-  color: #F8FAFC !important;
+/* Textos secundários e auxiliares (antes apagados em slate-200/300/400/500) viram Cinza Escuro forte */
+[class*="text-slate-100"],
+[class*="text-slate-200"],
+[class*="text-slate-300"] {
+  color: #1F1F1F !important;
 }
 
-main [class*="text-slate-200"],
-main [class*="text-slate-300"] {
-  color: #334155 !important;
+[class*="text-slate-400"] {
+  color: #333333 !important;
 }
 
-main [class*="text-slate-400"] {
-  color: #475569 !important;
+[class*="text-slate-500"],
+[class*="text-slate-600"] {
+  color: #404040 !important;
 }
 
-main [class*="text-slate-500"] {
-  color: #64748B !important;
+/* Textos coloridos claros (200/300/400) ficam escuros e legíveis no fundo claro */
+[class*="text-emerald-200"],
+[class*="text-emerald-300"],
+[class*="text-emerald-400"] {
+  color: #065F46 !important;
 }
 
-/* Inputs, Selects e Textareas em Branco Gelo (#F8FAFC) com borda Cinza Claro (#CBD5E1) */
-main :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
-  background-color: #F8FAFC !important;
-  border-color: #CBD5E1 !important;
-  color: #0F172A !important;
+[class*="text-amber-200"],
+[class*="text-amber-300"],
+[class*="text-amber-400"] {
+  color: #92400E !important;
 }
 
-main :is(input, select, textarea)::placeholder {
-  color: #64748B !important;
+[class*="text-orange-200"],
+[class*="text-orange-300"],
+[class*="text-orange-400"] {
+  color: #9A3412 !important;
 }
 
-/* Ícones com acabamento Branco Gelo / Cinza Claro */
-.gato-icon-ice {
-  background-color: #F8FAFC;
-  border: 1px solid #CBD5E1;
-  color: #334155;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+[class*="text-rose-200"],
+[class*="text-rose-300"],
+[class*="text-rose-400"],
+[class*="text-red-200"],
+[class*="text-red-300"],
+[class*="text-red-400"] {
+  color: #9F1239 !important;
 }
 
-/* Custom scrollbars na escala Branco Gelo -> Cinza Claro */
+[class*="text-sky-200"],
+[class*="text-sky-300"],
+[class*="text-sky-400"],
+[class*="text-blue-200"],
+[class*="text-blue-300"],
+[class*="text-blue-400"] {
+  color: #075985 !important;
+}
+
+/* Preserva letra branca nítida (#FFFFFF) DENTRO de botões e badges de fundo sólido escuro/colorido */
+:is(button, a, span)[class*="bg-orange-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-orange-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-orange-700"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-emerald-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-emerald-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-emerald-700"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-sky-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-sky-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-sky-700"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-blue-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-rose-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-rose-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-red-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-neutral-800"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-neutral-900"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-[#EA580C]"],
+:is(button, a, span)[class*="bg-[#0C4A6E]"],
+:is(button, a, span)[class*="bg-[#0284C7]"],
+:is(button, a, span)[class*="bg-[#262626]"],
+:is(button, a, span)[class*="bg-[#171717]"],
+:is(button, a, span)[class*="from-orange-"],
+:is(button, a, span)[class*="from-emerald-"],
+:is(button, a, span)[class*="from-sky-"],
+:is(button, a, span)[class*="from-[#0C4A6E]"],
+:is(button, a, span)[class*="bg-purple-500"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-purple-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-violet-600"]:not([class*="/"]),
+:is(button, a, span)[class*="bg-indigo-600"]:not([class*="/"]),
+:is(button, a, span)[class*="from-purple-"],
+:is(button, a, span)[class*="from-violet-"],
+:is(button, a, span)[class*="from-indigo-"] {
+  color: #FFFFFF !important;
+}
+
+:is(button, a, span)[class*="bg-orange-500"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-orange-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-orange-700"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-emerald-500"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-emerald-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-emerald-700"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-sky-500"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-sky-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-sky-700"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-blue-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-rose-500"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-rose-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-red-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-neutral-800"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-neutral-900"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-[#EA580C]"] *,
+:is(button, a, span)[class*="bg-[#0C4A6E]"] *,
+:is(button, a, span)[class*="bg-[#0284C7]"] *,
+:is(button, a, span)[class*="bg-[#262626]"] *,
+:is(button, a, span)[class*="bg-[#171717]"] *,
+:is(button, a, span)[class*="from-orange-"] *,
+:is(button, a, span)[class*="from-emerald-"] *,
+:is(button, a, span)[class*="from-sky-"] *,
+:is(button, a, span)[class*="from-[#0C4A6E]"] *,
+:is(button, a, span)[class*="bg-purple-500"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-purple-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-violet-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="bg-indigo-600"]:not([class*="/"]) *,
+:is(button, a, span)[class*="from-purple-"] *,
+:is(button, a, span)[class*="from-violet-"] *,
+:is(button, a, span)[class*="from-indigo-"] * {
+  color: #FFFFFF !important;
+}
+
+/* =========================================================================
+   4. CAMPOS DE FORMULÁRIO (INPUT, SELECT, TEXTAREA) — LEITURA IMEDIATA
+   ========================================================================= */
+
+:is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+  background-color: #FFFFFF !important;
+  border: 1px solid #BDBDBD !important;
+  color: #111111 !important;
+  font-weight: 500;
+}
+
+:is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):focus {
+  border-color: #525252 !important;
+  outline: none !important;
+}
+
+:is(input, select, textarea)::placeholder {
+  color: #666666 !important;
+  opacity: 1;
+}
+
+/* =========================================================================
+   5. SCROLLBARS EM ESCALA CINZA NEUTRA
+   ========================================================================= */
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: #EFEFEF;
   border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #BDBDBD;
   border-radius: 6px;
-  border: 2px solid #F1F5F9;
-  transition: background-color 0.2s ease;
+  border: 2px solid #EFEFEF;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
-}
-
-#gato-sidebar nav::-webkit-scrollbar,
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-#gato-sidebar nav::-webkit-scrollbar-track,
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #F1F5F9;
-  border-radius: 6px;
-}
-
-#gato-sidebar nav::-webkit-scrollbar-thumb,
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
-  border-radius: 6px;
-}
-
-#gato-sidebar nav::-webkit-scrollbar-thumb:hover,
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #8C8C8C;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #CBD5E1 #F1F5F9;
+  scrollbar-color: #BDBDBD #EFEFEF;
 }

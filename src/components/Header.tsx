@@ -142,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-[#F8FAFC]/95 backdrop-blur-md border-b border-[#CBD5E1]/80 shadow-2xs" id="gato-app-header">
+    <header className="sticky top-0 z-30 bg-[#FAFAFA] border-b border-[#D4D4D4] shadow-2xs" id="gato-app-header">
       <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-10 h-16 flex items-center justify-between gap-4">
         {/* Left: Mobile Toggle & Brand */}
         <div className="flex items-center gap-3">
@@ -150,10 +150,10 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             id="mobile-menu-btn"
             onClick={onToggleMobileMenu}
-            className="lg:hidden p-2 rounded-lg bg-[#F8FAFC] border border-[#CBD5E1] text-slate-700 hover:bg-[#E2E8F0] transition"
+            className="lg:hidden p-2 rounded-lg bg-[#FFFFFF] border border-[#D4D4D4] text-[#111111] hover:bg-[#E5E5E5] transition"
             aria-label="Abrir Menu"
           >
-            <Menu className="w-5 h-5 text-slate-700" />
+            <Menu className="w-5 h-5 text-[#111111]" />
           </button>
 
           <div className="cursor-pointer" onClick={() => onNavigate('dashboard')}>
@@ -172,10 +172,10 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               id="header-company-trade-name-btn"
               onClick={() => onNavigate('empresa-filiais')}
-              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F1F5F9] hover:bg-[#E2E8F0] border border-[#CBD5E1] text-slate-800 transition cursor-pointer text-left shadow-2xs group"
+              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F0F0F0] hover:bg-[#E5E5E5] border border-[#D4D4D4] text-[#111111] transition cursor-pointer text-left shadow-2xs group"
               title="Clique para gerenciar dados da Empresa & Baixar Logotipo"
             >
-              <div className="w-6 h-6 rounded-md overflow-hidden bg-[#F8FAFC] border border-[#CBD5E1] text-slate-700 flex items-center justify-center group-hover:scale-105 transition shrink-0">
+              <div className="w-6 h-6 rounded-md overflow-hidden bg-[#FFFFFF] border border-[#D4D4D4] text-[#111111] flex items-center justify-center group-hover:scale-105 transition shrink-0">
                 {companyProfile.logoUrl ? (
                   <img src={companyProfile.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
@@ -184,16 +184,16 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-black text-slate-900 truncate max-w-[150px] xl:max-w-[210px]">
+                  <span className="text-xs font-black text-[#111111] truncate max-w-[150px] xl:max-w-[210px]">
                     {companyProfile.tradeName}
                   </span>
                   {companyProfile.isTrial && (
-                    <span className="text-[9px] font-black bg-amber-400 text-slate-950 px-1 rounded uppercase shrink-0">
+                    <span className="text-[9px] font-black bg-[#E5E5E5] text-[#111111] border border-[#BDBDBD] px-1 rounded uppercase shrink-0">
                       {companyProfile.trialDaysRemaining}d Teste
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500 block truncate">
+                <span className="text-[10px] font-medium text-[#333333] block truncate">
                   {companyProfile.segment || 'Autopeças'}
                 </span>
               </div>
@@ -201,21 +201,21 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Right: Loja Matriz, Bell, and User Profile matching screenshot */}
+        {/* Right: Loja Matriz, Bell, and User Profile */}
         <div className="flex items-center space-x-2 sm:space-x-4">
           {/* Loja Matriz: 🛒 Loja Matriz ▾ */}
           <button
             type="button"
             id="header-branch-cd-selector"
             onClick={onOpenTrocaFilial}
-            className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl hover:bg-slate-100 text-slate-700 transition cursor-pointer text-xs font-semibold"
+            className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-[#F0F0F0] hover:bg-[#E5E5E5] border border-[#D4D4D4] text-[#111111] transition cursor-pointer text-xs font-bold"
             title="Alternar Loja / Filial"
           >
-            <ShoppingCart className="w-4 h-4 text-slate-700 shrink-0" />
+            <ShoppingCart className="w-4 h-4 text-[#111111] shrink-0" />
             <span className="hidden sm:inline">
               {activeBranch.isMatriz ? 'Loja Matriz' : activeBranch.name}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <ChevronDown className="w-3.5 h-3.5 text-[#262626] shrink-0" />
           </button>
 
           {/* Notifications Trigger */}
@@ -224,12 +224,12 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               id="notifications-toggle-btn"
               onClick={() => setShowNotifs(!showNotifs)}
-              className="relative p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition focus:outline-none cursor-pointer"
+              className="relative p-2 rounded-xl bg-[#FAFAFA] hover:bg-[#E5E5E5] border border-[#D4D4D4] text-[#111111] transition focus:outline-none cursor-pointer"
               aria-label="Notificações"
             >
-              <Bell className="w-5 h-5 text-slate-700" />
+              <Bell className="w-5 h-5 text-[#111111]" />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#EA580C] rounded-full ring-2 ring-white" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#111111] rounded-full ring-2 ring-white" />
               )}
             </button>
 
@@ -447,25 +447,25 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
 
                 {userSession.isSaasScope ? (
-                  <div className="px-2.5 py-2 bg-gradient-to-r from-purple-900 to-indigo-900 text-white rounded-xl mb-2 text-xs space-y-1 border border-purple-500/30">
-                    <div className="flex items-center justify-between text-[10px] text-purple-300 font-bold uppercase">
+                  <div className="px-2.5 py-2 bg-[#F0F0F0] text-[#111111] rounded-xl mb-2 text-xs space-y-1 border border-[#D4D4D4]">
+                    <div className="flex items-center justify-between text-[10px] text-[#262626] font-bold uppercase">
                       <span>Plataforma SaaS Central:</span>
-                      <span className="bg-purple-700/80 text-white px-1 rounded font-black">Camada 1</span>
+                      <span className="bg-[#262626] text-white px-1.5 py-0.5 rounded font-black">Camada 1</span>
                     </div>
-                    <p className="font-bold text-white text-xs truncate">Super Admin — Gestão Global</p>
-                    <p className="text-[10px] text-purple-200/80 pt-0.5">Gerencia contratos, planos e clientes. Dados operacionais e senhas isolados.</p>
+                    <p className="font-bold text-[#111111] text-xs truncate">Super Admin — Gestão Global</p>
+                    <p className="text-[10px] text-[#333333] pt-0.5">Gerencia contratos, planos e clientes. Dados operacionais e senhas isolados.</p>
                   </div>
                 ) : (
                   /* Active CD Details */
-                  <div className="px-2.5 py-2 bg-slate-900 text-white rounded-xl mb-2 text-xs space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-sky-400 font-bold uppercase">
+                  <div className="px-2.5 py-2 bg-[#F0F0F0] text-[#111111] rounded-xl mb-2 text-xs space-y-1 border border-[#D4D4D4]">
+                    <div className="flex items-center justify-between text-[10px] text-[#262626] font-bold uppercase">
                       <span>CD de Venda Ativo:</span>
-                      <span className="bg-sky-700/80 text-white px-1 rounded">{activeBranch.uf}</span>
+                      <span className="bg-[#262626] text-white px-1.5 py-0.5 rounded">{activeBranch.uf}</span>
                     </div>
-                    <p className="font-bold text-white text-xs truncate">{activeBranch.name}</p>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                    <p className="font-bold text-[#111111] text-xs truncate">{activeBranch.name}</p>
+                    <div className="flex items-center justify-between text-[10px] text-[#333333] pt-0.5">
                       <span>SEFAZ-{activeBranch.uf}</span>
-                      <span className="text-emerald-400 font-bold">ICMS Interno: {activeBranch.icmsInterno}%</span>
+                      <span className="text-emerald-800 font-bold">ICMS Interno: {activeBranch.icmsInterno}%</span>
                     </div>
                   </div>
                 )}
