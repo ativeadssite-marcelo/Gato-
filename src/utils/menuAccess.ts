@@ -35,6 +35,7 @@ export const MENU_RESOURCE: Record<string, string> = {
   // para o admin do tenant e `full` para o dono/SaaS, então a tela serve às duas
   // audiências com um único mapeamento.
   chaves: 'tenant_credentials',
+  certificados: 'company_data',
   conectores: 'connectors',
   admin: 'fiscal_config',
   rbac: 'manage_accounts',

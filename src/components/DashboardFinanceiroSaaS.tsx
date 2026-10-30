@@ -58,16 +58,21 @@ export const DashboardFinanceiroSaaS: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const [subs, invs, planRes] = await Promise.all([
+        const [subsRes, invsRes, planRes] = await Promise.allSettled([
           apiJson<{ success: boolean; subscriptions: TenantSubscription[] }>('/api/billing/admin/subscriptions'),
           apiJson<{ success: boolean; invoices: Invoice[] }>('/api/billing/admin/invoices'),
           apiJson<{ success: boolean; plans: PlanInfo[] }>('/api/rbac/plans'),
         ]);
-        setSubscriptions(subs.subscriptions || []);
-        setInvoices(invs.invoices || []);
-        setPlans(planRes.plans || []);
+
+        const subs = subsRes.status === 'fulfilled' ? subsRes.value : null;
+        const invs = invsRes.status === 'fulfilled' ? invsRes.value : null;
+        const plansData = planRes.status === 'fulfilled' ? planRes.value : null;
+
+        setSubscriptions(Array.isArray(subs?.subscriptions) ? subs.subscriptions : []);
+        setInvoices(Array.isArray(invs?.invoices) ? invs.invoices : []);
+        setPlans(Array.isArray(plansData?.plans) ? plansData.plans : []);
       } catch (e: any) {
-        setError(e?.message || 'Sem permissão ou falha ao carregar o financeiro SaaS.');
+        setError(e?.message || 'Falha ao carregar métricas de faturamento e contratos.');
       } finally {
         setLoading(false);
       }

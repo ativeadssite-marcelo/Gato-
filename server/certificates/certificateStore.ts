@@ -5,6 +5,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { fileURLToPath } from "url";
 import type { 
   DigitalCertificateRecord, 
   CertificateStats, 
@@ -12,8 +13,11 @@ import type {
 } from "../../src/types/certificate";
 import { TENANTS_DATA } from "../rbacEngine";
 
-const PERSISTENCE_FILE = path.resolve(process.cwd(), "server", ".certificates_store.json");
-const PFX_FILES_DIR = path.resolve(process.cwd(), "server", ".certificates_pfx");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const PERSISTENCE_FILE = path.join(__dirname, "../.certificates_store.json");
+const PFX_FILES_DIR = path.join(__dirname, "../.certificates_pfx");
 
 // Garantir diretório de PFX seguro
 try {

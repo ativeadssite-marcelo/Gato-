@@ -30,7 +30,8 @@ import {
   MessageSquare,
   Phone,
   Mail,
-  UserPlus
+  UserPlus,
+  FolderLock
 } from 'lucide-react';
 import { apiJson } from '../services/apiClient';
 import type { TenantAccount } from '../types/rbac';
@@ -120,10 +121,10 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
         apiJson<{ success: boolean; plans: PlanInfo[] }>('/api/rbac/plans').catch(() => ({ success: false, plans: [] })),
       ]);
 
-      setTenants(tenantsRes.tenants || []);
-      setSubscriptions(subsRes.subscriptions || []);
-      setInvoices(invsRes.invoices || []);
-      setPlans(plansRes.plans || []);
+      setTenants(Array.isArray(tenantsRes?.tenants) ? tenantsRes.tenants : []);
+      setSubscriptions(Array.isArray(subsRes?.subscriptions) ? subsRes.subscriptions : []);
+      setInvoices(Array.isArray(invsRes?.invoices) ? invsRes.invoices : []);
+      setPlans(Array.isArray(plansRes?.plans) ? plansRes.plans : []);
 
       if (typeof localStorage !== 'undefined') {
         const raw = localStorage.getItem('gato_superadmin_leads');
@@ -253,6 +254,14 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
             >
               <Building2 className="w-4 h-4" />
               Empresas & Suporte
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('certificados')}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900/80 border border-indigo-500/40 text-indigo-200 font-bold text-xs transition cursor-pointer"
+            >
+              <FolderLock className="w-4 h-4 text-indigo-400" />
+              Cofre de Certificados (A1/A3)
             </button>
             <button
               type="button"

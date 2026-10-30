@@ -39,6 +39,7 @@ import { caixaRouter } from "./server/caixaRoutes";
 import { billingRouter } from "./server/billing/routes";
 import { adminDatabaseRouter } from "./server/adminDatabaseRoutes";
 import { saasContractsRouter } from "./server/saasContractsRoutes";
+import { certificateRouter } from "./server/certificates/certificateRoutes";
 import { checkQuota, incrementUsage } from "./server/quotas";
 import {
   assertProductionMigrationsReady,
@@ -191,6 +192,9 @@ app.use("/api/license", licenseRouter);
 
 // API v1 de integração do tenant — autenticada por chave de API (x-api-key)
 app.use("/api/v1", v1Router);
+
+// Cofre Criptografado de Certificados Digitais A1 e A3 (SEFAZ / NF-e / NFC-e)
+app.use("/api/certificates", certificateRouter);
 
 // Health check
 app.get("/api/health", (req, res) => {
