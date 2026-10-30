@@ -32,6 +32,16 @@ interface StatusResponse {
 export const ConfiguracaoBancoDados: React.FC<Props> = ({ onShowNotification }) => {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; version?: string; error?: string; detail?: string } | null>(null);
+
+  const [host, setHost] = useState('');
+  const [port, setPort] = useState('5432');
+  const [user, setUser] = useState('postgres');
+  const [database, setDatabase] = useState('postgres');
+  const [password, setPassword] = useState('');
+  const [sslDisable, setSslDisable] = useState(false);
+  const [sslRejectUnauthorized, setSslRejectUnauthorized] = useState(true);
   const [quickUri, setQuickUri] = useState('');
   const [showUriInput, setShowUriInput] = useState(false);
   const [autoFixedTip, setAutoFixedTip] = useState<string | null>(null);
