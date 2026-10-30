@@ -346,15 +346,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Navigation Drawer */}
+      {/* Navigation Drawer — Escala Branco Gelo (#F8FAFC) -> Cinza Claro (#F1F5F9 / #E2E8F0 / #CBD5E1) */}
       <aside 
         id="gato-sidebar"
-        className={`fixed lg:sticky top-0 lg:top-20 left-0 z-50 lg:z-10 h-full lg:h-[calc(100vh-6.5rem)] bg-slate-900/95 text-slate-200 flex flex-col border border-slate-800/80 shadow-2xl transition-all duration-300 ease-in-out lg:rounded-3xl overflow-hidden backdrop-blur-md ${
+        className={`fixed lg:sticky top-0 lg:top-20 left-0 z-50 lg:z-10 h-full lg:h-[calc(100vh-6.5rem)] bg-[#F8FAFC]/95 text-slate-700 flex flex-col border border-[#CBD5E1] shadow-xl shadow-slate-300/40 transition-all duration-300 ease-in-out lg:rounded-3xl overflow-hidden backdrop-blur-md ${
           isOpenMobile ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-[76px]' : 'lg:w-64'}`}
       >
         {/* Sidebar Brand Header */}
-        <div className={`p-3 flex items-center shrink-0 border-b border-slate-800/70 bg-gradient-to-b from-slate-900 to-slate-900/50 transition-all rounded-t-3xl ${
+        <div className={`p-3 flex items-center shrink-0 border-b border-[#E2E8F0] bg-gradient-to-b from-white to-[#F8FAFC] transition-all rounded-t-3xl ${
           isCollapsed ? 'flex-col justify-center gap-2' : 'justify-between'
         }`}>
           <div 
@@ -366,7 +366,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               size="md" 
               showSubtitle={!isCollapsed} 
               iconOnly={isCollapsed} 
-              variant="dark"
+              variant="light"
               customLogoUrl={companyProfile?.logoUrl}
               tradeName={companyProfile?.tradeName}
             />
@@ -377,7 +377,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={externalOnToggleCollapse}
-                className="hidden lg:flex p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 border border-slate-700/40 cursor-pointer transition-colors"
+                className="hidden lg:flex p-2 rounded-xl text-slate-600 hover:text-slate-900 bg-[#F8FAFC] hover:bg-[#E2E8F0] border border-[#CBD5E1] cursor-pointer transition-colors shadow-2xs"
                 title={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
                 aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
                 aria-expanded={!isCollapsed}
@@ -391,7 +391,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={onCloseMobile}
-              className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 border border-slate-700/40 cursor-pointer transition-colors"
+              className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 bg-[#F8FAFC] hover:bg-[#E2E8F0] border border-[#CBD5E1] cursor-pointer transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -410,22 +410,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 id={`sidebar-nav-${item.id}`}
                 onClick={() => handleSelect(item.id)}
                 title={isCollapsed ? item.label : undefined}
-                className={`w-full text-left flex items-center rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer relative ${
-                  isCollapsed ? 'lg:justify-center lg:p-3' : 'justify-between px-3.5 py-2.5'
+                className={`w-full text-left flex items-center rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer relative group ${
+                  isCollapsed ? 'lg:justify-center lg:p-2.5' : 'justify-between px-3 py-2'
                 } ${
                   isActive 
-                    ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-lg shadow-orange-600/25 font-semibold ring-1 ring-orange-400/30' 
-                    : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+                    ? 'bg-[#E2E8F0] text-slate-900 shadow-xs font-bold border border-[#CBD5E1]' 
+                    : 'text-slate-700 hover:bg-[#F1F5F9] hover:text-slate-900 border border-transparent hover:border-[#E2E8F0]'
                 }`}
               >
-                <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-3.5'}`}>
-                  <Icon className={`w-5 h-5 shrink-0 transition-transform ${isActive ? 'text-white scale-110' : 'text-slate-400'}`} />
+                <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-3'}`}>
+                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                    isActive
+                      ? 'bg-[#F8FAFC] text-[#EA580C] border border-[#CBD5E1] shadow-2xs'
+                      : 'bg-[#F8FAFC] text-slate-600 border border-[#E2E8F0] group-hover:border-[#CBD5E1] group-hover:text-slate-900'
+                  }`}>
+                    <Icon className="w-4 h-4 shrink-0" />
+                  </span>
                   <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                 </div>
 
                 {item.badge && (
-                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs ${
-                    isActive ? 'bg-white text-[#EA580C]' : 'bg-[#EA580C] text-white'
+                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-extrabold px-2 py-0.5 rounded-full border shadow-2xs ${
+                    isActive
+                      ? 'bg-[#F8FAFC] text-slate-800 border-[#CBD5E1]'
+                      : 'bg-[#F1F5F9] text-slate-700 border-[#CBD5E1]'
                   }`}>
                     {item.badge}
                   </span>
@@ -433,7 +441,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Collapsed dot badge indicator */}
                 {isCollapsed && item.badge && (
-                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#EA580C] ring-2 ring-slate-900 shadow-xs" />
+                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#EA580C] ring-2 ring-[#F8FAFC] shadow-xs" />
                 )}
               </button>
             );
@@ -441,7 +449,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Quick utility divider */}
           <div className="pt-2 pb-1 px-1">
-            <div className="h-px bg-gradient-to-r from-transparent via-slate-800 to-transparent rounded-full" />
+            <div className="h-px bg-gradient-to-r from-transparent via-[#CBD5E1] to-transparent rounded-full" />
           </div>
 
           {visibleSecondaryNavItems.map((item) => {
@@ -453,25 +461,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 id={`sidebar-nav-${item.id}`}
                 onClick={() => handleSelect(item.id)}
                 title={isCollapsed ? item.label : undefined}
-                className={`w-full text-left flex items-center rounded-2xl text-xs font-medium transition-all duration-200 cursor-pointer relative ${
-                  isCollapsed ? 'lg:justify-center lg:p-2.5' : 'justify-between px-3.5 py-2.5'
+                className={`w-full text-left flex items-center rounded-2xl text-xs font-medium transition-all duration-200 cursor-pointer relative group ${
+                  isCollapsed ? 'lg:justify-center lg:p-2' : 'justify-between px-3 py-2'
                 } ${
                   isActive 
-                    ? 'bg-slate-800 text-white font-semibold ring-1 ring-slate-700/60 shadow-xs' 
-                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                    ? 'bg-[#E2E8F0] text-slate-900 font-bold border border-[#CBD5E1] shadow-2xs' 
+                    : 'text-slate-600 hover:bg-[#F1F5F9] hover:text-slate-900 border border-transparent hover:border-[#E2E8F0]'
                 }`}
               >
-                <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-3'}`}>
-                  <Icon className="w-4 h-4 text-slate-400 shrink-0" />
+                <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-2.5'}`}>
+                  <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                    isActive
+                      ? 'bg-[#F8FAFC] text-[#EA580C] border border-[#CBD5E1] shadow-2xs'
+                      : 'bg-[#F8FAFC] text-slate-600 border border-[#E2E8F0] group-hover:border-[#CBD5E1] group-hover:text-slate-900'
+                  }`}>
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                  </span>
                   <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 shadow-xs`}>
+                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F1F5F9] text-slate-700 border border-[#CBD5E1] shadow-2xs`}>
                     {item.badge}
                   </span>
                 )}
                 {isCollapsed && item.badge && (
-                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-slate-900 shadow-xs" />
+                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-[#F8FAFC] shadow-xs" />
                 )}
               </button>
             );
@@ -479,7 +493,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Bottom Status matching Store & Operator */}
-        <div className="p-3 border-t border-slate-800/70 bg-gradient-to-t from-slate-950 to-slate-900/60 text-xs space-y-2.5 rounded-b-3xl">
+        <div className="p-3 border-t border-[#E2E8F0] bg-[#F1F5F9]/90 text-xs space-y-2.5 rounded-b-3xl">
           {/* Botão de Login / Trocar Conta */}
           {onOpenLogin && (
             <button
@@ -490,63 +504,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 isCollapsed ? 'justify-center' : 'justify-between'
               } ${
                 userSession 
-                  ? 'bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300' 
-                  : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold shadow-md shadow-sky-600/20'
+                  ? 'bg-[#F8FAFC] hover:bg-[#E2E8F0] border border-[#CBD5E1] text-slate-800 shadow-2xs' 
+                  : 'bg-[#E2E8F0] hover:bg-[#CBD5E1] border border-[#CBD5E1] text-slate-900 font-bold shadow-xs'
               }`}
               title={userSession ? `Sessão ativa: ${userSession.name} (${userSession.roleLabel}) — Trocar Usuário` : 'Fazer Login / Acessar as 3 Camadas'}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${userSession ? 'bg-slate-800 text-sky-400' : 'bg-white/20 text-white'}`}>
+                <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 bg-[#F8FAFC] text-slate-700 border border-[#CBD5E1]">
                   <LogIn className="w-3.5 h-3.5" />
                 </div>
                 {!isCollapsed && (
                   <div className="truncate text-left">
-                    <p className="font-extrabold text-xs truncate">
+                    <p className="font-extrabold text-xs text-slate-900 truncate">
                       {userSession ? userSession.name.split(' ')[0] : 'Fazer Login'}
                     </p>
-                    <p className="text-[10px] text-slate-400 truncate">
+                    <p className="text-[10px] text-slate-600 truncate">
                       {userSession ? userSession.roleLabel : 'Acessar 3 Camadas'}
                     </p>
                   </div>
                 )}
               </div>
-              {!isCollapsed && <ChevronRight className="w-3.5 h-3.5 opacity-60 shrink-0" />}
+              {!isCollapsed && <ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />}
             </button>
           )}
 
           {activeBranch && (
             <div 
               onClick={onOpenTrocaFilial}
-              className={`p-2.5 bg-slate-900/80 hover:bg-slate-800/90 rounded-2xl border border-slate-800/80 hover:border-orange-500/40 flex items-center cursor-pointer transition-all duration-200 shadow-xs group ${
+              className={`p-2.5 bg-[#F8FAFC] hover:bg-[#E2E8F0]/80 rounded-2xl border border-[#CBD5E1] flex items-center cursor-pointer transition-all duration-200 shadow-2xs group ${
                 isCollapsed ? 'justify-center' : 'justify-between'
               }`}
               title={isCollapsed ? `${activeBranch.name} (${activeBranch.uf}) - Trocar Loja` : 'Trocar Loja / CD Ativo'}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-7 h-7 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
                   <Store className="w-3.5 h-3.5 text-[#EA580C]" />
                 </div>
                 {!isCollapsed && (
                   <div className="truncate">
-                    <p className="font-bold text-white text-xs truncate group-hover:text-orange-400 transition-colors">{activeBranch.name}</p>
-                    <p className="text-[10px] text-slate-400 truncate">SEFAZ {activeBranch.uf} • {activeBranch.cdCode}</p>
+                    <p className="font-bold text-slate-900 text-xs truncate group-hover:text-[#EA580C] transition-colors">{activeBranch.name}</p>
+                    <p className="text-[10px] text-slate-600 truncate">SEFAZ {activeBranch.uf} • {activeBranch.cdCode}</p>
                   </div>
                 )}
               </div>
-              {!isCollapsed && <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors shrink-0" />}
+              {!isCollapsed && <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-800 transition-colors shrink-0" />}
             </div>
           )}
 
           {!isCollapsed ? (
-            <div className="flex items-center justify-between px-2 py-1 rounded-xl bg-slate-900/50 border border-slate-800/60 text-[11px] text-slate-400">
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-[11px] text-slate-600">
               <span className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span className="font-medium text-slate-300">SEFAZ Online</span>
+                <span className="font-semibold text-slate-800">SEFAZ Online</span>
               </span>
-              <span className="text-slate-400 font-medium">v2.6 Web</span>
+              <span className="text-slate-600 font-medium">v2.6 Web</span>
             </div>
           ) : (
             <div className="flex justify-center py-1.5" title="SEFAZ Online v2.6">

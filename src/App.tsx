@@ -1113,7 +1113,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 font-['Plus_Jakarta_Sans'] antialiased flex flex-col">
+    <div className="min-h-screen bg-[#F4F7FA] text-slate-900 font-['Plus_Jakarta_Sans'] antialiased flex flex-col">
       {/* Global Toast Notification */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full bg-slate-950 text-white p-4 rounded-2xl shadow-2xl border border-sky-500/30 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-3 duration-200">

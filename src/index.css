@@ -12,16 +12,23 @@
   --radius-4xl: 10px;
   --radius-full: 9999px;
   --radius: 6px;
+
+  /* =========================================================================
+     UI/UX PRO MAX — ESCALA BRANCO GELO (#F8FAFC) → CINZA CLARO (#E2E8F0 / #CBD5E1)
+     ========================================================================= */
+  --color-ice-white: #F8FAFC;
+  --color-ice-surface: #FFFFFF;
+  --color-light-gray-100: #F1F5F9;
+  --color-light-gray-200: #E2E8F0;
+  --color-light-gray-300: #CBD5E1;
+  --color-light-gray-400: #94A3B8;
 }
 
 /* =========================================================================
    DIRETIVA DE DESIGN EQUILIBRADA (MEIO TERMO):
    Quinas sutilmente arredondadas (4px a 7px) - estilo moderno, limpo e profissional.
-   Um meio termo perfeito: menos arredondado que o visual inicial (16px - 24px),
-   e mais suave que as quinas retas de 90° (0px).
    ========================================================================= */
 
-/* Modais e popovers com suavização refinada de meio termo */
 [role="dialog"],
 .modal-container {
   border-radius: 8px;
@@ -29,45 +36,158 @@
 
 /* =========================================================================
    BARRA DE ROLAGEM GLOBAL & ACESSIBILIDADE DE VIEWPORT
-   Garante rolagem vertical suave e barras visíveis em todas as telas e modais
    ========================================================================= */
 
 html {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
+  background-color: #F4F7FA;
+  color: #1E293B;
 }
 
 body {
   overflow-x: hidden;
   min-height: 100vh;
+  background-color: #F4F7FA;
+  color: #1E293B;
 }
 
-/* Custom scrollbars elegantes e visíveis em todos os navegadores WebKit */
+/* =========================================================================
+   HARMONIZAÇÃO GLOBAL: BRANCO GELO (#F8FAFC) E ESCALA CINZA CLARO (#F1F5F9 -> #CBD5E1)
+   Converte superfícies escuras legadas para Branco Gelo e Cinza Claro mantendo
+   contraste WCAG AA (>= 4.5:1) em textos, tabelas, formulários e ícones.
+   ========================================================================= */
+
+/* Superfícies de nível 1 (Cards principais / Painéis) -> Branco Gelo (#F8FAFC) */
+main [class*="bg-slate-900"],
+main [class*="bg-slate-950"],
+[role="dialog"] [class*="bg-slate-900"],
+[role="dialog"] [class*="bg-slate-950"] {
+  background-color: #F8FAFC !important;
+  background-image: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+  color: #1E293B !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Superfícies de nível 2 (Escala acima de Branco Gelo -> Cinza Claro #F1F5F9 / #E2E8F0) */
+main [class*="bg-slate-800"],
+[role="dialog"] [class*="bg-slate-800"] {
+  background-color: #F1F5F9 !important;
+  color: #1E293B !important;
+}
+
+main button[class*="bg-slate-800"]:hover,
+main [class*="hover:bg-slate-800"]:hover {
+  background-color: #E2E8F0 !important;
+}
+
+/* Bordas e divisórias na escala Cinza Claro (#E2E8F0 / #CBD5E1) */
+main [class*="border-slate-800"],
+main [class*="border-slate-900"],
+[role="dialog"] [class*="border-slate-800"] {
+  border-color: #E2E8F0 !important;
+}
+
+main [class*="border-slate-700"],
+[role="dialog"] [class*="border-slate-700"] {
+  border-color: #CBD5E1 !important;
+}
+
+main [class*="divide-slate-800"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #E2E8F0 !important;
+}
+
+/* Tipografia legível sobre Branco Gelo e Cinza Claro */
+main :is(h1, h2, h3, h4, p, span, div, label, td, th)[class*="text-white"]:not(
+    [class*="bg-orange-"],
+    [class*="bg-amber-"],
+    [class*="bg-emerald-"],
+    [class*="bg-violet-"],
+    [class*="bg-purple-"],
+    [class*="bg-indigo-"],
+    [class*="bg-blue-"],
+    [class*="bg-sky-"],
+    [class*="bg-rose-"],
+    [class*="bg-red-"],
+    [class*="from-orange-"],
+    [class*="from-violet-"],
+    [class*="from-indigo-"],
+    [class*="from-sky-"],
+    [class*="from-emerald-"]
+  ) {
+  color: #0F172A !important;
+}
+
+/* Mantém texto Branco Gelo dentro de botões de ação coloridos */
+main :is(button, a, span)[class*="bg-orange-"] *,
+main :is(button, a, span)[class*="bg-violet-"] *,
+main :is(button, a, span)[class*="bg-indigo-"] *,
+main :is(button, a, span)[class*="bg-emerald-"] *,
+main :is(button, a, span)[class*="bg-sky-"] *,
+main :is(button, a, span)[class*="bg-blue-"] *,
+main :is(button, a, span)[class*="bg-rose-"] *,
+main :is(button, a, span)[class*="from-orange-"] *,
+main :is(button, a, span)[class*="from-violet-"] *,
+main :is(button, a, span)[class*="from-indigo-"] *,
+main :is(button, a, span)[class*="from-sky-"] * {
+  color: #F8FAFC !important;
+}
+
+main [class*="text-slate-200"],
+main [class*="text-slate-300"] {
+  color: #334155 !important;
+}
+
+main [class*="text-slate-400"] {
+  color: #475569 !important;
+}
+
+main [class*="text-slate-500"] {
+  color: #64748B !important;
+}
+
+/* Inputs, Selects e Textareas em Branco Gelo (#F8FAFC) com borda Cinza Claro (#CBD5E1) */
+main :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
+  background-color: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+main :is(input, select, textarea)::placeholder {
+  color: #64748B !important;
+}
+
+/* Ícones com acabamento Branco Gelo / Cinza Claro */
+.gato-icon-ice {
+  background-color: #F8FAFC;
+  border: 1px solid #CBD5E1;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* Custom scrollbars na escala Branco Gelo -> Cinza Claro */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.2);
+  background: #F1F5F9;
   border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
+  background: #CBD5E1;
   border-radius: 6px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
+  border: 2px solid #F1F5F9;
   transition: background-color 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(2, 132, 199, 0.85);
-  background-clip: padding-box;
+  background: #94A3B8;
 }
 
-/* Accent scrollbar para Sidebar e Contêineres Escuros */
 #gato-sidebar nav::-webkit-scrollbar,
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -76,29 +196,22 @@ body {
 
 #gato-sidebar nav::-webkit-scrollbar-track,
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.4);
+  background: #F1F5F9;
   border-radius: 6px;
 }
 
 #gato-sidebar nav::-webkit-scrollbar-thumb,
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(234, 88, 12, 0.55);
+  background: #CBD5E1;
   border-radius: 6px;
 }
 
 #gato-sidebar nav::-webkit-scrollbar-thumb:hover,
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(234, 88, 12, 0.9);
+  background: #94A3B8;
 }
 
-/* Suporte padrão para Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.5) rgba(15, 23, 42, 0.15);
-}
-
-#gato-sidebar nav,
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(234, 88, 12, 0.6) rgba(15, 23, 42, 0.3);
+  scrollbar-color: #CBD5E1 #F1F5F9;
 }

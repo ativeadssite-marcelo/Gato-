@@ -18,7 +18,7 @@ export const GatoBrand: React.FC<GatoBrandProps> = ({
   size = 'md',
   showSubtitle = true,
   showMotto = false,
-  variant = 'dark',
+  variant = 'light',
   iconOnly = false,
   fullBanner = false,
   customLogoUrl,

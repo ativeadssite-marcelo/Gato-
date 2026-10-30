@@ -142,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-sky-100 shadow-xs" id="gato-app-header">
+    <header className="sticky top-0 z-30 bg-[#F8FAFC]/95 backdrop-blur-md border-b border-[#CBD5E1]/80 shadow-2xs" id="gato-app-header">
       <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-10 h-16 flex items-center justify-between gap-4">
         {/* Left: Mobile Toggle & Brand */}
         <div className="flex items-center gap-3">
@@ -150,15 +150,16 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             id="mobile-menu-btn"
             onClick={onToggleMobileMenu}
-            className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-sky-50 transition"
+            className="lg:hidden p-2 rounded-lg bg-[#F8FAFC] border border-[#CBD5E1] text-slate-700 hover:bg-[#E2E8F0] transition"
             aria-label="Abrir Menu"
           >
-            <Menu className="w-5 h-5 text-[#0C4A6E]" />
+            <Menu className="w-5 h-5 text-slate-700" />
           </button>
 
           <div className="cursor-pointer" onClick={() => onNavigate('dashboard')}>
             <GatoBrand 
               size="md" 
+              variant="light"
               showSubtitle={true} 
               customLogoUrl={companyProfile?.logoUrl}
               tradeName={companyProfile?.tradeName}
@@ -171,10 +172,10 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               id="header-company-trade-name-btn"
               onClick={() => onNavigate('empresa-filiais')}
-              className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100/80 border border-amber-300 text-slate-800 transition cursor-pointer text-left shadow-2xs group"
+              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F1F5F9] hover:bg-[#E2E8F0] border border-[#CBD5E1] text-slate-800 transition cursor-pointer text-left shadow-2xs group"
               title="Clique para gerenciar dados da Empresa & Baixar Logotipo"
             >
-              <div className="w-6 h-6 rounded-md overflow-hidden bg-amber-500 text-slate-950 flex items-center justify-center group-hover:scale-105 transition shrink-0">
+              <div className="w-6 h-6 rounded-md overflow-hidden bg-[#F8FAFC] border border-[#CBD5E1] text-slate-700 flex items-center justify-center group-hover:scale-105 transition shrink-0">
                 {companyProfile.logoUrl ? (
                   <img src={companyProfile.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
