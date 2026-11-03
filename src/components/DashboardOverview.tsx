@@ -438,18 +438,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         onNavigate={onNavigate}
       />
 
-      {/* Main Grid: Low Stock Alert & Recent Orders with Balanced Modern Corners */}
+      {/* Main Grid: Low Stock Alert & Recent Orders — Estilo Editorial Soft da Referência */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Low Stock Items & Picking Locations (6 Cols) */}
-        <div className="lg:col-span-6 bg-white rounded-lg p-5 shadow-xs border border-slate-200 border-t-2 border-t-[#F59E0B] flex flex-col space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center">
-              <span className="w-2 h-4 bg-[#F59E0B] rounded-sm mr-2 inline-block" />
-              <h2 className="text-sm font-bold text-slate-800">
+        <div className="lg:col-span-6 bg-white rounded-3xl p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] border border-[#EAECF0] flex flex-col space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#EAECF0]">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 bg-[#F97B72] rounded-full inline-block" />
+              <h2 className="text-sm font-extrabold text-[#1E232A]">
                 Alerta de Reposição & Locação de Estoque
               </h2>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">
+            <span className="text-[10px] font-extrabold text-[#C94A4A] bg-[#FFF1EF] px-2.5 py-0.5 rounded-full uppercase font-mono">
               {lowStockProducts.length} itens críticos
             </span>
           </div>
@@ -458,26 +458,26 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {lowStockProducts.map((prod) => (
               <div 
                 key={prod.id} 
-                className="p-3 bg-slate-50/80 hover:bg-sky-50/50 border border-slate-200 rounded-md flex items-center justify-between gap-3 text-xs transition-colors"
+                className="p-3.5 bg-[#F6F7F9] hover:bg-[#EEF0FF]/60 border border-[#EAECF0] rounded-2xl flex items-center justify-between gap-3 text-xs transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[10px] font-bold bg-white text-slate-900 px-1.5 py-0.5 rounded-sm border border-slate-300">
+                    <span className="font-mono text-[10px] font-bold bg-white text-[#1E232A] px-2 py-0.5 rounded-lg border border-[#DCE0E8]">
                       {prod.code}
                     </span>
-                    <span className="text-[10px] font-bold text-[#0C4A6E]">{prod.brand}</span>
+                    <span className="text-[10px] font-extrabold text-[#4A56C8]">{prod.brand}</span>
                   </div>
-                  <p className="font-bold text-slate-800 truncate mt-0.5">{prod.name}</p>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
-                    <span className="text-slate-600 font-semibold flex items-center gap-0.5">
-                      <MapPin className="w-3 h-3 text-[#0284C7]" />
+                  <p className="font-bold text-[#1E232A] truncate mt-1">{prod.name}</p>
+                  <div className="flex items-center gap-2 text-[10px] text-[#475467] mt-0.5">
+                    <span className="text-[#475467] font-semibold flex items-center gap-0.5">
+                      <MapPin className="w-3 h-3 text-[#6E7BF2]" />
                       {prod.location.corridor} • {prod.location.shelf} • {prod.location.box}
                     </span>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                  <span className="font-mono text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-sm border border-rose-300">
+                  <span className="font-mono text-xs font-extrabold text-[#C94A4A] bg-[#FFF1EF] px-2.5 py-0.5 rounded-full border border-[#FCD4CF]">
                     {prod.stock} un (mín: {prod.minStock})
                   </span>
                   <button
@@ -486,7 +486,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       onSelectProductForQuote(prod);
                       onNavigate('cotacao');
                     }}
-                    className="text-[10px] font-bold text-[#0284C7] hover:text-[#0C4A6E] underline cursor-pointer"
+                    className="text-[10px] font-extrabold text-[#6E7BF2] hover:underline cursor-pointer"
                   >
                     Cotar no Balcão
                   </button>
@@ -497,11 +497,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
 
         {/* Right: Recent Multi-Channel Orders (6 Cols) */}
-        <div className="lg:col-span-6 bg-white rounded-lg p-5 shadow-xs border border-slate-200 border-t-2 border-t-[#0284C7] flex flex-col space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center">
-              <span className="w-2 h-4 bg-[#0284C7] rounded-sm mr-2 inline-block" />
-              <h2 className="text-sm font-bold text-slate-800">
+        <div className="lg:col-span-6 bg-white rounded-3xl p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] border border-[#EAECF0] flex flex-col space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#EAECF0]">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 bg-[#6E7BF2] rounded-full inline-block" />
+              <h2 className="text-sm font-extrabold text-[#1E232A]">
                 Últimos Pedidos dos Canais Integrados
               </h2>
             </div>
@@ -509,14 +509,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('cotacao')}
-                className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-md uppercase hover:bg-emerald-700 transition cursor-pointer"
+                className="px-3 py-1 bg-[#529471] text-white text-[10px] font-extrabold rounded-xl uppercase hover:bg-[#448261] transition cursor-pointer"
               >
                 Nova Venda
               </button>
               <button
                 type="button"
                 onClick={() => onNavigate('pedidos')}
-                className="px-2.5 py-1 bg-sky-50 text-[#0284C7] text-[10px] font-bold rounded-md uppercase hover:bg-sky-100 border border-sky-200 transition cursor-pointer"
+                className="px-3 py-1 bg-[#1E1E2D] text-white text-[10px] font-extrabold rounded-xl uppercase hover:bg-[#11111A] transition cursor-pointer"
               >
                 Ver todos ({orders.length})
               </button>
@@ -527,26 +527,26 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {recentOrders.map((ord) => (
               <div 
                 key={ord.id} 
-                className="p-3 bg-slate-50/80 hover:bg-sky-50/50 border border-slate-200 rounded-md flex items-center justify-between gap-2 transition-colors"
+                className="p-3.5 bg-[#F6F7F9] hover:bg-[#EEF0FF]/60 border border-[#EAECF0] rounded-2xl flex items-center justify-between gap-2 transition-colors"
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-slate-900">#{ord.id}</span>
-                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.2 rounded-sm bg-white border border-slate-300 text-slate-700">
+                    <span className="font-mono font-bold text-[#1E232A]">#{ord.id}</span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-lg bg-white border border-[#DCE0E8] text-[#475467]">
                       {ord.channel}
                     </span>
                   </div>
-                  <p className="font-bold text-slate-800 mt-0.5">{ord.customerName}</p>
-                  <span className="text-[10px] text-slate-400">
+                  <p className="font-bold text-[#1E232A] mt-1">{ord.customerName}</p>
+                  <span className="text-[10px] text-[#475467]">
                     {ord.items.length} item(ns) • {ord.shippingCity || 'Balcão Matriz'}
                   </span>
                 </div>
 
                 <div className="text-right">
-                  <span className="font-mono font-black text-slate-900 block">
+                  <span className="font-mono font-black text-[#1E232A] block">
                     R$ {(ord.totalAmount || ord.total || 0).toFixed(2)}
                   </span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-sm inline-block mt-0.5 border border-emerald-200">
+                  <span className="text-[10px] font-extrabold text-[#216E4E] bg-[#E6F4EC] px-2.5 py-0.5 rounded-full inline-block mt-0.5 border border-[#B8E6CC]">
                     {(ord.status || 'Pago').toUpperCase()}
                   </span>
                 </div>

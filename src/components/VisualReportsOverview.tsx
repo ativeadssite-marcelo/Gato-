@@ -48,12 +48,12 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
   const [stockMetric, setStockMetric] = useState<'value' | 'units'>('value');
   const [highlightedBranch, setHighlightedBranch] = useState<string | null>(null);
 
-  // Cores institucionais sofisticadas para as filiais
+  // Cores da paleta de referência (Coral, Periwinkle, Sage, Peach) para as filiais
   const branchColors: Record<string, { main: string; light: string; gradient: string }> = {
-    'matriz-ms': { main: '#0284C7', light: '#E0F2FE', gradient: 'url(#gradMatriz)' },
-    'filial-sp': { main: '#0C4A6E', light: '#F0F9FF', gradient: 'url(#gradSP)' },
-    'filial-sc': { main: '#F59E0B', light: '#FEF3C7', gradient: 'url(#gradSC)' },
-    'filial-mt': { main: '#10B981', light: '#D1FAE5', gradient: 'url(#gradMT)' },
+    'matriz-ms': { main: '#529471', light: '#E6F4EC', gradient: 'url(#gradMatriz)' },
+    'filial-sp': { main: '#FB925A', light: '#FFF4ED', gradient: 'url(#gradSP)' },
+    'filial-sc': { main: '#6E7BF2', light: '#EEF0FF', gradient: 'url(#gradSC)' },
+    'filial-mt': { main: '#F97B72', light: '#FFF1EF', gradient: 'url(#gradMT)' },
   };
 
   // 1. CÁLCULO DE VENDAS POR FILIAL NOS ÚLTIMOS 30 DIAS
@@ -213,32 +213,32 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
   }, [stockGrowthData]);
 
   return (
-    <section className="bg-white rounded-lg p-5 sm:p-6 shadow-xs border border-slate-200 space-y-6">
-      {/* 1. CABEÇALHO DO RELATÓRIO COM FILTROS DE PERÍODO */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+    <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] border border-[#EAECF0] space-y-6">
+      {/* 1. CABEÇALHO DO RELATÓRIO COM FILTROS DE PERÍODO (ESTILO DA REFERÊNCIA) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#EAECF0]">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-sky-50 text-[#0284C7] text-[11px] font-bold border border-sky-200 mb-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[#F59E0B]" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EEF0FF] text-[#4A56C8] text-[11px] font-extrabold mb-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-[#6E7BF2]" />
             <span>Inteligência Visual de Gestão • Recharts Multi-CD</span>
           </div>
-          <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight font-['Outfit']">
+          <h2 className="text-lg sm:text-xl font-black text-[#1E232A] tracking-tight">
             Performance de Vendas por Filial & Crescimento de Estoque
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-[#475467]">
             Acompanhe o volume comercial expedido por cada Centro de Distribuição e a curva patrimonial do estoque.
           </p>
         </div>
 
-        {/* Seletor de Período Estilo Equilibrado */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-md self-start lg:self-auto border border-slate-300">
-          <Calendar className="w-3.5 h-3.5 text-slate-400 ml-2" />
+        {/* Seletor de Período Estilo Referência (Pílula Charcoal ativa) */}
+        <div className="flex items-center gap-1.5 bg-[#F6F7F9] p-1 rounded-2xl self-start lg:self-auto border border-[#EAECF0]">
+          <Calendar className="w-3.5 h-3.5 text-[#475467] ml-2" />
           <button
             type="button"
             onClick={() => setPeriod('7d')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               period === '7d'
-                ? 'bg-white text-slate-900 shadow-xs border-slate-300'
-                : 'text-slate-500 hover:text-slate-800 border-transparent'
+                ? 'bg-[#1E1E2D] text-white shadow-xs'
+                : 'text-[#475467] hover:text-[#1E232A]'
             }`}
           >
             7 Dias
@@ -246,10 +246,10 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
           <button
             type="button"
             onClick={() => setPeriod('15d')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               period === '15d'
-                ? 'bg-white text-slate-900 shadow-xs border-slate-300'
-                : 'text-slate-500 hover:text-slate-800 border-transparent'
+                ? 'bg-[#1E1E2D] text-white shadow-xs'
+                : 'text-[#475467] hover:text-[#1E232A]'
             }`}
           >
             15 Dias
@@ -257,10 +257,10 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
           <button
             type="button"
             onClick={() => setPeriod('30d')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               period === '30d'
-                ? 'bg-white text-slate-900 shadow-xs border-slate-300'
-                : 'text-slate-500 hover:text-slate-800 border-transparent'
+                ? 'bg-[#1E1E2D] text-white shadow-xs'
+                : 'text-[#475467] hover:text-[#1E232A]'
             }`}
           >
             30 Dias
@@ -268,107 +268,107 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
         </div>
       </div>
 
-      {/* 2. CARDS RESUMO DE MÉTRICAS EXECUTIVAS (ESTILO EQUILIBRADO) */}
+      {/* 2. CARDS RESUMO DE MÉTRICAS EXECUTIVAS (ESTILO EDITORIAL SOFT DA REFERÊNCIA) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Vendas Filiais */}
-        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 border-l-4 border-l-[#0284C7] flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="p-4 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0] flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[#475467] mb-1">
             <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1">
-              <DollarSign className="w-3.5 h-3.5 text-[#0284C7]" /> Vendas Totais ({period})
+              <DollarSign className="w-3.5 h-3.5 text-[#6E7BF2]" /> Vendas Totais ({period})
             </span>
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-sm border border-emerald-200 flex items-center gap-0.5">
+            <span className="text-[10px] font-extrabold text-[#216E4E] bg-[#E6F4EC] px-2 py-0.5 rounded-full flex items-center gap-0.5">
               <ArrowUpRight className="w-3 h-3" /> +16.8%
             </span>
           </div>
-          <div className="text-xl font-black text-slate-900 font-mono">
+          <div className="text-xl font-black text-[#1E232A] font-mono">
             R$ {totalSalesRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+          <div className="text-[11px] text-[#475467] mt-1 flex items-center justify-between">
             <span>{totalSalesOrders} pedidos faturados</span>
-            <span className="font-semibold text-slate-600">{branches.length} filiais ativas</span>
+            <span className="font-bold text-[#1E232A]">{branches.length} filiais ativas</span>
           </div>
         </div>
 
         {/* Filial Líder */}
-        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 border-l-4 border-l-[#0C4A6E] flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="p-4 rounded-2xl bg-[#EEF0FF] border border-[#D9DDFB] flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[#4A56C8] mb-1">
             <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5 text-[#0C4A6E]" /> Filial Líder ({leadingBranch?.uf})
+              <Building2 className="w-3.5 h-3.5 text-[#6E7BF2]" /> Filial Líder ({leadingBranch?.uf})
             </span>
-            <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded-sm border border-sky-200">
+            <span className="text-[10px] font-extrabold text-white bg-[#6E7BF2] px-2 py-0.5 rounded-full">
               {leadingBranch?.participacao}% share
             </span>
           </div>
-          <div className="text-lg font-black text-slate-900 truncate">
+          <div className="text-lg font-black text-[#1E232A] truncate">
             {leadingBranch?.name}
           </div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between font-mono">
+          <div className="text-[11px] text-[#475467] mt-1 flex items-center justify-between font-mono">
             <span>R$ {leadingBranch?.faturamento.toLocaleString('pt-BR')}</span>
-            <span className="text-sky-700 font-bold">{leadingBranch?.cdCode}</span>
+            <span className="text-[#4A56C8] font-bold">{leadingBranch?.cdCode}</span>
           </div>
         </div>
 
         {/* Estoque Atual */}
-        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 border-l-4 border-l-[#F59E0B] flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="p-4 rounded-2xl bg-[#FFF4ED] border border-[#FED7AA] flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[#C25E2E] mb-1">
             <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1">
-              <Boxes className="w-3.5 h-3.5 text-[#F59E0B]" /> Estoque Avaliado
+              <Boxes className="w-3.5 h-3.5 text-[#FB925A]" /> Estoque Avaliado
             </span>
-            <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-sm border border-amber-200">
+            <span className="text-[10px] font-extrabold text-white bg-[#FB925A] px-2 py-0.5 rounded-full">
               {stockGrowthMetrics.currentUnits.toLocaleString()} un
             </span>
           </div>
-          <div className="text-xl font-black text-slate-900 font-mono">
+          <div className="text-xl font-black text-[#1E232A] font-mono">
             R$ {stockGrowthMetrics.currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+          <div className="text-[11px] text-[#475467] mt-1 flex items-center justify-between">
             <span>Preço de venda / markup</span>
-            <span className="text-amber-600 font-bold">Giro contínuo</span>
+            <span className="text-[#C25E2E] font-bold">Giro contínuo</span>
           </div>
         </div>
 
         {/* Crescimento Líquido no Período */}
-        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 border-l-4 border-l-emerald-600 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="p-4 rounded-2xl bg-[#E6F4EC] border border-[#B8E6CC] flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[#216E4E] mb-1">
             <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" /> Expansão Estoque ({period})
+              <TrendingUp className="w-3.5 h-3.5 text-[#529471]" /> Expansão Estoque ({period})
             </span>
-            <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-sm border border-emerald-200 flex items-center gap-0.5">
+            <span className="text-[10px] font-extrabold text-white bg-[#529471] px-2 py-0.5 rounded-full flex items-center gap-0.5">
               <TrendingUp className="w-3 h-3" /> +{stockGrowthMetrics.percentValue}%
             </span>
           </div>
-          <div className="text-xl font-black text-emerald-700 font-mono">
+          <div className="text-xl font-black text-[#216E4E] font-mono">
             +R$ {stockGrowthMetrics.diffValue.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
           </div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+          <div className="text-[11px] text-[#475467] mt-1 flex items-center justify-between">
             <span>+{stockGrowthMetrics.diffUnits} un adicionadas</span>
-            <span className="text-emerald-600 font-semibold">Reposição XML</span>
+            <span className="text-[#216E4E] font-bold">Reposição XML</span>
           </div>
         </div>
       </div>
 
-      {/* 3. GRID PRINCIPAL COM OS DOIS GRÁFICOS RECHARTS (ESTILO EQUILIBRADO) */}
+      {/* 3. GRID PRINCIPAL COM OS DOIS GRÁFICOS RECHARTS (ESTILO DA REFERÊNCIA) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* GRÁFICO 1: VOLUME DE VENDAS POR FILIAL (BAR CHART RECHARTS) */}
-        <div className="lg:col-span-6 p-5 rounded-lg bg-white border border-slate-200 border-t-2 border-t-[#0284C7] shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-6 p-5 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0] flex flex-col justify-between">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#0284C7]" />
-                <h3 className="text-sm font-bold text-slate-800">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#6E7BF2]" />
+                <h3 className="text-sm font-extrabold text-[#1E232A]">
                   Volume de Vendas por Filial (Centro de Distribuição)
                 </h3>
               </div>
 
-              {/* Toggle de Métrica Estilo Equilibrado */}
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-md text-[10px] font-bold border border-slate-300">
+              {/* Toggle de Métrica (Pílula Periwinkle Blue como na referência) */}
+              <div className="flex items-center bg-white p-0.5 rounded-xl text-[10px] font-bold border border-[#EAECF0]">
                 <button
                   type="button"
                   onClick={() => setSalesMetric('revenue')}
-                  className={`px-2 py-1 rounded-md transition cursor-pointer border ${
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
                     salesMetric === 'revenue'
-                      ? 'bg-white text-[#0284C7] shadow-xs border-slate-300'
-                      : 'text-slate-500 hover:text-slate-800 border-transparent'
+                      ? 'bg-[#6E7BF2] text-white shadow-2xs'
+                      : 'text-[#475467] hover:text-[#1E232A]'
                   }`}
                 >
                   Faturamento (R$)
@@ -376,10 +376,10 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
                 <button
                   type="button"
                   onClick={() => setSalesMetric('orders')}
-                  className={`px-2 py-1 rounded-md transition cursor-pointer border ${
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
                     salesMetric === 'orders'
-                      ? 'bg-white text-[#0284C7] shadow-xs border-slate-300'
-                      : 'text-slate-500 hover:text-slate-800 border-transparent'
+                      ? 'bg-[#6E7BF2] text-white shadow-2xs'
+                      : 'text-[#475467] hover:text-[#1E232A]'
                   }`}
                 >
                   Pedidos (Qtd)
@@ -387,7 +387,7 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-500 mb-3">
+            <p className="text-[11px] text-[#475467] mb-3">
               Faturamento comercial faturado nas operações de balcão e despachos interestaduais.
             </p>
 
@@ -406,32 +406,32 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
                 >
                   <defs>
                     <linearGradient id="gradMatriz" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0284C7" stopOpacity={0.95} />
-                      <stop offset="100%" stopColor="#0369A1" stopOpacity={0.75} />
+                      <stop offset="0%" stopColor="#529471" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#448261" stopOpacity={0.85} />
                     </linearGradient>
                     <linearGradient id="gradSP" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0C4A6E" stopOpacity={0.95} />
-                      <stop offset="100%" stopColor="#075985" stopOpacity={0.75} />
+                      <stop offset="0%" stopColor="#FB925A" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#F97B72" stopOpacity={0.85} />
                     </linearGradient>
                     <linearGradient id="gradSC" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.95} />
-                      <stop offset="100%" stopColor="#D97706" stopOpacity={0.75} />
+                      <stop offset="0%" stopColor="#6E7BF2" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#5B68E6" stopOpacity={0.85} />
                     </linearGradient>
                     <linearGradient id="gradMT" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10B981" stopOpacity={0.95} />
-                      <stop offset="100%" stopColor="#059669" stopOpacity={0.75} />
+                      <stop offset="0%" stopColor="#F97B72" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#E86960" stopOpacity={0.85} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E7EC" />
                   <XAxis
                     dataKey="shortName"
-                    tick={{ fontSize: 11, fill: '#64748B', fontWeight: 600 }}
+                    tick={{ fontSize: 11, fill: '#475467', fontWeight: 600 }}
                     tickLine={false}
-                    axisLine={{ stroke: '#CBD5E1' }}
+                    axisLine={{ stroke: '#DCE0E8' }}
                     interval={0}
                   />
                   <YAxis
-                    tick={{ fontSize: 10, fill: '#64748B' }}
+                    tick={{ fontSize: 10, fill: '#475467' }}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(val) =>
@@ -441,37 +441,37 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
                     }
                   />
                   <Tooltip
-                    cursor={{ fill: '#F8FAFC' }}
+                    cursor={{ fill: '#EEF0FF' }}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-slate-900 text-white p-3 rounded-lg shadow-xl border border-slate-700 text-xs space-y-1.5 min-w-[200px]">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                              <span className="font-bold text-sky-400">{data.name}</span>
-                              <span className="font-mono text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-sm border border-sky-400/30">
+                          <div className="ref-card-charcoal p-3 rounded-2xl shadow-xl text-xs space-y-1.5 min-w-[200px]">
+                            <div className="flex items-center justify-between border-b border-white/15 pb-1.5">
+                              <span className="font-bold text-white">{data.name}</span>
+                              <span className="font-mono text-[10px] bg-white/15 text-white px-1.5 py-0.5 rounded-md">
                                 {data.cdCode}
                               </span>
                             </div>
                             <div className="flex items-center justify-between pt-0.5">
-                              <span className="text-slate-400">Faturamento:</span>
+                              <span className="text-white/75">Faturamento:</span>
                               <span className="font-mono font-bold text-white">
                                 R$ {data.faturamento.toLocaleString('pt-BR')}
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-slate-400">Pedidos Faturados:</span>
+                              <span className="text-white/75">Pedidos Faturados:</span>
                               <span className="font-mono font-bold text-white">{data.pedidos} pedidos</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-slate-400">Ticket Médio:</span>
-                              <span className="font-mono text-emerald-400 font-semibold">
+                              <span className="text-white/75">Ticket Médio:</span>
+                              <span className="font-mono text-white font-semibold">
                                 R$ {data.ticketMedio.toFixed(2)}
                               </span>
                             </div>
-                            <div className="flex items-center justify-between border-t border-slate-800 pt-1 text-[11px]">
-                              <span className="text-slate-400">Participação:</span>
-                              <span className="font-bold text-amber-400">{data.participacao}% do total</span>
+                            <div className="flex items-center justify-between border-t border-white/15 pt-1 text-[11px]">
+                              <span className="text-white/75">Participação:</span>
+                              <span className="font-bold text-white">{data.participacao}% do total</span>
                             </div>
                           </div>
                         );
@@ -481,8 +481,8 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
                   />
                   <Bar
                     dataKey={salesMetric === 'revenue' ? 'faturamento' : 'pedidos'}
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={56}
+                    radius={[8, 8, 0, 0]}
+                    maxBarSize={48}
                   >
                     {branchSalesData.map((entry) => (
                       <Cell
@@ -506,27 +506,26 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
           </div>
 
           {/* Legenda de Filiais Estilo Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-100 text-[11px]">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-[#EAECF0] text-[11px]">
             {branchSalesData.map((b) => (
               <div
                 key={b.id}
                 onMouseEnter={() => setHighlightedBranch(b.id)}
                 onMouseLeave={() => setHighlightedBranch(null)}
-                className={`p-2 rounded-md border transition cursor-pointer ${
+                className={`p-2 rounded-xl border transition cursor-pointer ${
                   highlightedBranch === b.id
-                    ? 'bg-sky-50 border-sky-400 border-l-4 border-l-[#0284C7]'
-                    : 'bg-slate-50/80 border-slate-200 hover:bg-slate-100 border-l-2'
+                    ? 'bg-white border-[#6E7BF2] shadow-xs'
+                    : 'bg-white border-[#EAECF0] hover:bg-[#F2F4F8]'
                 }`}
-                style={{ borderLeftColor: b.color }}
               >
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <span
-                    className="w-2 h-2 rounded-full shrink-0"
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: b.color }}
                   />
-                  <span className="font-bold text-slate-800 truncate">{b.shortName}</span>
+                  <span className="font-bold text-[#1E232A] truncate">{b.shortName}</span>
                 </div>
-                <div className="font-mono text-slate-600 font-semibold text-[10px]">
+                <div className="font-mono text-[#475467] font-semibold text-[10px]">
                   R$ {(b.faturamento / 1000).toFixed(0)}k ({b.participacao}%)
                 </div>
               </div>
@@ -534,26 +533,26 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
           </div>
         </div>
 
-        {/* GRÁFICO 2: CRESCIMENTO DE ESTOQUE NOS ÚLTIMOS 30 DIAS (AREA CHART RECHARTS) */}
-        <div className="lg:col-span-6 p-5 rounded-lg bg-white border border-slate-200 border-t-2 border-t-emerald-600 shadow-xs flex flex-col justify-between">
+        {/* GRÁFICO 2: CRESCIMENTO DE ESTOQUE NOS ÚLTIMOS 30 DIAS (CURVA CORAL-PEACH IGUAL À REFERÊNCIA) */}
+        <div className="lg:col-span-6 p-5 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0] flex flex-col justify-between">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <h3 className="text-sm font-bold text-slate-800">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F97B72] animate-pulse" />
+                <h3 className="text-sm font-extrabold text-[#1E232A]">
                   Crescimento de Estoque nos Últimos 30 Dias (Evolução Patrimonial)
                 </h3>
               </div>
 
               {/* Toggle de Métrica */}
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-md text-[10px] font-bold border border-slate-300">
+              <div className="flex items-center bg-white p-0.5 rounded-xl text-[10px] font-bold border border-[#EAECF0]">
                 <button
                   type="button"
                   onClick={() => setStockMetric('value')}
-                  className={`px-2 py-1 rounded-md transition cursor-pointer border ${
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
                     stockMetric === 'value'
-                      ? 'bg-white text-emerald-700 shadow-xs border-slate-300'
-                      : 'text-slate-500 hover:text-slate-800 border-transparent'
+                      ? 'bg-[#F97B72] text-white shadow-2xs'
+                      : 'text-[#475467] hover:text-[#1E232A]'
                   }`}
                 >
                   Valor (R$)
@@ -561,10 +560,10 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
                 <button
                   type="button"
                   onClick={() => setStockMetric('units')}
-                  className={`px-2 py-1 rounded-md transition cursor-pointer border ${
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
                     stockMetric === 'units'
-                      ? 'bg-white text-emerald-700 shadow-xs border-slate-300'
-                      : 'text-slate-500 hover:text-slate-800 border-transparent'
+                      ? 'bg-[#F97B72] text-white shadow-2xs'
+                      : 'text-[#475467] hover:text-[#1E232A]'
                   }`}
                 >
                   Unidades (Peças)
@@ -572,7 +571,7 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-500 mb-3">
+            <p className="text-[11px] text-[#475467] mb-3">
               Curva histórica de valorização do inventário após importações de XML de compra e giro diário de balcão.
             </p>
 
@@ -585,21 +584,21 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
                 >
                   <defs>
                     <linearGradient id="stockAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.45} />
-                      <stop offset="60%" stopColor="#059669" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#059669" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#F97B72" stopOpacity={0.35} />
+                      <stop offset="60%" stopColor="#FB925A" stopOpacity={0.12} />
+                      <stop offset="95%" stopColor="#FB925A" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E7EC" />
                   <XAxis
                     dataKey="dia"
-                    tick={{ fontSize: 10, fill: '#64748B' }}
+                    tick={{ fontSize: 10, fill: '#475467' }}
                     tickLine={false}
-                    axisLine={{ stroke: '#CBD5E1' }}
+                    axisLine={{ stroke: '#DCE0E8' }}
                     minTickGap={20}
                   />
                   <YAxis
-                    tick={{ fontSize: 10, fill: '#64748B' }}
+                    tick={{ fontSize: 10, fill: '#475467' }}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(val) =>
@@ -613,30 +612,30 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-slate-900 text-white p-3 rounded-lg shadow-xl border border-slate-700 text-xs space-y-1.5 min-w-[210px]">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                              <span className="font-bold text-emerald-400">Data: {data.diaFull}</span>
+                          <div className="ref-card-charcoal p-3 rounded-2xl shadow-xl text-xs space-y-1.5 min-w-[210px]">
+                            <div className="flex items-center justify-between border-b border-white/15 pb-1.5">
+                              <span className="font-bold text-white">Data: {data.diaFull}</span>
                               {data.evento && (
-                                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded-sm font-bold border border-emerald-400/30">
+                                <span className="text-[10px] bg-[#F97B72] text-white px-2 py-0.5 rounded-full font-bold">
                                   Entrada XML
                                 </span>
                               )}
                             </div>
                             <div className="flex items-center justify-between pt-0.5">
-                              <span className="text-slate-400">Patrimônio em Estoque:</span>
+                              <span className="text-white/75">Patrimônio em Estoque:</span>
                               <span className="font-mono font-bold text-white">
                                 R$ {data.valorEstoque.toLocaleString('pt-BR')}
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-slate-400">Unidades Físicas:</span>
+                              <span className="text-white/75">Unidades Físicas:</span>
                               <span className="font-mono font-bold text-white">
                                 {data.unidadesEstoque.toLocaleString()} peças
                               </span>
                             </div>
                             {data.evento && (
-                              <div className="text-[11px] text-amber-300 font-semibold pt-1 border-t border-slate-800 flex items-center gap-1">
-                                <Package className="w-3.5 h-3.5 text-amber-400" />
+                              <div className="text-[11px] text-white font-semibold pt-1 border-t border-white/15 flex items-center gap-1">
+                                <Package className="w-3.5 h-3.5 text-white" />
                                 <span>{data.evento}</span>
                               </div>
                             )}
@@ -649,12 +648,12 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
                   <Area
                     type="monotone"
                     dataKey={stockMetric === 'value' ? 'valorEstoque' : 'unidadesEstoque'}
-                    stroke="#10B981"
+                    stroke="#F97B72"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#stockAreaGrad)"
-                    dot={{ r: 2, fill: '#10B981' }}
-                    activeDot={{ r: 5, fill: '#059669', stroke: '#FFFFFF', strokeWidth: 2 }}
+                    dot={{ r: 2, fill: '#F97B72' }}
+                    activeDot={{ r: 5, fill: '#F97B72', stroke: '#FFFFFF', strokeWidth: 2 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -662,11 +661,11 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
           </div>
 
           {/* Destaque de Reposição e Giros de Estoque */}
-          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="pt-3 border-t border-[#EAECF0] flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span className="text-slate-600 font-medium">
-                Crescimento consolidado de <strong className="text-emerald-700 font-bold font-mono">+{stockGrowthMetrics.percentValue}%</strong> nos últimos 30 dias.
+              <span className="w-2.5 h-2.5 rounded-full bg-[#529471]" />
+              <span className="text-[#475467] font-medium">
+                Crescimento consolidado de <strong className="text-[#216E4E] font-bold font-mono">+{stockGrowthMetrics.percentValue}%</strong> nos últimos 30 dias.
               </span>
             </div>
 
@@ -674,7 +673,7 @@ export const VisualReportsOverview: React.FC<VisualReportsOverviewProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('estoque')}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0284C7] hover:text-[#0C4A6E] transition cursor-pointer"
+                className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#6E7BF2] hover:underline transition cursor-pointer"
               >
                 <span>Ver Matriz de Estoque Completa</span>
                 <ChevronRight className="w-3.5 h-3.5" />

@@ -462,46 +462,46 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
       </div>
 
       {/* GERENCIAMENTO DE EMPRESAS & SUPORTE */}
-      <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl text-white">
-        <div className="p-5 md:p-6 border-b border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="rounded-3xl bg-white border border-[#EAECF0] overflow-hidden shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] text-[#1E232A]">
+        <div className="p-5 md:p-6 border-b border-[#EAECF0] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-black text-white flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-purple-400" />
+            <h2 className="text-lg font-black text-[#1E232A] flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-[#6E7BF2]" />
               Gestão de Contratos de Empresas (Tenants)
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-[#475467]">
               Libere, suspenda ou configure o plano e acesso de cada empresa cliente contratante.
             </p>
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto">
             <div className="relative flex-1 md:w-64">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+              <Search className="w-4 h-4 text-[#475467] absolute left-3 top-2.5" />
               <input
                 type="text"
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 placeholder="Buscar empresa ou CNPJ..."
-                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="w-full pl-9 pr-3 py-2 bg-[#F6F7F9] border border-[#DCE0E8] rounded-xl text-xs text-[#1E232A] placeholder:text-[#7A8699] focus:outline-none focus:ring-2 focus:ring-[#6E7BF2]/20"
               />
             </div>
             <button
               type="button"
               onClick={() => setIsCadastroClienteOpen(true)}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-[#0284C7] hover:opacity-95 text-white font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/20 transition cursor-pointer shrink-0"
+              className="px-4 py-2 rounded-xl bg-[#F97B72] hover:bg-[#E86960] text-white font-extrabold text-xs flex items-center gap-2 shadow-sm transition cursor-pointer shrink-0"
               id="btn-cadastrar-novo-cliente-modal"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-4 h-4 text-white" />
               <span>+ Novo Cliente (Enviar Acesso)</span>
             </button>
 
             <button
               type="button"
               onClick={() => onNavigate('rbac')}
-              className="px-3.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
+              className="px-3.5 py-2 rounded-xl bg-[#1E1E2D] hover:bg-[#11111A] text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
             >
               <span>Ver Todos</span>
-              <ExternalLink className="w-3.5 h-3.5" />
+              <ExternalLink className="w-3.5 h-3.5 text-white" />
             </button>
           </div>
         </div>
@@ -509,7 +509,7 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
         {/* Tabela de Empresas & Contratos */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/60 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-800">
+            <thead className="bg-[#F6F7F9] text-[#475467] uppercase font-bold text-[10px] tracking-wider border-b border-[#EAECF0]">
               <tr>
                 <th className="px-5 py-3.5">Empresa / Cliente Contratante</th>
                 <th className="px-5 py-3.5">Documento / UF</th>
@@ -520,27 +520,27 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                 <th className="px-5 py-3.5 text-right">Ações de Governança</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-[#EAECF0]">
               {filteredTenants.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-5 py-8 text-center text-[#475467]">
                     Nenhuma empresa encontrada com o filtro informado.
                   </td>
                 </tr>
               ) : (
                 filteredTenants.map((tenant) => (
-                  <tr key={tenant.id} className="hover:bg-slate-800/30 transition">
+                  <tr key={tenant.id} className="hover:bg-[#F6F7F9] transition">
                     <td className="px-5 py-4">
-                      <div className="font-bold text-white text-sm">{tenant.tradeName || tenant.name}</div>
-                      <div className="text-[11px] text-slate-400">{tenant.name}</div>
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">ID: {tenant.id}</div>
+                      <div className="font-bold text-[#1E232A] text-sm">{tenant.tradeName || tenant.name}</div>
+                      <div className="text-[11px] text-[#475467]">{tenant.name}</div>
+                      <div className="text-[10px] text-[#667085] font-mono mt-0.5">ID: {tenant.id}</div>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="font-mono text-slate-300 text-[11px]">{tenant.cnpj || '—'}</div>
-                      <div className="text-slate-400 text-[11px]">{tenant.city} - {tenant.uf}</div>
+                      <div className="font-mono text-[#1E232A] font-semibold text-[11px]">{tenant.cnpj || '—'}</div>
+                      <div className="text-[#475467] text-[11px]">{tenant.city} - {tenant.uf}</div>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="inline-block px-2.5 py-1 rounded-lg text-[10px] font-black bg-purple-500/10 text-purple-300 border border-purple-500/30">
+                      <span className="inline-block px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-[#EEF0FF] text-[#4A56C8] border border-[#D9DDFB]">
                         {tenant.planName || 'GATO Autopeças'}
                       </span>
                     </td>
@@ -548,10 +548,10 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                       <button
                         type="button"
                         onClick={() => setSelectedFiscalTenant(tenant)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#F2F4F8] hover:bg-[#E4E7EC] text-[#1E232A] border border-[#DCE0E8] transition cursor-pointer"
                         title="Ver ou editar configuração fiscal deste contrato"
                       >
-                        <Scale className="w-3 h-3 text-sky-400" />
+                        <Scale className="w-3 h-3 text-[#6E7BF2]" />
                         <span>Homologar Fiscal</span>
                       </button>
                     </td>
@@ -559,20 +559,20 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                       <button
                         type="button"
                         onClick={() => setSelectedLgpdTenant(tenant)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#E6F4EC] hover:bg-[#D1F4E0] text-[#216E4E] border border-[#B8E6CC] transition cursor-pointer"
                         title="Visualizar ou assinar contrato de concessão e DPA LGPD"
                       >
-                        <Fingerprint className="w-3 h-3 text-emerald-400" />
+                        <Fingerprint className="w-3 h-3 text-[#216E4E]" />
                         <span>Contrato LGPD</span>
                       </button>
                     </td>
                     <td className="px-5 py-4">
                       {tenant.status === 'active' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-[#E6F4EC] text-[#216E4E] border border-[#B8E6CC]">
                           <CheckCircle2 className="w-3 h-3" /> Acesso Liberado
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-[#FFF1EF] text-[#C94A4A] border border-[#FCD4CF]">
                           <AlertTriangle className="w-3 h-3" /> Suspenso / Bloqueado
                         </span>
                       )}
@@ -583,7 +583,7 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                           type="button"
                           onClick={() => handleOpenResendClientInvite(tenant)}
                           disabled={isResendingTenantId === tenant.id}
-                          className="px-2.5 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          className="px-2.5 py-1.5 rounded-xl bg-[#EEF0FF] hover:bg-[#E0E4FF] text-[#4A56C8] border border-[#D9DDFB] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                           title="Enviar ou reenviar credenciais de acesso por e-mail para este cliente"
                         >
                           <Mail className={`w-3.5 h-3.5 ${isResendingTenantId === tenant.id ? 'animate-spin' : ''}`} />
@@ -594,8 +594,8 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                           onClick={() => handleToggleTenantStatus(tenant)}
                           className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                             tenant.status === 'active'
-                              ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                              : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              ? 'bg-[#FFF1EF] hover:bg-[#FEE4E2] text-[#C94A4A] border border-[#FCD4CF]'
+                              : 'bg-[#E6F4EC] hover:bg-[#D1F4E0] text-[#216E4E] border border-[#B8E6CC]'
                           }`}
                         >
                           {tenant.status === 'active' ? 'Suspender' : 'Liberar'}
@@ -603,7 +603,7 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                         <button
                           type="button"
                           onClick={() => setSelectedLgpdTenant(tenant)}
-                          className="px-2.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-200 border border-purple-500/40 text-xs font-bold transition cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-xl bg-[#1E1E2D] hover:bg-[#11111A] text-white text-xs font-bold transition cursor-pointer"
                           title="Abrir Contrato LGPD"
                         >
                           Contrato
@@ -619,22 +619,22 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
       </div>
 
       {/* PAINEL DE SOLICITAÇÕES DE TESTES DE 15 DIAS & SUPORTE DO LOGIN */}
-      <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl text-white">
-        <div className="p-5 md:p-6 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
+      <div className="rounded-3xl bg-white border border-[#EAECF0] overflow-hidden shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] text-[#1E232A]">
+        <div className="p-5 md:p-6 border-b border-[#EAECF0] flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-              <Sparkles className="w-5 h-5 fill-amber-400" />
+            <div className="w-10 h-10 rounded-2xl bg-[#FFF4ED] border border-[#FED7AA] flex items-center justify-center text-[#FB925A]">
+              <Sparkles className="w-5 h-5 fill-[#FB925A]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black text-white">
+                <h2 className="text-lg font-black text-[#1E232A]">
                   Solicitações de Testes de 15 Dias & Suporte (Login)
                 </h2>
-                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#FFF1EF] text-[#C94A4A] text-[10px] font-black uppercase">
                   {loginLeads.length} {loginLeads.length === 1 ? 'mensagem' : 'mensagens'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[#475467]">
                 Mensagens enviadas diretamente por empresas e visitantes através da tela de login para o Superadmin.
               </p>
             </div>
@@ -643,7 +643,7 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
           <button
             type="button"
             onClick={() => onNavigate('rbac')}
-            className="text-xs font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+            className="text-xs font-extrabold text-[#6E7BF2] hover:underline flex items-center gap-1 cursor-pointer"
           >
             Abrir Central RBAC & Mensagens <ArrowRight className="w-3.5 h-3.5" />
           </button>
@@ -651,10 +651,10 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
 
         <div className="p-5 md:p-6">
           {loginLeads.length === 0 ? (
-            <div className="text-center py-6 text-slate-400 text-xs space-y-1">
-              <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-              <p className="font-bold text-slate-300">Nenhuma nova solicitação pendente no momento.</p>
-              <p className="text-slate-500 text-[11px]">
+            <div className="text-center py-6 text-[#475467] text-xs space-y-1">
+              <MessageSquare className="w-8 h-8 text-[#98A2B3] mx-auto mb-2" />
+              <p className="font-bold text-[#1E232A]">Nenhuma nova solicitação pendente no momento.</p>
+              <p className="text-[#475467] text-[11px]">
                 Novas mensagens enviadas pelo botão de "Solicite Teste por 15 Dias" ou "Suporte" do login aparecerão aqui.
               </p>
             </div>
@@ -665,13 +665,13 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                 return (
                   <div
                     key={lead.protocol || idx}
-                    className="p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-amber-500/30 transition space-y-2.5"
+                    className="p-4 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0] hover:border-[#F97B72]/50 transition space-y-2.5"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] text-sky-400 font-bold">
+                      <span className="font-mono text-[10px] text-[#4A56C8] font-bold">
                         {lead.protocol || `SOL-${idx}`}
                       </span>
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[9px] font-black uppercase">
+                      <span className="px-2 py-0.5 rounded-full bg-[#FFF1EF] text-[#C94A4A] text-[9px] font-black uppercase">
                         {lead.requestType === 'teste_15_dias'
                           ? 'Teste 15 Dias'
                           : lead.requestType === 'suporte_login'
@@ -683,30 +683,30 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                     </div>
 
                     <div>
-                      <h4 className="font-extrabold text-sm text-white truncate">
+                      <h4 className="font-extrabold text-sm text-[#1E232A] truncate">
                         {lead.companyName}
                       </h4>
-                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                        <Users className="w-3 h-3 text-slate-500 shrink-0" />
+                      <p className="text-xs text-[#475467] flex items-center gap-1 mt-0.5">
+                        <Users className="w-3 h-3 text-[#475467] shrink-0" />
                         <span>{lead.contactName}</span>
                       </p>
                     </div>
 
                     {lead.cnpj && (
-                      <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
-                        <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
+                      <div className="text-[11px] text-[#475467] font-mono flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-[#475467] shrink-0" />
                         <span>{lead.cnpj}</span>
                       </div>
                     )}
 
                     {lead.message && (
-                      <p className="text-[11px] text-slate-300 bg-slate-900 p-2 rounded-xl border border-slate-800 italic line-clamp-2">
+                      <p className="text-[11px] text-[#1E232A] bg-white p-2 rounded-xl border border-[#EAECF0] italic line-clamp-2">
                         "{lead.message}"
                       </p>
                     )}
 
-                    <div className="pt-2 border-t border-slate-900 flex items-center justify-between text-xs gap-2">
-                      <span className="text-[10px] text-slate-500">
+                    <div className="pt-2 border-t border-[#EAECF0] flex items-center justify-between text-xs gap-2">
+                      <span className="text-[10px] text-[#475467]">
                         {new Date(lead.timestamp || Date.now()).toLocaleDateString('pt-BR')}
                       </span>
 
@@ -715,9 +715,9 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
                           href={`https://wa.me/55${phoneDigits}?text=Ol%C3%A1%20${encodeURIComponent(lead.contactName)},%20recebemos%20sua%20solicita%C3%A7%C3%A3o%20do%20GATO%20SaaS!`}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1 transition"
+                          className="px-2.5 py-1 rounded-lg bg-[#529471] hover:bg-[#448261] text-white text-[11px] font-bold flex items-center gap-1 transition"
                         >
-                          <Phone className="w-3 h-3" />
+                          <Phone className="w-3 h-3 text-white" />
                           <span>WhatsApp</span>
                         </a>
                       ) : null}
@@ -730,78 +730,78 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
         </div>
       </div>
 
-      {/* ATALHOS RÁPIDOS DE GOVERNANÇA DO SAAS */}
+      {/* ATALHOS RÁPIDOS DE GOVERNANÇA DO SAAS (Card Coral-Peach em destaque + Cards Brancos igual ao rodapé da referência) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
         <button
           type="button"
           onClick={() => onNavigate('planos-pacotes')}
-          className="p-4 rounded-2xl bg-gradient-to-b from-purple-950/60 to-slate-900 hover:bg-slate-800 border border-purple-500/40 hover:border-purple-400 text-left transition cursor-pointer group shadow-lg"
+          className="ref-card-peach p-4 rounded-2xl text-left transition cursor-pointer group hover:-translate-y-0.5"
         >
-          <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <Package className="w-4 h-4 text-purple-300" />
+          <div className="w-9 h-9 rounded-xl bg-white/25 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <Package className="w-4 h-4 text-white" />
           </div>
-          <h3 className="font-bold text-white text-xs">Pacotes & Preços</h3>
-          <p className="text-[11px] text-purple-200/80 mt-0.5">Cadastrar pacotes, valores e limites de itens/clientes.</p>
+          <h3 className="font-extrabold text-white text-xs">Pacotes & Preços</h3>
+          <p className="text-[11px] text-white/90 mt-0.5">Cadastrar pacotes, valores e limites de itens/clientes.</p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('conectores')}
-          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <Cable className="w-4 h-4 text-purple-400" />
+          <div className="w-9 h-9 rounded-xl bg-[#EEF0FF] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <Cable className="w-4 h-4 text-[#6E7BF2]" />
           </div>
-          <h3 className="font-bold text-white text-xs">Conectores do SaaS</h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">Gateways de MRR, SEFAZ infra e catálogo.</p>
+          <h3 className="font-extrabold text-[#1E232A] text-xs">Conectores do SaaS</h3>
+          <p className="text-[11px] text-[#475467] mt-0.5">Gateways de MRR, SEFAZ infra e catálogo.</p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('financeiro-saas')}
-          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <DollarSign className="w-4 h-4 text-emerald-400" />
+          <div className="w-9 h-9 rounded-xl bg-[#E6F4EC] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <DollarSign className="w-4 h-4 text-[#529471]" />
           </div>
-          <h3 className="font-bold text-white text-xs">Contratos & MRR</h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">Assinaturas, faturas e cobrança recorrente.</p>
+          <h3 className="font-extrabold text-[#1E232A] text-xs">Contratos & MRR</h3>
+          <p className="text-[11px] text-[#475467] mt-0.5">Assinaturas, faturas e cobrança recorrente.</p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('camadas-acesso')}
-          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <Layers className="w-4 h-4 text-indigo-400" />
+          <div className="w-9 h-9 rounded-xl bg-[#EEF0FF] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <Layers className="w-4 h-4 text-[#6E7BF2]" />
           </div>
-          <h3 className="font-bold text-white text-xs">Matriz das 3 Camadas</h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">Isolamento de privilégios e permissões.</p>
+          <h3 className="font-extrabold text-[#1E232A] text-xs">Matriz das 3 Camadas</h3>
+          <p className="text-[11px] text-[#475467] mt-0.5">Isolamento de privilégios e permissões.</p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('chaves')}
-          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <KeyRound className="w-4 h-4 text-amber-400" />
+          <div className="w-9 h-9 rounded-xl bg-[#FFF1EF] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <KeyRound className="w-4 h-4 text-[#F97B72]" />
           </div>
-          <h3 className="font-bold text-white text-xs">Chaves & Licenças</h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">Licenças de máquina e tokens de API.</p>
+          <h3 className="font-extrabold text-[#1E232A] text-xs">Chaves & Licenças</h3>
+          <p className="text-[11px] text-[#475467] mt-0.5">Licenças de máquina e tokens de API.</p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('banco-dados')}
-          className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 text-left transition cursor-pointer group"
+          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <Database className="w-4 h-4 text-blue-400" />
+          <div className="w-9 h-9 rounded-xl bg-[#E6F4EC] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
+            <Database className="w-4 h-4 text-[#529471]" />
           </div>
-          <h3 className="font-bold text-white text-xs">Banco de Dados & Infra</h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">Conexões Postgres e diagnóstico.</p>
+          <h3 className="font-extrabold text-[#1E232A] text-xs">Banco de Dados & Infra</h3>
+          <p className="text-[11px] text-[#475467] mt-0.5">Conexões Postgres e diagnóstico.</p>
         </button>
       </div>
 
