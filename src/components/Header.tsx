@@ -142,244 +142,102 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#EAECF0] shadow-[0_2px_12px_-2px_rgba(16,24,40,0.04)]" id="gato-app-header">
+    <header className="sticky top-0 z-30 bg-white border-b border-[#EBEBEA]" id="gato-app-header">
       <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-10 h-16 flex items-center justify-between gap-4">
-        {/* Left: Mobile Toggle & Brand */}
-        <div className="flex items-center gap-3">
+        {/* Left: Mobile Toggle, Brand & Whale Loans Style Ticker */}
+        <div className="flex items-center gap-4">
           <button
             type="button"
             id="mobile-menu-btn"
             onClick={onToggleMobileMenu}
-            className="lg:hidden p-2 rounded-xl bg-[#F6F7F9] border border-[#EAECF0] text-[#1E232A] hover:bg-[#EAECF0] transition"
+            className="lg:hidden p-2 rounded-lg bg-[#F4F4F3] border border-[#E5E5E4] text-[#14151B] hover:bg-[#E7E7E6] transition"
             aria-label="Abrir Menu"
           >
-            <Menu className="w-5 h-5 text-[#1E232A]" />
+            <Menu className="w-5 h-5 text-[#14151B]" />
           </button>
 
-          <div className="cursor-pointer" onClick={() => onNavigate('dashboard')}>
+          <div className="cursor-pointer lg:hidden" onClick={() => onNavigate('dashboard')}>
             <GatoBrand 
               size="md" 
               variant="light"
-              showSubtitle={true} 
+              showSubtitle={false} 
               customLogoUrl={companyProfile?.logoUrl}
               tradeName={companyProfile?.tradeName}
             />
           </div>
 
-          {/* Destaque do Nome Fantasia da Empresa Cadastrada */}
-          {companyProfile && (
-            <button
-              type="button"
-              id="header-company-trade-name-btn"
-              onClick={() => onNavigate('empresa-filiais')}
-              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] text-[#1E232A] transition cursor-pointer text-left group"
-              title="Clique para gerenciar dados da Empresa & Baixar Logotipo"
-            >
-              <div className="w-6 h-6 rounded-full overflow-hidden bg-[#D1F4E0] text-[#216E4E] flex items-center justify-center group-hover:scale-105 transition shrink-0">
-                {companyProfile.logoUrl ? (
-                  <img src={companyProfile.logoUrl} alt="Logo" className="w-full h-full object-contain" />
-                ) : (
-                  <Store className="w-3.5 h-3.5" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-extrabold text-[#1E232A] truncate max-w-[150px] xl:max-w-[210px]">
-                    {companyProfile.tradeName}
-                  </span>
-                  {companyProfile.isTrial && (
-                    <span className="text-[9px] font-extrabold bg-[#F97B72] text-white px-1.5 py-0.5 rounded-full uppercase shrink-0">
-                      {companyProfile.trialDaysRemaining}d Teste
-                    </span>
-                  )}
-                </div>
-                <span className="text-[10px] font-medium text-[#475467] block truncate">
-                  {companyProfile.segment || 'Autopeças'}
-                </span>
-              </div>
-            </button>
-          )}
+          {/* Whale Loans Left Ticker Pill (e.g. "⊙ 1 HUMP = $3.43") */}
+          <button
+            type="button"
+            id="header-company-trade-name-btn"
+            onClick={() => onNavigate('empresa-filiais')}
+            className="flex items-center gap-2 text-xs font-semibold text-[#14151B] hover:opacity-80 transition cursor-pointer"
+            title="Clique para gerenciar dados da Empresa & Filiais"
+          >
+            <span className="w-5 h-5 rounded-full border border-[#14151B] flex items-center justify-center text-[10px] font-bold text-[#14151B] shrink-0">
+              ⊙
+            </span>
+            <span className="truncate max-w-[180px] sm:max-w-[280px] tracking-tight">
+              {companyProfile?.tradeName || 'GATO SaaS'} = <span className="font-bold">{activeBranch.isMatriz ? 'Matriz Ativa' : activeBranch.name}</span>
+            </span>
+            {companyProfile?.isTrial && (
+              <span className="text-[10px] font-bold bg-[#14151B] text-white px-2 py-0.5 rounded-md">
+                {companyProfile.trialDaysRemaining}d Trial
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Right: Loja Matriz, Bell, and User Profile */}
-        <div className="flex items-center space-x-2 sm:space-x-4">
-          {/* Loja Matriz: 🛒 Loja Matriz ▾ */}
+        {/* Right: Whale Loans "Connect Wallet" Solid Obsidian Button + Square Icon Button */}
+        <div className="flex items-center space-x-2.5">
+          {/* Branch Switcher (Clean Monochrome Pill) */}
           <button
             type="button"
             id="header-branch-cd-selector"
             onClick={onOpenTrocaFilial}
-            className="flex items-center gap-1.5 py-1.5 px-3 rounded-2xl bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] text-[#1E232A] transition cursor-pointer text-xs font-bold"
+            className="hidden sm:flex items-center gap-1.5 py-2 px-3.5 rounded-lg bg-[#F4F4F3] hover:bg-[#E7E7E6] border border-[#E5E5E4] text-[#14151B] transition cursor-pointer text-xs font-semibold"
             title="Alternar Loja / Filial"
           >
-            <ShoppingCart className="w-4 h-4 text-[#529471] shrink-0" />
-            <span className="hidden sm:inline">
+            <Store className="w-3.5 h-3.5 text-[#14151B] shrink-0" />
+            <span>
               {activeBranch.isMatriz ? 'Loja Matriz' : activeBranch.name}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#475467] shrink-0" />
+            <ChevronDown className="w-3.5 h-3.5 text-[#71717A] shrink-0" />
           </button>
 
-          {/* Notifications Trigger */}
-          <div className="relative">
-            <button
-              type="button"
-              id="notifications-toggle-btn"
-              onClick={() => setShowNotifs(!showNotifs)}
-              className="relative p-2 rounded-2xl bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] text-[#1E232A] transition focus:outline-none cursor-pointer"
-              aria-label="Notificações"
-            >
-              <Bell className="w-5 h-5 text-[#1E232A]" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#F97B72] rounded-full ring-2 ring-white" />
-              )}
-            </button>
-
-            {/* Notifications Dropdown Panel */}
-            {showNotifs && (
-              <div 
-                id="notifications-dropdown-menu"
-                className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-sky-100 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
-              >
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-1.5">
-                    <Bell className="w-4 h-4 text-amber-500" />
-                    <span className="text-xs font-bold text-slate-900">Avisos e Notificações Push</span>
-                  </div>
-                  <span className="text-[11px] text-sky-700 font-medium">
-                    {unreadCount} pendente{unreadCount === 1 ? '' : 's'}
-                  </span>
-                </div>
-
-                <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 my-1">
-                  {notifications.map((notif) => (
-                    <div 
-                      key={notif.id} 
-                      className={`py-2.5 px-2 flex items-start gap-2.5 transition rounded-lg ${notif.read ? 'opacity-60 bg-transparent' : 'bg-sky-50/60'}`}
-                    >
-                      <div className="mt-0.5 shrink-0">
-                        {notif.type === 'critical' || notif.type === 'warning' ? (
-                          <AlertTriangle className="w-4 h-4 text-amber-500" />
-                        ) : notif.type === 'success' ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        ) : (
-                          <Info className="w-4 h-4 text-sky-600" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-slate-900 truncate">{notif.title}</p>
-                          <span className="text-[10px] text-slate-400 whitespace-nowrap">{notif.timestamp}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">{notif.message}</p>
-                        {!notif.read && (
-                          <button
-                            type="button"
-                            onClick={() => onMarkNotificationRead(notif.id)}
-                            className="text-[10px] font-semibold text-sky-700 hover:text-sky-900 mt-1"
-                          >
-                            Marcar como lida
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                  <button 
-                    type="button" 
-                    onClick={() => notifications.forEach(n => onMarkNotificationRead(n.id))}
-                    className="text-sky-700 hover:underline font-medium"
-                  >
-                    Limpar todas
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => { setShowNotifs(false); onNavigate('configuracoes'); }}
-                    className="text-slate-500 hover:text-slate-800"
-                  >
-                    Configurar alertas
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* User Profile matching screenshot */}
+          {/* Primary Solid Obsidian Action Button (Matches "Connect Wallet" in reference) */}
           <div className="relative flex items-center gap-2" ref={userMenuRef}>
-            {!userSession && (
+            {!userSession ? (
               <button
                 type="button"
                 id="header-btn-direct-login"
                 onClick={onOpenLogin}
-                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#0C4A6E] to-[#0284C7] hover:opacity-95 text-white font-extrabold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                className="px-5 py-2 rounded-lg bg-[#14151B] hover:bg-[#272935] text-white font-semibold text-xs transition flex items-center gap-2 cursor-pointer"
                 title="Acessar Sistema com Senha / 3 Camadas"
               >
-                <User className="w-3.5 h-3.5" />
-                <span>Entrar</span>
+                <span>Conectar Conta</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                id="header-user-session-btn"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="px-4 py-2 rounded-lg bg-[#14151B] hover:bg-[#272935] text-white font-semibold text-xs transition flex items-center gap-2 cursor-pointer"
+                title={`${userSession.name} (${userSession.roleLabel})`}
+              >
+                <span className="w-2 h-2 rounded-full bg-[#DDF2E8] shrink-0" />
+                <span className="font-mono tracking-tight">
+                  {userSession.name?.split(' ')[0] || 'Admin'} • {userSession.roleLabel?.split(' ')[0] || 'SaaS'}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0" />
               </button>
             )}
 
-            <button
-              type="button"
-              id="header-user-session-btn"
-              onClick={() => {
-                if (!userSession) {
-                  onOpenLogin();
-                } else {
-                  setShowUserMenu(!showUserMenu);
-                }
-              }}
-              className="flex items-center gap-2 pl-1 sm:pl-2 hover:opacity-90 transition cursor-pointer text-left"
-              title={userSession ? `${userSession.name} (${userSession.roleLabel})` : 'Clique para Fazer Login'}
-            >
-              <div className="relative group/avatar shrink-0">
-                {userSession?.avatarUrl ? (
-                  <img 
-                    src={userSession.avatarUrl} 
-                    alt={userSession.name || 'Usuário'} 
-                    className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0 ring-2 ring-orange-500/20" 
-                  />
-                ) : userSession ? (
-                  <div className="w-8 h-8 rounded-full bg-[#0C4A6E] text-white flex items-center justify-center font-black text-xs border border-slate-200 shadow-2xs shrink-0">
-                    {userSession.avatarInitials}
-                  </div>
-                ) : (
-                  <img 
-                    src={marceloAvatar} 
-                    alt="Visitante" 
-                    className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0" 
-                  />
-                )}
-                {userSession && onOpenEditProfilePhoto && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowUserMenu(false);
-                      onOpenEditProfilePhoto();
-                    }}
-                    title="Trocar Foto do Perfil"
-                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-orange-600 hover:bg-orange-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition shadow-xs cursor-pointer"
-                  >
-                    <Camera className="w-2.5 h-2.5" />
-                  </span>
-                )}
-              </div>
-              <div className="hidden sm:block leading-tight text-left">
-                <p className="text-xs font-bold text-slate-900 leading-tight">
-                  {userSession?.name?.split(' ')[0] || 'Visitante'}
-                </p>
-                <p className="text-[10px] text-slate-500 font-normal leading-tight">
-                  {userSession?.roleLabel || 'Entrar no Sistema'}
-                </p>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            </button>
-
             {/* Dropdown Menu when clicked */}
             {showUserMenu && userSession && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-[#EBEBEF] p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 {/* User Identity Header */}
-                <div className="p-2.5 bg-sky-50/80 rounded-xl border border-sky-100 flex items-center gap-3 mb-2">
+                <div className="p-2.5 bg-[#F6F6F5] rounded-lg border border-[#EBEBEA] flex items-center gap-3 mb-2">
                   <div className="relative group/menuavatar shrink-0">
                     {userSession.avatarUrl ? (
                       <img 
@@ -566,6 +424,85 @@ export const Header: React.FC<HeaderProps> = ({
                       <span>Encerrar Sessão (Sair)</span>
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Whale Loans Right Square Soft-Gray Icon Button (Notifications) */}
+          <div className="relative">
+            <button
+              type="button"
+              id="notifications-toggle-btn"
+              onClick={() => setShowNotifs(!showNotifs)}
+              className="relative p-2 rounded-lg bg-[#F4F4F3] hover:bg-[#E7E7E6] border border-[#E5E5E4] text-[#14151B] transition focus:outline-none cursor-pointer"
+              aria-label="Notificações"
+            >
+              <Bell className="w-4 h-4 text-[#14151B]" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#14151B] rounded-full ring-2 ring-white" />
+              )}
+            </button>
+
+            {showNotifs && (
+              <div 
+                id="notifications-dropdown-menu"
+                className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-[#EBEBEF] p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+              >
+                <div className="flex items-center justify-between pb-2 border-b border-[#F1F1F3]">
+                  <div className="flex items-center gap-1.5">
+                    <Bell className="w-4 h-4 text-[#14151B]" />
+                    <span className="text-xs font-bold text-[#14151B]">Avisos e Notificações</span>
+                  </div>
+                  <span className="text-[11px] text-[#71717A] font-medium">
+                    {unreadCount} pendente{unreadCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto divide-y divide-[#F1F1F3] my-1">
+                  {notifications.map((notif) => (
+                    <div 
+                      key={notif.id} 
+                      className={`py-2.5 px-2 flex items-start gap-2.5 transition rounded-lg ${notif.read ? 'opacity-60 bg-transparent' : 'bg-[#F6F6F5]'}`}
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        <Info className="w-4 h-4 text-[#14151B]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-[#14151B] truncate">{notif.title}</p>
+                          <span className="text-[10px] text-[#71717A] whitespace-nowrap">{notif.timestamp}</span>
+                        </div>
+                        <p className="text-[11px] text-[#71717A] mt-0.5 leading-snug">{notif.message}</p>
+                        {!notif.read && (
+                          <button
+                            type="button"
+                            onClick={() => onMarkNotificationRead(notif.id)}
+                            className="text-[10px] font-semibold text-[#14151B] hover:underline mt-1"
+                          >
+                            Marcar como lida
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-[#F1F1F3] flex items-center justify-between text-[11px]">
+                  <button 
+                    type="button" 
+                    onClick={() => notifications.forEach(n => onMarkNotificationRead(n.id))}
+                    className="text-[#14151B] hover:underline font-semibold"
+                  >
+                    Limpar todas
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => { setShowNotifs(false); onNavigate('configuracoes'); }}
+                    className="text-[#71717A] hover:text-[#14151B]"
+                  >
+                    Configurar alertas
+                  </button>
                 </div>
               </div>
             )}

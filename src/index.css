@@ -5,143 +5,226 @@
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 14px;
-  --radius-2xl: 18px;
-  --radius-3xl: 22px;
-  --radius-4xl: 26px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+  --radius-3xl: 16px;
+  --radius-4xl: 20px;
   --radius-full: 9999px;
-  --radius: 14px;
+  --radius: 10px;
 
   /* =========================================================================
-     PALETA DE REFERÊNCIA (EDITORIAL SOFT DASHBOARD)
-     Canvas: #F2F4F8 | Card: #FFFFFF | Surface 2: #F6F7F9 | Border: #EAECF0
-     Accents: Coral (#F97B72), Terracotta (#FB925A), Sage (#529471),
-              Soft Blue (#6E7BF2), Charcoal (#1E1E2D)
+     UI/UX PRO MAX — WHALE LOANS MINIMALIST MONOCHROME & OBSIDIAN DESIGN SYSTEM
+     Canvas: #FFFFFF | Sidebar/Muted: #F6F6F5 | Obsidian Card: #14151B
+     Mint Badge: #DDF2E8 | Border: #EBEBEF | Text: #14151B / #71717A
      ========================================================================= */
-  --color-ref-canvas: #F2F4F8;
-  --color-ref-card: #FFFFFF;
-  --color-ref-subtle: #F6F7F9;
-  --color-ref-border: #EAECF0;
-  --color-ref-coral: #F97B72;
-  --color-ref-peach: #FB925A;
-  --color-ref-sage: #529471;
-  --color-ref-blue: #6E7BF2;
-  --color-ref-charcoal: #1E1E2D;
-  --color-ref-text-main: #1E232A;
-  --color-ref-text-body: #475467;
+  --color-whale-canvas: #FFFFFF;
+  --color-whale-sidebar: #F6F6F5;
+  --color-whale-muted: #F4F4F5;
+  --color-whale-obsidian: #14151B;
+  --color-whale-obsidian-soft: #1E2029;
+  --color-whale-mint: #DDF2E8;
+  --color-whale-border: #EBEBEF;
+  --color-whale-text: #14151B;
+  --color-whale-subtext: #71717A;
 }
 
 [role="dialog"],
 .modal-container {
-  border-radius: 18px;
+  border-radius: 14px;
 }
 
 /* =========================================================================
-   BASE DO DOCUMENTO — CANVAS #F2F4F8 COM CARDS BRANCOS FLUTUANTES
+   BASE DO DOCUMENTO — FUNDO BRANCO PURO (#FFFFFF) & TIPOGRAFIA #14151B
    ========================================================================= */
 
 html,
 body {
   overflow-x: hidden;
   scrollbar-gutter: stable;
-  background-color: #F2F4F8 !important;
-  color: #1E232A !important;
+  background-color: #FFFFFF !important;
+  color: #14151B !important;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 /* =========================================================================
-   CARDS E PAINÉIS PRINCIPAIS — BRANCO PURO (#FFFFFF) COM SOMBRA SUAVE
+   SISTEMA DUAL-CONTRAST (CARDS BRANCOS LIMPOS + CARDS OBSIDIAN #14151B)
    ========================================================================= */
 
-main [class*="bg-slate-900"]:not(.ref-card-charcoal),
-main [class*="bg-slate-950"]:not(.ref-card-charcoal),
-[role="dialog"] [class*="bg-slate-900"]:not(.ref-card-charcoal),
-[role="dialog"] [class*="bg-slate-950"]:not(.ref-card-charcoal),
-.fixed [class*="bg-slate-900"]:not(.ref-card-charcoal),
-.fixed [class*="bg-slate-950"]:not(.ref-card-charcoal) {
+.whale-card-light {
   background-color: #FFFFFF !important;
-  background-image: none !important;
-  color: #1E232A !important;
-  border-color: #EAECF0 !important;
-  box-shadow: 0 4px 20px -2px rgba(16, 24, 40, 0.05) !important;
+  border: 1px solid #EBEBEF !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03) !important;
+  color: #14151B !important;
 }
 
-/* Superfícies internas secundárias (antigo slate-800 / slate-700) -> #F6F7F9 */
-main [class*="bg-slate-800"]:not(.ref-card-charcoal),
-[role="dialog"] [class*="bg-slate-800"]:not(.ref-card-charcoal),
-.fixed [class*="bg-slate-800"]:not(.ref-card-charcoal) {
-  background-color: #F6F7F9 !important;
+.whale-card-obsidian,
+.ref-card-charcoal,
+.ref-banner-coral {
+  background-color: #14151B !important;
   background-image: none !important;
-  color: #1E232A !important;
+  border: 1px solid #1E2029 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 10px 30px rgba(20, 21, 27, 0.14) !important;
+  color: #FFFFFF !important;
+}
+
+.ref-card-sage,
+.ref-card-peach,
+.ref-card-blue {
+  background-color: #14151B !important;
+  background-image: none !important;
+  border: 1px solid #23252F !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 24px rgba(20, 21, 27, 0.12) !important;
+  color: #FFFFFF !important;
+}
+
+.whale-card-obsidian *,
+.ref-card-charcoal *,
+.ref-banner-coral *,
+.ref-card-sage *,
+.ref-card-peach *,
+.ref-card-blue * {
+  color: #FFFFFF !important;
+}
+
+.whale-badge-mint {
+  background-color: #DDF2E8 !important;
+  color: #14151B !important;
+}
+
+.whale-badge-mint * {
+  color: #14151B !important;
+}
+
+/* =========================================================================
+   CONVERSÃO GLOBAL DE PAINÉIS LEGADOS PARA O ESTILO WHALE LOANS
+   ========================================================================= */
+
+main [class*="bg-slate-900"]:not(.whale-card-obsidian):not(.ref-card-charcoal),
+main [class*="bg-slate-950"]:not(.whale-card-obsidian):not(.ref-card-charcoal),
+[role="dialog"] [class*="bg-slate-900"]:not(.whale-card-obsidian),
+[role="dialog"] [class*="bg-slate-950"]:not(.whale-card-obsidian),
+.fixed [class*="bg-slate-900"]:not(.whale-card-obsidian),
+.fixed [class*="bg-slate-950"]:not(.whale-card-obsidian) {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+  color: #14151B !important;
+  border-color: #EBEBEF !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.03) !important;
+}
+
+main [class*="bg-slate-800"]:not(.whale-card-obsidian),
+[role="dialog"] [class*="bg-slate-800"]:not(.whale-card-obsidian),
+.fixed [class*="bg-slate-800"]:not(.whale-card-obsidian) {
+  background-color: #F6F6F5 !important;
+  background-image: none !important;
+  color: #14151B !important;
 }
 
 main [class*="bg-slate-700"],
 [role="dialog"] [class*="bg-slate-700"] {
-  background-color: #ECEEF2 !important;
-  color: #1E232A !important;
-}
-
-main button[class*="bg-slate-800"]:hover,
-main [class*="hover:bg-slate-800"]:hover,
-main [class*="hover:bg-slate-700"]:hover {
-  background-color: #E6E9EF !important;
-  color: #111827 !important;
+  background-color: #EBEBEA !important;
+  color: #14151B !important;
 }
 
 /* =========================================================================
-   CLASSES UTILITÁRIAS DO ESTILO DE REFERÊNCIA (CARDS COLORIDOS E ESCUROS)
+   TABELAS ESTILO "BOND (4,4)" — CABEÇALHO OBSIDIAN (#14151B) E LINHAS BRANCAS
    ========================================================================= */
 
-.ref-banner-coral {
-  background: linear-gradient(135deg, #F97B72 0%, #FB925A 100%) !important;
+main table thead,
+[role="dialog"] table thead {
+  background-color: #14151B !important;
   color: #FFFFFF !important;
+  border-bottom: none !important;
+}
+
+main table thead th,
+[role="dialog"] table thead th {
+  background-color: #14151B !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
   border: none !important;
-  box-shadow: 0 10px 25px -5px rgba(249, 123, 114, 0.35) !important;
 }
 
-.ref-card-sage {
-  background: linear-gradient(145deg, #529471 0%, #448261 100%) !important;
+main table thead th:first-child {
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+main table thead th:last-child {
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+main table tbody tr {
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #F1F1F3 !important;
+  transition: background-color 0.15s ease;
+}
+
+main table tbody tr:hover {
+  background-color: #FAFAFA !important;
+}
+
+/* =========================================================================
+   BOTÕES — PRIMÁRIO OBSIDIAN (#14151B) & SECUNDÁRIO OUTLINED (#FFFFFF)
+   ========================================================================= */
+
+.whale-btn-primary,
+:is(button, a)[class*="bg-orange-500"]:not([class*="/"]),
+:is(button, a)[class*="bg-orange-600"]:not([class*="/"]),
+:is(button, a)[class*="bg-purple-500"]:not([class*="/"]),
+:is(button, a)[class*="bg-purple-600"]:not([class*="/"]),
+:is(button, a)[class*="bg-indigo-600"]:not([class*="/"]),
+:is(button, a)[class*="bg-violet-600"]:not([class*="/"]),
+:is(button, a)[class*="from-orange-"],
+:is(button, a)[class*="from-purple-"],
+:is(button, a)[class*="from-indigo-"],
+:is(button, a)[class*="from-[#0C4A6E]"] {
+  background-color: #14151B !important;
+  background-image: none !important;
+  border: 1px solid #14151B !important;
   color: #FFFFFF !important;
-  border: none !important;
-  box-shadow: 0 8px 20px -4px rgba(82, 148, 113, 0.3) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
 }
 
-.ref-card-peach {
-  background: linear-gradient(145deg, #FB925A 0%, #F97B72 100%) !important;
+.whale-btn-primary:hover,
+:is(button, a)[class*="bg-orange-600"]:not([class*="/"]):hover,
+:is(button, a)[class*="bg-purple-600"]:not([class*="/"]):hover,
+:is(button, a)[class*="from-orange-"]:hover,
+:is(button, a)[class*="from-purple-"]:hover {
+  background-color: #272935 !important;
+  border-color: #272935 !important;
+}
+
+.whale-btn-outline {
+  background-color: #FFFFFF !important;
+  border: 1px solid #14151B !important;
+  color: #14151B !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  transition: all 0.15s ease;
+}
+
+.whale-btn-outline:hover {
+  background-color: #14151B !important;
   color: #FFFFFF !important;
-  border: none !important;
-  box-shadow: 0 8px 20px -4px rgba(251, 146, 90, 0.3) !important;
 }
 
-.ref-card-blue {
-  background: linear-gradient(145deg, #6E7BF2 0%, #5B68E6 100%) !important;
-  color: #FFFFFF !important;
-  border: none !important;
-  box-shadow: 0 8px 20px -4px rgba(110, 123, 242, 0.3) !important;
-}
-
-.ref-card-charcoal {
-  background: linear-gradient(145deg, #232333 0%, #181824 100%) !important;
-  color: #FFFFFF !important;
-  border: 1px solid #2E2E42 !important;
-  box-shadow: 0 8px 20px -4px rgba(24, 24, 36, 0.25) !important;
-}
-
-.ref-banner-coral *,
-.ref-card-sage *,
-.ref-card-peach *,
-.ref-card-blue *,
-.ref-card-charcoal * {
+.whale-btn-outline:hover * {
   color: #FFFFFF !important;
 }
 
 /* =========================================================================
-   HARMONIZAÇÃO DE TONS LEGADOS PARA A PALETA DE REFERÊNCIA
+   HARMONIZAÇÃO DE CORES E BORDAS PARA MONOCROMÁTICO LIMPO
    ========================================================================= */
 
-/* Fundos translúcidos legados viram pílulas suaves do estilo de referência */
 [class*="bg-purple-950"],
 [class*="bg-purple-900"],
 [class*="bg-purple-500/"],
@@ -151,57 +234,19 @@ main [class*="hover:bg-slate-700"]:hover {
 [class*="bg-violet-500/"],
 [class*="bg-indigo-950"],
 [class*="bg-indigo-900"],
-[class*="bg-indigo-500/"] {
-  background-color: #EEF0FF !important;
-  background-image: none !important;
-  color: #3E4AB8 !important;
-}
-
-/* Botões sólidos roxos/índigo viram o Azul Periwinkle (#6E7BF2) ou Coral (#F97B72) da referência */
-:is(button, a, span)[class*="bg-purple-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-purple-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-violet-600"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-indigo-600"]:not([class*="/"]),
-:is(button, a, span)[class*="from-purple-"],
-:is(button, a, span)[class*="from-indigo-"] {
-  background-color: #6E7BF2 !important;
-  background-image: none !important;
-  border-color: #5B68E6 !important;
-  color: #FFFFFF !important;
-}
-
-:is(button, a, span)[class*="bg-orange-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-orange-600"]:not([class*="/"]),
-:is(button, a, span)[class*="from-orange-"] {
-  background-color: #F97B72 !important;
-  background-image: linear-gradient(135deg, #F97B72 0%, #FB925A 100%) !important;
-  border-color: #F97B72 !important;
-  color: #FFFFFF !important;
-}
-
-:is(button, a, span)[class*="bg-emerald-500"]:not([class*="/"]),
-:is(button, a, span)[class*="bg-emerald-600"]:not([class*="/"]),
-:is(button, a, span)[class*="from-emerald-"] {
-  background-color: #529471 !important;
-  background-image: none !important;
-  border-color: #448261 !important;
-  color: #FFFFFF !important;
-}
-
-/* Containers com gradiente escuro legado viram superfície clara */
-div[class*="via-purple-"]:not(.ref-banner-coral),
-div[class*="from-purple-"]:not(.ref-banner-coral),
+[class*="bg-indigo-500/"],
+div[class*="via-purple-"]:not(.whale-card-obsidian),
+div[class*="from-purple-"]:not(.whale-card-obsidian),
 div[class*="from-sky-950"],
 div[class*="from-emerald-950"],
 div[class*="from-amber-950"],
 div[class*="from-slate-900"],
 div[class*="to-slate-900"] {
-  background-color: #FFFFFF !important;
+  background-color: #F7F7F8 !important;
   background-image: none !important;
-  color: #1E232A !important;
+  color: #14151B !important;
 }
 
-/* Bordas suaves como na referência (#EAECF0 / #DCE0E8) */
 main [class*="border-slate-800"],
 main [class*="border-slate-900"],
 main [class*="border-slate-700"],
@@ -210,38 +255,52 @@ main [class*="border-slate-700"],
 [class*="border-purple-"],
 [class*="border-violet-"],
 [class*="border-indigo-"] {
-  border-color: #EAECF0 !important;
+  border-color: #EBEBEF !important;
 }
 
 main [class*="divide-slate-800"] > :not([hidden]) ~ :not([hidden]),
 main [class*="divide-slate-700"] > :not([hidden]) ~ :not([hidden]) {
-  border-color: #EAECF0 !important;
+  border-color: #F1F1F3 !important;
 }
 
 /* =========================================================================
-   TIPOGRAFIA DE ALTO CONTRASTE (LETRAS FÁCEIS DE VER)
+   TIPOGRAFIA DE ALTO CONTRASTE (#14151B / #52525B / #71717A)
    ========================================================================= */
 
-main [class*="text-white"]:not(.ref-banner-coral *):not(.ref-card-sage *):not(.ref-card-peach *):not(.ref-card-blue *):not(.ref-card-charcoal *),
-[role="dialog"] [class*="text-white"] {
-  color: #1E232A !important;
+main [class*="text-white"]:not(.whale-card-obsidian *):not(.ref-card-charcoal *):not(.ref-banner-coral *):not(.ref-card-sage *):not(.ref-card-peach *):not(.ref-card-blue *):not(thead *):not(button *),
+[role="dialog"] [class*="text-white"]:not(button *):not(thead *) {
+  color: #14151B !important;
 }
 
 [class*="text-slate-100"],
 [class*="text-slate-200"],
 [class*="text-slate-300"] {
-  color: #2B323B !important;
+  color: #27272A !important;
 }
 
 [class*="text-slate-400"],
 [class*="text-slate-500"] {
-  color: #475467 !important;
+  color: #71717A !important;
+}
+
+[class*="text-purple-200"],
+[class*="text-purple-300"],
+[class*="text-purple-400"],
+[class*="text-indigo-200"],
+[class*="text-indigo-300"],
+[class*="text-indigo-400"],
+[class*="text-violet-300"],
+[class*="text-violet-400"],
+[class*="text-sky-200"],
+[class*="text-sky-300"],
+[class*="text-sky-400"] {
+  color: #14151B !important;
 }
 
 [class*="text-emerald-200"],
 [class*="text-emerald-300"],
 [class*="text-emerald-400"] {
-  color: #2E6F4E !important;
+  color: #15803D !important;
 }
 
 [class*="text-amber-200"],
@@ -250,101 +309,81 @@ main [class*="text-white"]:not(.ref-banner-coral *):not(.ref-card-sage *):not(.r
 [class*="text-orange-200"],
 [class*="text-orange-300"],
 [class*="text-orange-400"] {
-  color: #C25E2E !important;
+  color: #B45309 !important;
 }
 
 [class*="text-rose-200"],
 [class*="text-rose-300"],
 [class*="text-rose-400"] {
-  color: #C94A4A !important;
+  color: #BE123C !important;
 }
 
-[class*="text-sky-200"],
-[class*="text-sky-300"],
-[class*="text-sky-400"],
-[class*="text-purple-200"],
-[class*="text-purple-300"],
-[class*="text-purple-400"],
-[class*="text-indigo-200"],
-[class*="text-indigo-300"],
-[class*="text-indigo-400"] {
-  color: #4A56C8 !important;
-}
-
-/* Garante texto branco nítido dentro de botões sólidos */
+/* Mantém branco dentro de botões escuros/coloridos e cabeçalhos de tabela */
+.whale-btn-primary *,
+:is(button, a, span)[class*="bg-[#14151B]"] *,
+:is(button, a, span)[class*="bg-[#1E1E2D]"] *,
 :is(button, a, span)[class*="bg-orange-500"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-orange-600"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-emerald-500"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-emerald-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-sky-500"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-sky-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-blue-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-rose-600"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-purple-500"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-purple-600"]:not([class*="/"]) *,
 :is(button, a, span)[class*="bg-indigo-600"]:not([class*="/"]) *,
-:is(button, a, span)[class*="bg-[#EA580C]"] *,
-:is(button, a, span)[class*="bg-[#0C4A6E]"] *,
-:is(button, a, span)[class*="bg-[#0284C7]"] *,
-:is(button, a, span)[class*="bg-[#1E1E2D]"] *,
-:is(button, a, span)[class*="bg-[#F97B72]"] *,
-:is(button, a, span)[class*="bg-[#529471]"] *,
-:is(button, a, span)[class*="bg-[#6E7BF2]"] *,
 :is(button, a, span)[class*="from-orange-"] *,
 :is(button, a, span)[class*="from-purple-"] *,
 :is(button, a, span)[class*="from-indigo-"] *,
-:is(button, a, span)[class*="from-sky-"] * {
+:is(button, a, span)[class*="from-[#0C4A6E]"] * {
   color: #FFFFFF !important;
 }
 
 /* =========================================================================
-   INPUTS, SELECTS E TEXTAREAS — ESTILO SOFT PILL / CARD DA REFERÊNCIA
+   INPUTS E SELECTS — ESTILO MINIMALISTA WHALE LOANS
    ========================================================================= */
 
 :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
-  background-color: #F6F7F9 !important;
-  border: 1px solid #DCE0E8 !important;
-  color: #1E232A !important;
+  background-color: #F7F7F8 !important;
+  border: 1px solid #E4E4E7 !important;
+  color: #14151B !important;
+  border-radius: 8px !important;
   font-weight: 500;
 }
 
 :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):focus {
   background-color: #FFFFFF !important;
-  border-color: #6E7BF2 !important;
-  box-shadow: 0 0 0 3px rgba(110, 123, 242, 0.15) !important;
+  border-color: #14151B !important;
+  box-shadow: 0 0 0 2px rgba(20, 21, 27, 0.08) !important;
   outline: none !important;
 }
 
 :is(input, select, textarea)::placeholder {
-  color: #7A8699 !important;
+  color: #A1A1AA !important;
   opacity: 1;
 }
 
 /* =========================================================================
-   SCROLLBARS SUAVES
+   SCROLLBARS MINIMALISTAS
    ========================================================================= */
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F2F4F8;
-  border-radius: 6px;
+  background: #F6F6F5;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CFD5E0;
-  border-radius: 6px;
-  border: 2px solid #F2F4F8;
+  background: #D4D4D8;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #98A2B3;
+  background: #A1A1AA;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #CFD5E0 #F2F4F8;
+  scrollbar-color: #D4D4D8 #F6F6F5;
 }

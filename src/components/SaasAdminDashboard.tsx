@@ -19,14 +19,9 @@ import {
   Info,
   RefreshCw,
   Search,
-  UserCheck,
-  UserX,
-  FileText,
   Scale,
   Fingerprint,
   Package,
-  Box,
-  Sliders,
   MessageSquare,
   Phone,
   Mail,
@@ -99,6 +94,7 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
       setIsResendingTenantId(null);
     }
   };
+
   const [loginLeads, setLoginLeads] = useState<any[]>(() => {
     if (typeof localStorage !== 'undefined') {
       try {
@@ -142,16 +138,19 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
   }, []);
 
   const metrics = useMemo(() => {
-    const priceOf = (planId: string) => plans.find((p) => p.id === planId)?.priceMonthly ?? (planId.includes('enterprise') ? 499 : planId.includes('pro') ? 299 : 149);
+    const priceOf = (planId: string) =>
+      plans.find((p) => p.id === planId)?.priceMonthly ??
+      (planId.includes('enterprise') ? 499 : planId.includes('pro') ? 299 : 149);
 
     const activeSubs = subscriptions.filter((s) => s.status === 'active');
-    const mrr = activeSubs.reduce((acc, s) => acc + priceOf(s.planId), 0) || (tenants.length * 249.90);
+    const mrr = activeSubs.reduce((acc, s) => acc + priceOf(s.planId), 0) || tenants.length * 249.9;
     const arr = mrr * 12;
 
     const totalTenants = tenants.length;
-    const activeTenants = tenants.filter(t => t.status === 'active').length;
-    const trialTenants = subscriptions.filter(s => s.status === 'trial').length || Math.max(1, totalTenants - activeTenants);
-    const suspendedTenants = tenants.filter(t => t.status === 'suspended').length;
+    const activeTenants = tenants.filter((t) => t.status === 'active').length;
+    const trialTenants =
+      subscriptions.filter((s) => s.status === 'trial').length || Math.max(1, totalTenants - activeTenants);
+    const suspendedTenants = tenants.filter((t) => t.status === 'suspended').length;
 
     return {
       mrr,
@@ -183,19 +182,14 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      setTenants((prev) =>
-        prev.map((t) => (t.id === tenant.id ? { ...t, status: newStatus } : t))
-      );
+      setTenants((prev) => prev.map((t) => (t.id === tenant.id ? { ...t, status: newStatus } : t)));
       onShowNotification?.(
         'Status Atualizado',
         `Empresa ${tenant.tradeName || tenant.name} agora está ${newStatus === 'active' ? 'Ativa' : 'Suspensa'}.`,
         newStatus === 'active' ? 'success' : 'warning'
       );
     } catch {
-      // Local fallback para preview
-      setTenants((prev) =>
-        prev.map((t) => (t.id === tenant.id ? { ...t, status: newStatus } : t))
-      );
+      setTenants((prev) => prev.map((t) => (t.id === tenant.id ? { ...t, status: newStatus } : t)));
       onShowNotification?.(
         'Status Atualizado (Modo Demonstração)',
         `Empresa ${tenant.tradeName || tenant.name} alternada para ${newStatus === 'active' ? 'Ativa' : 'Suspensa'}.`,
@@ -205,408 +199,304 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-12 font-['Plus_Jakarta_Sans'] animate-in fade-in duration-300">
-      {/* HEADER PRINCIPAL — CAMADA 1: DONO DO SAAS (ESTILO DE REFERÊNCIA) */}
-      <div className="bg-white rounded-3xl p-6 md:p-7 border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-[#1E232A]">
-              Painel Central de Gestão do SaaS
-            </h1>
-            <p className="text-xs sm:text-sm text-[#475467] mt-0.5">
-              Gestão global de planos de assinatura, contratos de clientes, liberação de acesso e suporte técnico.
-            </p>
+    <div className="space-y-8 max-w-6xl mx-auto pb-12 font-['Plus_Jakarta_Sans'] animate-in fade-in duration-300 text-[#14151B]">
+      {/* TOP HEADER ROW + DARK OBSIDIAN EARNINGS PILL (Whale Loans Reference Layout) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#14151B]">
+            Governança SaaS (Camada 1)
+          </h1>
+          <p className="text-xs text-[#71717A] mt-1 flex items-center gap-1.5">
+            <span>◷</span>
+            <span>Sincronização multi-tenant em tempo real • Isolamento LGPD ativo</span>
+          </p>
+        </div>
+
+        {/* Right: Dark Obsidian Earnings Pill Card */}
+        <div className="whale-card-obsidian px-6 py-4 rounded-xl flex items-center justify-between gap-8 min-w-[290px] sm:min-w-[340px]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0">
+              <DollarSign className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl sm:text-2xl font-bold text-white font-mono tracking-tight">
+              R$ {metrics.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
-          <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F97B72] text-white text-xs font-extrabold uppercase tracking-wider shadow-xs">
-            <ShieldCheck className="w-4 h-4 text-white" />
-            Camada 1 — Super Admin
+          <span className="text-xs text-[#9CA3AF] font-medium whitespace-nowrap">
+            Receita Mensal / MRR
           </span>
         </div>
-
-        {/* Banner Coral-Peach igual ao topo da imagem de referência */}
-        <div className="ref-banner-coral rounded-2xl p-5 md:p-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
-            <div className="space-y-1.5">
-              <span className="inline-block px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-extrabold uppercase tracking-wider">
-                Receita Recorrente Ativa (MRR)
-              </span>
-              <div className="text-2xl md:text-3xl font-black text-white font-mono">
-                R$ {metrics.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <p className="text-xs text-white/90 max-w-2xl leading-relaxed">
-                Isolamento total LGPD & Multi-Tenant: os catálogos, estoques e faturamento comercial dos clientes permanecem 100% isolados em cada contrato.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => onNavigate('planos-pacotes')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1E1E2D] hover:bg-[#11111A] text-white font-extrabold text-xs shadow-sm transition cursor-pointer"
-              >
-                <Package className="w-4 h-4 text-white" />
-                Pacotes & Preços
-              </button>
-              <button
-                type="button"
-                onClick={() => onNavigate('conectores')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6E7BF2] hover:bg-[#5B68E6] text-white font-extrabold text-xs shadow-sm transition cursor-pointer"
-              >
-                <Cable className="w-4 h-4 text-white" />
-                Conectores do SaaS
-              </button>
-              <button
-                type="button"
-                onClick={() => onNavigate('financeiro-saas')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#529471] hover:bg-[#448261] text-white font-extrabold text-xs shadow-sm transition cursor-pointer"
-              >
-                <DollarSign className="w-4 h-4 text-white" />
-                Contratos & Assinaturas
-              </button>
-              <button
-                type="button"
-                onClick={() => onNavigate('rbac')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition cursor-pointer"
-              >
-                <Building2 className="w-4 h-4 text-white" />
-                Empresas & Suporte
-              </button>
-              <button
-                type="button"
-                onClick={() => onNavigate('certificados')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition cursor-pointer"
-              >
-                <FolderLock className="w-4 h-4 text-white" />
-                Cofre de Certificados (A1/A3)
-              </button>
-              <button
-                type="button"
-                onClick={loadData}
-                disabled={loading}
-                className="p-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white transition cursor-pointer disabled:opacity-50"
-                title="Recarregar Métricas"
-              >
-                <RefreshCw className={`w-4 h-4 text-white ${loading ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* METRICAS PRINCIPAIS DO SAAS — CARDS COLORIDOS DA REFERÊNCIA */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* MRR — Sage Green (#529471) */}
-        <div className="ref-card-sage p-5 rounded-3xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-white/90">MRR (Assinaturas)</span>
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-              <DollarSign className="w-4 h-4 text-white" />
-            </div>
+      {/* TWO-COLUMN SPLIT: LEFT WHITE CARD (Segmented Tabs + Obsidian CTA + 5 Summary Rows) & RIGHT OBSIDIAN STACKED KPI CARD */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        {/* Left Column (6 cols): Light White Action & Summary Card */}
+        <div className="lg:col-span-6 whale-card-light p-6 flex flex-col justify-between space-y-5">
+          {/* Segmented Gray Tab Header ("STAKE / UNSTAKE" style) */}
+          <div className="grid grid-cols-2 bg-[#F4F4F5] p-1 rounded-lg">
+            <button
+              type="button"
+              onClick={() => onNavigate('planos-pacotes')}
+              className="py-2 text-xs font-bold uppercase tracking-wider rounded-md bg-white text-[#14151B] shadow-2xs transition cursor-pointer"
+            >
+              GESTÃO DE PLANOS
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('conectores')}
+              className="py-2 text-xs font-bold uppercase tracking-wider rounded-md text-[#71717A] hover:text-[#14151B] transition cursor-pointer"
+            >
+              CONECTORES & API
+            </button>
           </div>
-          <div className="text-2xl font-black text-white font-mono">
-            R$ {metrics.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <p className="text-[11px] text-white/85 mt-1">
-            Receita Recorrente Mensal de contratos
-          </p>
-        </div>
 
-        {/* Empresas Ativas — Coral Peach (#FB925A) */}
-        <div className="ref-card-peach p-5 rounded-3xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-white/90">Empresas Clientes</span>
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
+          {/* Search / Quick Input Box with MAX-style button */}
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Filtrar empresa por Nome, Fantasia ou CNPJ..."
+              className="w-full pl-3.5 pr-20 py-3 bg-[#F6F6F5] border border-[#E4E4E7] rounded-lg text-xs text-[#14151B] placeholder:text-[#71717A] focus:outline-none focus:border-[#14151B]"
+            />
+            <button
+              type="button"
+              onClick={loadData}
+              className="absolute right-2 px-2.5 py-1 rounded bg-white border border-[#E4E4E7] text-[10px] font-bold uppercase text-[#14151B] hover:bg-[#F4F4F5] transition cursor-pointer"
+            >
+              {loading ? '...' : 'ATUALIZAR'}
+            </button>
           </div>
-          <div className="text-2xl font-black text-white font-mono">
-            {metrics.totalTenants} empresas
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-white mt-1 font-bold">
-            <span>{metrics.activeTenants} ativas</span>
-            <span>•</span>
-            <span>{metrics.trialTenants} em teste</span>
-          </div>
-        </div>
 
-        {/* Contratos Vigentes — Periwinkle Blue (#6E7BF2) */}
-        <div className="ref-card-blue p-5 rounded-3xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-white/90">Contratos SaaS</span>
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-              <CreditCard className="w-4 h-4 text-white" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-white font-mono">
-            {subscriptions.length || metrics.totalTenants} assinaturas
-          </div>
-          <p className="text-[11px] text-white/85 mt-1">
-            ARR estimado: R$ {(metrics.arr).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-        </div>
-
-        {/* Status Infra & Segurança — Charcoal Dark (#1E1E2D) */}
-        <div className="ref-card-charcoal p-5 rounded-3xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-white/90">Status do Sistema</span>
-            <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4 text-white" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-white flex items-center gap-2">
-            100% Online
-          </div>
-          <p className="text-[11px] text-white/80 mt-1">
-            Isolamento multi-tenant ativo & seguro
-          </p>
-        </div>
-      </div>
-
-      {/* ARQUITETURA VISUAL DAS 3 CAMADAS DE ACESSO */}
-      <div className="rounded-3xl bg-white border border-[#EAECF0] p-6 md:p-8 text-[#1E232A] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)]">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-          <div>
-            <h2 className="text-lg font-black text-[#1E232A] flex items-center gap-2">
-              <Layers className="w-5 h-5 text-[#F97B72]" />
-              Hierarquia das 3 Camadas de Acesso
-            </h2>
-            <p className="text-xs text-[#475467]">
-              Separação estrita de responsabilidades entre o dono do software, a empresa assinante e os colaboradores.
-            </p>
-          </div>
+          {/* Full-Width Solid Obsidian CTA Button ("Stake HUMP" style) */}
           <button
             type="button"
-            onClick={() => onNavigate('camadas-acesso')}
-            className="text-xs font-extrabold text-[#6E7BF2] hover:underline flex items-center gap-1 cursor-pointer"
+            onClick={() => setIsCadastroClienteOpen(true)}
+            id="btn-cadastrar-novo-cliente-modal"
+            className="w-full py-3.5 rounded-lg bg-[#14151B] hover:bg-[#272935] text-white font-semibold text-xs tracking-wide transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
           >
-            Configurar Permissões das Camadas <ArrowRight className="w-3.5 h-3.5" />
+            <UserPlus className="w-4 h-4 text-white" />
+            <span>Cadastrar Novo Cliente & Enviar Acesso</span>
           </button>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* CAMADA 1 */}
-          <div className="p-5 rounded-2xl bg-[#F6F7F9] border-2 border-[#F97B72]/50 relative overflow-hidden">
-            <div className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#F97B72] text-white">
-              Você está aqui
+          {/* 5 Clean Key-Value Summary Rows below CTA */}
+          <div className="pt-2 space-y-2.5 text-xs border-t border-[#F1F1F3]">
+            <div className="flex items-center justify-between">
+              <span className="text-[#71717A]">Empresas Clientes Cadastradas:</span>
+              <span className="font-bold text-[#14151B] font-mono">{metrics.totalTenants} empresas</span>
             </div>
-            <div className="flex items-center gap-2 text-[#C25E2E] font-extrabold text-xs uppercase mb-1">
-              <span>Camada 1</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[#71717A]">Contratos com Acesso Liberado:</span>
+              <span className="font-bold text-[#14151B] font-mono">{metrics.activeTenants} ativos</span>
             </div>
-            <h3 className="text-base font-black text-[#1E232A] mb-2">ADMIN (Dono do SaaS)</h3>
-            <p className="text-xs text-[#475467] mb-3 leading-relaxed">
-              Gerencia a plataforma, contratos de assinaturas, planos, liberação e suspensão de contas e suporte ao sistema.
-            </p>
-            <div className="p-3 rounded-xl bg-white border border-[#EAECF0] text-[11px] space-y-1.5">
-              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Gestão de Planos & Assinaturas
-              </div>
-              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Suporte & Liberação de Clientes
-              </div>
-              <div className="flex items-center gap-1.5 font-bold text-[#C94A4A]">
-                <Lock className="w-3.5 h-3.5" /> Catálogo de Clientes 100% Oculto ao Admin
-              </div>
-              <div className="flex items-center gap-1.5 font-medium text-[#475467]">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#6E7BF2]" /> Dados 100% Segregados por Contrato (LGPD)
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[#71717A]">Contas em Período de Teste (Trial):</span>
+              <span className="font-bold text-[#14151B] font-mono">{metrics.trialTenants} em avaliação</span>
             </div>
-          </div>
-
-          {/* CAMADA 2 */}
-          <div className="p-5 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0]">
-            <div className="flex items-center gap-2 text-[#4A56C8] font-extrabold text-xs uppercase mb-1">
-              <span>Camada 2</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[#71717A]">Contas Suspensas / Bloqueadas:</span>
+              <span className="font-bold text-[#14151B] font-mono">{metrics.suspendedTenants} suspensas</span>
             </div>
-            <h3 className="text-base font-black text-[#1E232A] mb-2">EMPRESA / CLIENTE (Quem Assina)</h3>
-            <p className="text-xs text-[#475467] mb-3 leading-relaxed">
-              Painel do cliente contratante: gerencia o próprio produto, colaboradores, permissões da equipe, filiais e faturamento da loja.
-            </p>
-            <div className="p-3 rounded-xl bg-white border border-[#EAECF0] text-[11px] space-y-1.5">
-              <div className="flex items-center gap-1.5 font-bold text-[#4A56C8]">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Catálogo Próprio & Gestão de Estoque
-              </div>
-              <div className="flex items-center gap-1.5 font-bold text-[#4A56C8]">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Faturamento, Vendas & Contas Privadas
-              </div>
-              <div className="flex items-center gap-1.5 font-medium text-[#475467]">
-                <Lock className="w-3.5 h-3.5 text-[#2E6F4E]" /> Banco de Dados Isolado e Exclusivo do Contrato
-              </div>
-              <div className="flex items-center gap-1.5 font-bold text-[#4A56C8]">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Gestão de Faturas da Assinatura
-              </div>
-            </div>
-          </div>
-
-          {/* CAMADA 3 */}
-          <div className="p-5 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0]">
-            <div className="flex items-center gap-2 text-[#2E6F4E] font-extrabold text-xs uppercase mb-1">
-              <span>Camada 3</span>
-            </div>
-            <h3 className="text-base font-black text-[#1E232A] mb-2">USUÁRIOS / COLABORADORES</h3>
-            <p className="text-xs text-[#475467] mb-3 leading-relaxed">
-              Operadores da empresa: utilizam o sistema no balcão e no dia a dia estritamente conforme as permissões delegadas pela empresa.
-            </p>
-            <div className="p-3 rounded-xl bg-white border border-[#EAECF0] text-[11px] space-y-1.5">
-              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Balcão de Vendas & Cotações
-              </div>
-              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
-                <CheckCircle2 className="w-3.5 h-3.5" /> PDV Caixa & Emissão de NF-e
-              </div>
-              <div className="flex items-center gap-1.5 font-bold text-[#2E6F4E]">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Separação de Estoque & Balcão
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[#71717A]">Isolamento Multi-Tenant (LGPD):</span>
+              <span className="font-bold text-[#14151B] font-mono">100% Segregado</span>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* GERENCIAMENTO DE EMPRESAS & SUPORTE */}
-      <div className="rounded-3xl bg-white border border-[#EAECF0] overflow-hidden shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] text-[#1E232A]">
-        <div className="p-5 md:p-6 border-b border-[#EAECF0] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-black text-[#1E232A] flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-[#6E7BF2]" />
-              Gestão de Contratos de Empresas (Tenants)
-            </h2>
-            <p className="text-xs text-[#475467]">
-              Libere, suspenda ou configure o plano e acesso de cada empresa cliente contratante.
-            </p>
+        {/* Right Column (6 cols): Dark Obsidian Stacked Metrics Card (3 Rows + Mint Arrow Badge) */}
+        <div className="lg:col-span-6 whale-card-obsidian p-6 sm:p-7 rounded-xl flex flex-col justify-between divide-y divide-white/10">
+          {/* Row 1: APY / ARR */}
+          <div className="pb-5 flex items-center justify-between">
+            <div>
+              <span className="text-xs text-[#9CA3AF] font-medium block">
+                Receita Anual Projetada (ARR)
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold text-white mt-1 font-mono tracking-tight">
+                R$ {metrics.arr.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-bold shrink-0">
+              %
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
-              <Search className="w-4 h-4 text-[#475467] absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                placeholder="Buscar empresa ou CNPJ..."
-                className="w-full pl-9 pr-3 py-2 bg-[#F6F7F9] border border-[#DCE0E8] rounded-xl text-xs text-[#1E232A] placeholder:text-[#7A8699] focus:outline-none focus:ring-2 focus:ring-[#6E7BF2]/20"
-              />
+          {/* Row 2: Total Value Deposited + Mint-Sage Circular Badge (#DDF2E8 with ↗) */}
+          <div className="py-5 flex items-center justify-between">
+            <div>
+              <span className="text-xs text-[#9CA3AF] font-medium block">
+                Contratos SaaS Vigentes
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold text-white mt-1 font-mono tracking-tight">
+                {subscriptions.length || metrics.totalTenants} Assinaturas
+              </div>
             </div>
             <button
               type="button"
-              onClick={() => setIsCadastroClienteOpen(true)}
-              className="px-4 py-2 rounded-xl bg-[#F97B72] hover:bg-[#E86960] text-white font-extrabold text-xs flex items-center gap-2 shadow-sm transition cursor-pointer shrink-0"
-              id="btn-cadastrar-novo-cliente-modal"
+              onClick={() => onNavigate('financeiro-saas')}
+              title="Abrir Contratos & Assinaturas"
+              className="whale-badge-mint w-9 h-9 rounded-full bg-[#DDF2E8] text-[#14151B] flex items-center justify-center font-bold text-sm hover:scale-105 transition cursor-pointer shrink-0"
             >
-              <UserPlus className="w-4 h-4 text-white" />
-              <span>+ Novo Cliente (Enviar Acesso)</span>
+              ↗
             </button>
+          </div>
 
+          {/* Row 3: Current Index / Infra Status */}
+          <div className="pt-5 flex items-center justify-between">
+            <div>
+              <span className="text-xs text-[#9CA3AF] font-medium block">
+                Índice de Disponibilidade & Cofre Fiscal
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold text-white mt-1 font-mono tracking-tight">
+                100% SEFAZ
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('certificados')}
+              title="Abrir Cofre de Certificados"
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition cursor-pointer shrink-0"
+            >
+              <TrendingUp className="w-4 h-4 text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* BOND (4,4) STYLE TABLE SECTION: GESTÃO DE CONTRATOS DE EMPRESAS */}
+      <div className="whale-card-light p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-[#14151B]">
+              Contratos & Empresas ({filteredTenants.length})
+            </h2>
+            <p className="text-xs text-[#71717A] mt-0.5">
+              Receita Mensal Ativa: <span className="font-bold text-[#14151B] font-mono">R$ {metrics.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onNavigate('camadas-acesso')}
+              className="whale-btn-outline px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+            >
+              3 Camadas RBAC
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('chaves')}
+              className="whale-btn-outline px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+            >
+              Chaves & Licenças
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('banco-dados')}
+              className="whale-btn-outline px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+            >
+              Banco de Dados
+            </button>
             <button
               type="button"
               onClick={() => onNavigate('rbac')}
-              className="px-3.5 py-2 rounded-xl bg-[#1E1E2D] hover:bg-[#11111A] text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
+              className="px-4 py-2 rounded-lg bg-[#14151B] hover:bg-[#272935] text-white font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer"
             >
-              <span>Ver Todos</span>
+              <span>Ver Central Completa</span>
               <ExternalLink className="w-3.5 h-3.5 text-white" />
             </button>
           </div>
         </div>
 
-        {/* Tabela de Empresas & Contratos */}
+        {/* Bond (4,4) Style Table with Solid Obsidian Header Bar */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#F6F7F9] text-[#475467] uppercase font-bold text-[10px] tracking-wider border-b border-[#EAECF0]">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-[#14151B] text-white text-[11px] font-semibold">
               <tr>
-                <th className="px-5 py-3.5">Empresa / Cliente Contratante</th>
-                <th className="px-5 py-3.5">Documento / UF</th>
-                <th className="px-5 py-3.5">Plano Contratado</th>
-                <th className="px-5 py-3.5">Config. Fiscal (SaaS)</th>
-                <th className="px-5 py-3.5">Contrato LGPD</th>
-                <th className="px-5 py-3.5">Status de Acesso</th>
-                <th className="px-5 py-3.5 text-right">Ações de Governança</th>
+                <th className="px-5 py-3.5 rounded-l-lg">Empresa</th>
+                <th className="px-5 py-3.5">CNPJ / UF</th>
+                <th className="px-5 py-3.5">Plano</th>
+                <th className="px-5 py-3.5">Fiscal & LGPD</th>
+                <th className="px-5 py-3.5">Status</th>
+                <th className="px-5 py-3.5 text-right rounded-r-lg">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EAECF0]">
+            <tbody className="divide-y divide-[#F1F1F3]">
               {filteredTenants.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-[#475467]">
+                  <td colSpan={6} className="px-5 py-8 text-center text-[#71717A]">
                     Nenhuma empresa encontrada com o filtro informado.
                   </td>
                 </tr>
               ) : (
                 filteredTenants.map((tenant) => (
-                  <tr key={tenant.id} className="hover:bg-[#F6F7F9] transition">
+                  <tr key={tenant.id} className="hover:bg-[#FAFAFA] transition">
                     <td className="px-5 py-4">
-                      <div className="font-bold text-[#1E232A] text-sm">{tenant.tradeName || tenant.name}</div>
-                      <div className="text-[11px] text-[#475467]">{tenant.name}</div>
-                      <div className="text-[10px] text-[#667085] font-mono mt-0.5">ID: {tenant.id}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full bg-[#F4F4F5] border border-[#E4E4E7] flex items-center justify-center font-bold text-[#14151B] text-[11px] shrink-0">
+                          {(tenant.tradeName || tenant.name || 'E').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-bold text-[#14151B] text-xs">{tenant.tradeName || tenant.name}</div>
+                          <div className="text-[11px] text-[#71717A]">{tenant.contactEmail || tenant.name}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="font-mono text-[#1E232A] font-semibold text-[11px]">{tenant.cnpj || '—'}</div>
-                      <div className="text-[#475467] text-[11px]">{tenant.city} - {tenant.uf}</div>
+                      <div className="font-mono text-[#14151B] font-semibold text-xs">{tenant.cnpj || '—'}</div>
+                      <div className="text-[#71717A] text-[11px]">{tenant.city} • {tenant.uf}</div>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="inline-block px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-[#EEF0FF] text-[#4A56C8] border border-[#D9DDFB]">
-                        {tenant.planName || 'GATO Autopeças'}
+                      <span className="font-semibold text-[#14151B] text-xs">
+                        {tenant.planName || 'GATO Pro'}
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedFiscalTenant(tenant)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#F2F4F8] hover:bg-[#E4E7EC] text-[#1E232A] border border-[#DCE0E8] transition cursor-pointer"
-                        title="Ver ou editar configuração fiscal deste contrato"
-                      >
-                        <Scale className="w-3 h-3 text-[#6E7BF2]" />
-                        <span>Homologar Fiscal</span>
-                      </button>
-                    </td>
-                    <td className="px-5 py-4">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedLgpdTenant(tenant)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#E6F4EC] hover:bg-[#D1F4E0] text-[#216E4E] border border-[#B8E6CC] transition cursor-pointer"
-                        title="Visualizar ou assinar contrato de concessão e DPA LGPD"
-                      >
-                        <Fingerprint className="w-3 h-3 text-[#216E4E]" />
-                        <span>Contrato LGPD</span>
-                      </button>
-                    </td>
-                    <td className="px-5 py-4">
-                      {tenant.status === 'active' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-[#E6F4EC] text-[#216E4E] border border-[#B8E6CC]">
-                          <CheckCircle2 className="w-3 h-3" /> Acesso Liberado
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-[#FFF1EF] text-[#C94A4A] border border-[#FCD4CF]">
-                          <AlertTriangle className="w-3 h-3" /> Suspenso / Bloqueado
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="inline-flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => handleOpenResendClientInvite(tenant)}
-                          disabled={isResendingTenantId === tenant.id}
-                          className="px-2.5 py-1.5 rounded-xl bg-[#EEF0FF] hover:bg-[#E0E4FF] text-[#4A56C8] border border-[#D9DDFB] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                          title="Enviar ou reenviar credenciais de acesso por e-mail para este cliente"
+                          onClick={() => setSelectedFiscalTenant(tenant)}
+                          className="whale-btn-outline px-2.5 py-1 rounded text-[11px] font-semibold cursor-pointer"
                         >
-                          <Mail className={`w-3.5 h-3.5 ${isResendingTenantId === tenant.id ? 'animate-spin' : ''}`} />
-                          <span>Enviar Acesso</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleTenantStatus(tenant)}
-                          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                            tenant.status === 'active'
-                              ? 'bg-[#FFF1EF] hover:bg-[#FEE4E2] text-[#C94A4A] border border-[#FCD4CF]'
-                              : 'bg-[#E6F4EC] hover:bg-[#D1F4E0] text-[#216E4E] border border-[#B8E6CC]'
-                          }`}
-                        >
-                          {tenant.status === 'active' ? 'Suspender' : 'Liberar'}
+                          Fiscal
                         </button>
                         <button
                           type="button"
                           onClick={() => setSelectedLgpdTenant(tenant)}
-                          className="px-2.5 py-1.5 rounded-xl bg-[#1E1E2D] hover:bg-[#11111A] text-white text-xs font-bold transition cursor-pointer"
-                          title="Abrir Contrato LGPD"
+                          className="whale-btn-outline px-2.5 py-1 rounded text-[11px] font-semibold cursor-pointer"
                         >
-                          Contrato
+                          LGPD
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      {tenant.status === 'active' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#DDF2E8] text-[#14151B]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#14151B]" />
+                          Ativo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#F4F4F5] text-[#71717A]">
+                          Suspenso
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenResendClientInvite(tenant)}
+                          disabled={isResendingTenantId === tenant.id}
+                          className="whale-btn-outline px-3.5 py-1.5 rounded-md text-xs font-semibold cursor-pointer disabled:opacity-50"
+                        >
+                          {isResendingTenantId === tenant.id ? 'Enviando...' : 'Enviar Acesso'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleTenantStatus(tenant)}
+                          className="whale-btn-outline px-3.5 py-1.5 rounded-md text-xs font-semibold cursor-pointer"
+                        >
+                          {tenant.status === 'active' ? 'Suspender' : 'Liberar'}
                         </button>
                       </div>
                     </td>
@@ -616,193 +506,17 @@ export const SaasAdminDashboard: React.FC<Props> = ({ onNavigate, onShowNotifica
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* PAINEL DE SOLICITAÇÕES DE TESTES DE 15 DIAS & SUPORTE DO LOGIN */}
-      <div className="rounded-3xl bg-white border border-[#EAECF0] overflow-hidden shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] text-[#1E232A]">
-        <div className="p-5 md:p-6 border-b border-[#EAECF0] flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#FFF4ED] border border-[#FED7AA] flex items-center justify-center text-[#FB925A]">
-              <Sparkles className="w-5 h-5 fill-[#FB925A]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black text-[#1E232A]">
-                  Solicitações de Testes de 15 Dias & Suporte (Login)
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#FFF1EF] text-[#C94A4A] text-[10px] font-black uppercase">
-                  {loginLeads.length} {loginLeads.length === 1 ? 'mensagem' : 'mensagens'}
-                </span>
-              </div>
-              <p className="text-xs text-[#475467]">
-                Mensagens enviadas diretamente por empresas e visitantes através da tela de login para o Superadmin.
-              </p>
-            </div>
+        {/* Bottom Light-Gray "ⓘ Importante" Callout Box (Matches "ⓘ Important" box in Bond (4,4) Reference) */}
+        <div className="p-4 rounded-xl bg-[#F7F7F8] border border-[#EBEBEF] space-y-1">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-[#14151B]">
+            <Info className="w-3.5 h-3.5 text-[#14151B]" />
+            <span>Importante — Arquitetura de 3 Camadas & Isolamento LGPD</span>
           </div>
-
-          <button
-            type="button"
-            onClick={() => onNavigate('rbac')}
-            className="text-xs font-extrabold text-[#6E7BF2] hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            Abrir Central RBAC & Mensagens <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          <p className="text-[11px] text-[#71717A] leading-relaxed pl-5">
+            Os novos contratos são provisionados com isolamento estrito multi-tenant (Camada 1: Governança SaaS • Camada 2: Empresa Contratante • Camada 3: Operadores de Balcão). Caso haja solicitações de teste de 15 dias ({loginLeads.length} pendentes), gerencie a liberação na Central RBAC.
+          </p>
         </div>
-
-        <div className="p-5 md:p-6">
-          {loginLeads.length === 0 ? (
-            <div className="text-center py-6 text-[#475467] text-xs space-y-1">
-              <MessageSquare className="w-8 h-8 text-[#98A2B3] mx-auto mb-2" />
-              <p className="font-bold text-[#1E232A]">Nenhuma nova solicitação pendente no momento.</p>
-              <p className="text-[#475467] text-[11px]">
-                Novas mensagens enviadas pelo botão de "Solicite Teste por 15 Dias" ou "Suporte" do login aparecerão aqui.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {loginLeads.map((lead, idx) => {
-                const phoneDigits = (lead.phone || '').replace(/\D/g, '');
-                return (
-                  <div
-                    key={lead.protocol || idx}
-                    className="p-4 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0] hover:border-[#F97B72]/50 transition space-y-2.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] text-[#4A56C8] font-bold">
-                        {lead.protocol || `SOL-${idx}`}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-[#FFF1EF] text-[#C94A4A] text-[9px] font-black uppercase">
-                        {lead.requestType === 'teste_15_dias'
-                          ? 'Teste 15 Dias'
-                          : lead.requestType === 'suporte_login'
-                            ? 'Suporte Login'
-                            : lead.requestType === 'liberacao_cnpj'
-                              ? 'Liberação CNPJ'
-                              : 'Extensão Teste'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h4 className="font-extrabold text-sm text-[#1E232A] truncate">
-                        {lead.companyName}
-                      </h4>
-                      <p className="text-xs text-[#475467] flex items-center gap-1 mt-0.5">
-                        <Users className="w-3 h-3 text-[#475467] shrink-0" />
-                        <span>{lead.contactName}</span>
-                      </p>
-                    </div>
-
-                    {lead.cnpj && (
-                      <div className="text-[11px] text-[#475467] font-mono flex items-center gap-1">
-                        <Building2 className="w-3 h-3 text-[#475467] shrink-0" />
-                        <span>{lead.cnpj}</span>
-                      </div>
-                    )}
-
-                    {lead.message && (
-                      <p className="text-[11px] text-[#1E232A] bg-white p-2 rounded-xl border border-[#EAECF0] italic line-clamp-2">
-                        "{lead.message}"
-                      </p>
-                    )}
-
-                    <div className="pt-2 border-t border-[#EAECF0] flex items-center justify-between text-xs gap-2">
-                      <span className="text-[10px] text-[#475467]">
-                        {new Date(lead.timestamp || Date.now()).toLocaleDateString('pt-BR')}
-                      </span>
-
-                      {phoneDigits ? (
-                        <a
-                          href={`https://wa.me/55${phoneDigits}?text=Ol%C3%A1%20${encodeURIComponent(lead.contactName)},%20recebemos%20sua%20solicita%C3%A7%C3%A3o%20do%20GATO%20SaaS!`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-2.5 py-1 rounded-lg bg-[#529471] hover:bg-[#448261] text-white text-[11px] font-bold flex items-center gap-1 transition"
-                        >
-                          <Phone className="w-3 h-3 text-white" />
-                          <span>WhatsApp</span>
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ATALHOS RÁPIDOS DE GOVERNANÇA DO SAAS (Card Coral-Peach em destaque + Cards Brancos igual ao rodapé da referência) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
-        <button
-          type="button"
-          onClick={() => onNavigate('planos-pacotes')}
-          className="ref-card-peach p-4 rounded-2xl text-left transition cursor-pointer group hover:-translate-y-0.5"
-        >
-          <div className="w-9 h-9 rounded-xl bg-white/25 flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <Package className="w-4 h-4 text-white" />
-          </div>
-          <h3 className="font-extrabold text-white text-xs">Pacotes & Preços</h3>
-          <p className="text-[11px] text-white/90 mt-0.5">Cadastrar pacotes, valores e limites de itens/clientes.</p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('conectores')}
-          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
-        >
-          <div className="w-9 h-9 rounded-xl bg-[#EEF0FF] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <Cable className="w-4 h-4 text-[#6E7BF2]" />
-          </div>
-          <h3 className="font-extrabold text-[#1E232A] text-xs">Conectores do SaaS</h3>
-          <p className="text-[11px] text-[#475467] mt-0.5">Gateways de MRR, SEFAZ infra e catálogo.</p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('financeiro-saas')}
-          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
-        >
-          <div className="w-9 h-9 rounded-xl bg-[#E6F4EC] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <DollarSign className="w-4 h-4 text-[#529471]" />
-          </div>
-          <h3 className="font-extrabold text-[#1E232A] text-xs">Contratos & MRR</h3>
-          <p className="text-[11px] text-[#475467] mt-0.5">Assinaturas, faturas e cobrança recorrente.</p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('camadas-acesso')}
-          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
-        >
-          <div className="w-9 h-9 rounded-xl bg-[#EEF0FF] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <Layers className="w-4 h-4 text-[#6E7BF2]" />
-          </div>
-          <h3 className="font-extrabold text-[#1E232A] text-xs">Matriz das 3 Camadas</h3>
-          <p className="text-[11px] text-[#475467] mt-0.5">Isolamento de privilégios e permissões.</p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('chaves')}
-          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
-        >
-          <div className="w-9 h-9 rounded-xl bg-[#FFF1EF] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <KeyRound className="w-4 h-4 text-[#F97B72]" />
-          </div>
-          <h3 className="font-extrabold text-[#1E232A] text-xs">Chaves & Licenças</h3>
-          <p className="text-[11px] text-[#475467] mt-0.5">Licenças de máquina e tokens de API.</p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('banco-dados')}
-          className="p-4 rounded-2xl bg-white hover:bg-[#F6F7F9] border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.04)] text-left transition cursor-pointer group"
-        >
-          <div className="w-9 h-9 rounded-xl bg-[#E6F4EC] flex items-center justify-center mb-2.5 group-hover:scale-105 transition">
-            <Database className="w-4 h-4 text-[#529471]" />
-          </div>
-          <h3 className="font-extrabold text-[#1E232A] text-xs">Banco de Dados & Infra</h3>
-          <p className="text-[11px] text-[#475467] mt-0.5">Conexões Postgres e diagnóstico.</p>
-        </button>
       </div>
 
       {/* MODAL DE CONFIGURAÇÃO FISCAL DO CONTRATO */}

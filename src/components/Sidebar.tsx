@@ -346,19 +346,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Navigation Drawer — Estilo Editorial Soft da Referência */}
+      {/* Navigation Drawer — Estilo Whale Loans Minimalist Monochrome (#F6F6F5 + #14151B) */}
       <aside 
         id="gato-sidebar"
-        className={`fixed lg:sticky top-0 lg:top-20 left-0 z-50 lg:z-10 h-full lg:h-[calc(100vh-6.5rem)] bg-white text-[#1E232A] flex flex-col border border-[#EAECF0] shadow-[0_4px_20px_-2px_rgba(16,24,40,0.05)] transition-all duration-300 ease-in-out lg:rounded-3xl overflow-hidden ${
+        className={`fixed lg:sticky top-0 lg:top-20 left-0 z-50 lg:z-10 h-full lg:h-[calc(100vh-6.5rem)] bg-[#F6F6F5] text-[#14151B] flex flex-col border border-[#EBEBEA] transition-all duration-300 ease-in-out lg:rounded-2xl overflow-hidden ${
           isOpenMobile ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-[76px]' : 'lg:w-64'}`}
       >
         {/* Sidebar Brand Header */}
-        <div className={`p-3.5 flex items-center shrink-0 border-b border-[#F2F4F8] bg-white transition-all rounded-t-3xl ${
+        <div className={`px-4 py-4 flex items-center shrink-0 border-b border-[#EBEBEA] bg-[#F6F6F5] transition-all ${
           isCollapsed ? 'flex-col justify-center gap-2' : 'justify-between'
         }`}>
           <div 
-            className="cursor-pointer overflow-hidden flex items-center transition-transform hover:scale-[1.02]" 
+            className="cursor-pointer overflow-hidden flex items-center transition-transform hover:scale-[1.01]" 
             onClick={() => handleSelect('dashboard')}
             title="GATO Auto Peças - Início"
           >
@@ -377,7 +377,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={externalOnToggleCollapse}
-                className="hidden lg:flex p-2 rounded-xl text-[#475467] hover:text-[#1E232A] bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] cursor-pointer transition-colors"
+                className="hidden lg:flex p-1.5 rounded-lg text-[#52525B] hover:text-[#14151B] bg-white hover:bg-[#EBEBEA] border border-[#E4E4E7] cursor-pointer transition-colors"
                 title={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
                 aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
                 aria-expanded={!isCollapsed}
@@ -391,37 +391,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={onCloseMobile}
-              className="lg:hidden p-2 rounded-xl text-[#475467] hover:text-[#1E232A] bg-[#F6F7F9] hover:bg-[#EAECF0] border border-[#EAECF0] cursor-pointer transition-colors"
+              className="lg:hidden p-1.5 rounded-lg text-[#52525B] hover:text-[#14151B] bg-white hover:bg-[#EBEBEA] border border-[#E4E4E7] cursor-pointer transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Top Quick Pills (como no topo da Sidebar da imagem de referência: Mint + Coral) */}
-        {!isCollapsed && activeBranch && (
-          <div className="px-3.5 pt-2.5 pb-1 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onOpenTrocaFilial}
-              className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-2xl bg-[#F4F6F9] hover:bg-[#EAECF0] transition cursor-pointer min-w-0 text-left"
-              title="Trocar Filial / CD Ativo"
-            >
-              <span className="w-6 h-6 rounded-full bg-[#D1F4E0] text-[#216E4E] flex items-center justify-center shrink-0">
-                <Store className="w-3.5 h-3.5" />
-              </span>
-              <span className="text-xs font-bold text-[#1E232A] truncate">
-                {activeBranch.name}
-              </span>
-            </button>
-            <span className="px-2.5 py-1.5 rounded-xl bg-[#F97B72] text-white text-[10px] font-extrabold shrink-0 shadow-2xs">
-              {activeBranch.uf}
-            </span>
-          </div>
-        )}
-
-        {/* Primary Navigation Links */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2.5 space-y-1 custom-scrollbar">
+        {/* Primary Navigation Links — Minimalist Line Icons & Clean Typography (Whale Loans Style) */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-1 custom-scrollbar">
           {visiblePrimaryNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = isItemActive(item);
@@ -432,30 +410,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 id={`sidebar-nav-${item.id}`}
                 onClick={() => handleSelect(item.id)}
                 title={isCollapsed ? item.label : undefined}
-                className={`w-full text-left flex items-center rounded-2xl text-xs transition-all duration-200 cursor-pointer relative group ${
-                  isCollapsed ? 'lg:justify-center lg:p-2.5' : 'justify-between px-3 py-2'
+                className={`w-full text-left flex items-center rounded-xl text-[13px] transition-all duration-150 cursor-pointer relative group ${
+                  isCollapsed ? 'lg:justify-center lg:p-2.5' : 'justify-between px-3.5 py-2.5'
                 } ${
                   isActive 
-                    ? 'bg-[#F2F4F8] text-[#1E232A] font-extrabold' 
-                    : 'text-[#344054] font-semibold hover:bg-[#F6F7F9] hover:text-[#1E232A]'
+                    ? 'bg-white text-[#14151B] font-bold shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#E4E4E7]' 
+                    : 'text-[#52525B] font-medium hover:bg-[#EEEEEC] hover:text-[#14151B] border border-transparent'
                 }`}
               >
                 <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-3'}`}>
-                  <span className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                    isActive
-                      ? 'bg-[#F97B72] text-white shadow-xs'
-                      : 'bg-[#F2F4F8] text-[#475467] group-hover:bg-[#E6E9EF] group-hover:text-[#1E232A]'
-                  }`}>
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                  </span>
+                  <Icon className={`w-4 h-4 shrink-0 transition-colors ${
+                    isActive ? 'text-[#14151B] stroke-[2.2]' : 'text-[#52525B] group-hover:text-[#14151B] stroke-[1.75]'
+                  }`} />
                   <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                 </div>
 
                 {item.badge && (
-                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-bold px-2 py-0.5 rounded-md ${
                     isActive
-                      ? 'bg-[#F97B72] text-white'
-                      : 'bg-[#F2F4F8] text-[#344054]'
+                      ? 'bg-[#14151B] text-white'
+                      : 'bg-[#E4E4E7] text-[#14151B]'
                   }`}>
                     {item.badge}
                   </span>
@@ -463,7 +437,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Collapsed dot badge indicator */}
                 {isCollapsed && item.badge && (
-                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#F97B72] ring-2 ring-white shadow-xs" />
+                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#14151B] ring-2 ring-[#F6F6F5]" />
                 )}
               </button>
             );
@@ -471,7 +445,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Quick utility divider */}
           <div className="pt-2 pb-1 px-2">
-            <div className="h-px bg-[#EAECF0] rounded-full" />
+            <div className="h-px bg-[#E4E4E7]" />
           </div>
 
           {visibleSecondaryNavItems.map((item) => {
@@ -483,90 +457,78 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 id={`sidebar-nav-${item.id}`}
                 onClick={() => handleSelect(item.id)}
                 title={isCollapsed ? item.label : undefined}
-                className={`w-full text-left flex items-center rounded-2xl text-xs transition-all duration-200 cursor-pointer relative group ${
-                  isCollapsed ? 'lg:justify-center lg:p-2' : 'justify-between px-3 py-2'
+                className={`w-full text-left flex items-center rounded-xl text-xs transition-all duration-150 cursor-pointer relative group ${
+                  isCollapsed ? 'lg:justify-center lg:p-2' : 'justify-between px-3.5 py-2'
                 } ${
                   isActive 
-                    ? 'bg-[#F2F4F8] text-[#1E232A] font-extrabold' 
-                    : 'text-[#475467] font-semibold hover:bg-[#F6F7F9] hover:text-[#1E232A]'
+                    ? 'bg-white text-[#14151B] font-bold shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#E4E4E7]' 
+                    : 'text-[#52525B] font-medium hover:bg-[#EEEEEC] hover:text-[#14151B] border border-transparent'
                 }`}
               >
-                <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-2.5'}`}>
-                  <span className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                    isActive
-                      ? 'bg-[#6E7BF2] text-white shadow-xs'
-                      : 'bg-[#F2F4F8] text-[#475467] group-hover:bg-[#E6E9EF] group-hover:text-[#1E232A]'
-                  }`}>
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                  </span>
+                <div className={`flex items-center min-w-0 ${isCollapsed ? 'lg:justify-center' : 'gap-3'}`}>
+                  <Icon className={`w-4 h-4 shrink-0 ${
+                    isActive ? 'text-[#14151B] stroke-[2.2]' : 'text-[#52525B] group-hover:text-[#14151B] stroke-[1.75]'
+                  }`} />
                   <span className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EEF0FF] text-[#4A56C8]`}>
+                  <span className={`${isCollapsed ? 'hidden lg:inline-flex' : 'inline-flex'} text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                    isActive ? 'bg-[#14151B] text-white' : 'bg-[#E4E4E7] text-[#14151B]'
+                  }`}>
                     {item.badge}
                   </span>
                 )}
                 {isCollapsed && item.badge && (
-                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#6E7BF2] ring-2 ring-white shadow-xs" />
+                  <span className="hidden lg:block absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#14151B] ring-2 ring-[#F6F6F5]" />
                 )}
               </button>
             );
           })}
         </nav>
 
-        {/* Bottom Status Card (como o card inferior da Sidebar na referência) */}
-        <div className="p-3 bg-white text-xs space-y-2 rounded-b-3xl">
-          <div className="p-3 rounded-2xl bg-[#F6F7F9] border border-[#EAECF0] space-y-2">
-            {/* Botão de Login / Trocar Conta */}
-            {onOpenLogin && (
-              <button
-                type="button"
-                id="sidebar-btn-login"
-                onClick={onOpenLogin}
-                className={`w-full p-2 rounded-xl flex items-center transition-all duration-200 cursor-pointer ${
-                  isCollapsed ? 'justify-center' : 'justify-between'
-                } bg-white hover:bg-[#EAECF0]/60 border border-[#EAECF0] text-[#1E232A] shadow-2xs`}
-                title={userSession ? `Sessão ativa: ${userSession.name} (${userSession.roleLabel}) — Trocar Usuário` : 'Fazer Login / Acessar as 3 Camadas'}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-[#F2F4F8] text-[#1E232A]">
-                    <LogIn className="w-3.5 h-3.5" />
-                  </div>
-                  {!isCollapsed && (
-                    <div className="truncate text-left">
-                      <p className="font-extrabold text-xs text-[#1E232A] truncate">
-                        {userSession ? userSession.name.split(' ')[0] : 'Fazer Login'}
-                      </p>
-                      <p className="text-[10px] font-medium text-[#475467] truncate">
-                        {userSession ? userSession.roleLabel : 'Acessar 3 Camadas'}
-                      </p>
-                    </div>
-                  )}
+        {/* Bottom Status Footer (Whale Loans Minimal Footer Style) */}
+        <div className="p-3 border-t border-[#EBEBEA] bg-[#F6F6F5] text-xs space-y-2">
+          {onOpenLogin && (
+            <button
+              type="button"
+              id="sidebar-btn-login"
+              onClick={onOpenLogin}
+              className={`w-full p-2.5 rounded-xl flex items-center transition-all duration-150 cursor-pointer ${
+                isCollapsed ? 'justify-center' : 'justify-between'
+              } bg-white hover:bg-[#14151B] hover:text-white border border-[#E4E4E7] text-[#14151B] group`}
+              title={userSession ? `Sessão ativa: ${userSession.name} (${userSession.roleLabel}) — Trocar Usuário` : 'Fazer Login / Acessar as 3 Camadas'}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[#F4F4F5] text-[#14151B] group-hover:bg-white/15 group-hover:text-white">
+                  <LogIn className="w-3.5 h-3.5" />
                 </div>
-                {!isCollapsed && <ChevronRight className="w-3.5 h-3.5 text-[#475467] shrink-0" />}
-              </button>
-            )}
+                {!isCollapsed && (
+                  <div className="truncate text-left">
+                    <p className="font-bold text-xs text-[#14151B] group-hover:text-white truncate">
+                      {userSession ? userSession.name.split(' ')[0] : 'Conectar Conta'}
+                    </p>
+                    <p className="text-[10px] text-[#71717A] group-hover:text-white/80 truncate">
+                      {userSession ? userSession.roleLabel : 'Acessar 3 Camadas'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {!isCollapsed && <ChevronRight className="w-3.5 h-3.5 text-[#71717A] group-hover:text-white shrink-0" />}
+            </button>
+          )}
 
-            {!isCollapsed ? (
-              <div className="flex items-center justify-between px-2 py-1 text-[11px] text-[#475467]">
-                <span className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#529471] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#529471]"></span>
-                  </span>
-                  <span className="font-bold text-[#1E232A]">SEFAZ Online</span>
-                </span>
-                <span className="text-[#475467] font-semibold">v2.6 Web</span>
-              </div>
-            ) : (
-              <div className="flex justify-center py-1" title="SEFAZ Online v2.6">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#529471] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#529471]"></span>
-                </span>
-              </div>
-            )}
-          </div>
+          {!isCollapsed ? (
+            <div className="flex items-center justify-between px-1.5 pt-1 text-[11px] text-[#52525B] font-semibold">
+              <span className="flex items-center gap-1.5 text-[#14151B]">
+                <span>✓ SEFAZ Verified</span>
+              </span>
+              <span className="text-[#71717A]">✓ GATO v2.6</span>
+            </div>
+          ) : (
+            <div className="flex justify-center py-1" title="SEFAZ Verified • v2.6">
+              <span className="w-2 h-2 rounded-full bg-[#14151B]" />
+            </div>
+          )}
         </div>
       </aside>
     </>
