@@ -323,10 +323,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         {/* BOTTOM HEADLINE & SUBTITLE (Matching Reference Layout) */}
         <div className="relative z-10 space-y-3 pt-6">
           <h2 className="text-3xl xl:text-4xl font-bold tracking-tight text-white leading-tight">
-            Enter Your Flow State.
+            Gestão Inteligente & Estoque Ágil.
           </h2>
           <p className="text-sm xl:text-base text-slate-400 max-w-md font-normal leading-relaxed">
-            A seamless, block-based workspace engineered for boundless clarity and execution.
+            A plataforma moderna para controle de estoque, balcão de vendas, cotações fiscais e multi-loja.
           </p>
         </div>
       </div>
@@ -367,13 +367,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             />
           </div>
 
-          {/* Heading (Matching Screenshot: "Welcome Back!") */}
+          {/* Heading (Matching Screenshot: "Welcome Back!" in PT-BR) */}
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-white">
-              Welcome Back!
+              Bem-vindo de Volta!
             </h1>
             <p className="text-xs sm:text-sm text-slate-400">
-              Welcome back! Please enter your details!
+              Que bom ter você aqui! Digite seus dados para acessar o sistema.
             </p>
           </div>
 
@@ -406,14 +406,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   htmlFor="input-email-clean" 
                   className="block text-xs font-semibold text-slate-200"
                 >
-                  Email
+                  E-mail Corporativo
                 </label>
                 <input
                   type="email"
                   id="input-email-clean"
                   value={emailLogin}
                   onChange={(e) => setEmailLogin(e.target.value)}
-                  placeholder="Enter your email"
+                  placeholder="Digite seu e-mail corporativo"
                   autoComplete="email"
                   required
                   className="w-full px-4 py-3 bg-white text-slate-900 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#253B75] font-medium transition"
@@ -426,7 +426,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   htmlFor="input-password-clean" 
                   className="block text-xs font-semibold text-slate-200"
                 >
-                  Password
+                  Senha de Acesso
                 </label>
                 <div className="relative">
                   <input
@@ -434,7 +434,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     id="input-password-clean"
                     value={passwordLogin}
                     onChange={(e) => setPasswordLogin(e.target.value)}
-                    placeholder="Input password"
+                    placeholder="Digite sua senha"
                     autoComplete="current-password"
                     required
                     className="w-full px-4 pr-11 py-3 bg-white text-slate-900 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#253B75] font-medium transition"
@@ -459,7 +459,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-[#253B75] focus:ring-0 cursor-pointer"
                   />
-                  <span className="text-slate-300 font-medium">Remember me</span>
+                  <span className="text-slate-300 font-medium">Lembrar-me</span>
                 </label>
 
                 <button
@@ -472,7 +472,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   }}
                   className="text-slate-400 hover:text-white transition font-medium cursor-pointer"
                 >
-                  Forgot password?
+                  Esqueceu a senha?
                 </button>
               </div>
 
@@ -486,10 +486,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 {isLoading ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Signing in...</span>
+                    <span>Entrando no sistema...</span>
                   </>
                 ) : (
-                  <span>Log In</span>
+                  <span>Acessar Sistema</span>
                 )}
               </button>
             </form>
@@ -618,7 +618,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <div className="relative flex py-2 items-center justify-center">
             <div className="flex-grow border-t border-slate-800" />
             <span className="shrink-0 px-3 text-xs text-slate-400 font-normal">
-              Or continue with
+              Ou continue com
             </span>
             <div className="flex-grow border-t border-slate-800" />
           </div>
