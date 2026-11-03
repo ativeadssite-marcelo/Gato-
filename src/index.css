@@ -258,8 +258,8 @@ main [class*="border-slate-700"],
   border-color: #EBEBEF !important;
 }
 
-main [class*="divide-slate-800"] > :not([hidden]) ~ :not([hidden]),
-main [class*="divide-slate-700"] > :not([hidden]) ~ :not([hidden]) {
+main [class*="divide-slate-800"]> :not([hidden])~ :not([hidden]),
+main [class*="divide-slate-700"]> :not([hidden])~ :not([hidden]) {
   border-color: #F1F1F3 !important;
 }
 
