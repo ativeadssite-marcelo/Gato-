@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Lock, 
   Eye, 
   EyeOff, 
   RefreshCw, 
@@ -8,20 +7,18 @@ import {
   ArrowRight,
   ArrowLeft,
   X,
-  ShieldCheck,
   Building2,
-  Mail,
   Sparkles,
   Search,
   CheckCircle2,
   Clock,
   HelpCircle,
-  Phone,
-  User,
   Zap,
-  KeyRound
+  KeyRound,
+  ShieldCheck
 } from 'lucide-react';
 import gatoLogoNova from '../assets/images/gato_logo_2026.png';
+import gatoLogoIcon from '../assets/images/gato_logo_2026_icon.jpg';
 import { BranchUnit, UserSession, CompanyProfile } from '../types';
 import { INITIAL_BRANCHES } from '../data/initialData';
 import { loginWithCredentials, resetAdminPasswordDirectly } from '../utils/sessionService';
@@ -54,23 +51,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const rawBranches = branches && branches.length > 0 ? branches : INITIAL_BRANCHES;
   const availableBranches = filterDemoBranches(rawBranches);
 
-  // Modo de Login: 'corporativo' ou 'teste_cnpj'
-  const [activeTab, setActiveTab] = useState<'corporativo' | 'teste_cnpj'>('corporativo');
+  // Modo: 'credentials' (padrão como no layout) ou 'trial_cnpj' (rápido)
+  const [authMode, setAuthMode] = useState<'credentials' | 'trial_cnpj'>('credentials');
 
-  // --- LOGIN CORPORATIVO TRADICIONAL ---
-  const [emailLogin, setEmailLogin] = useState('');
+  // Credenciais
+  const [emailLogin, setEmailLogin] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('gato_remember_email') || 'contato.ativeads@gmail.com';
+    }
+    return 'contato.ativeads@gmail.com';
+  });
   const [passwordLogin, setPasswordLogin] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+
+  // Filial Selecionada
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
     currentSession?.branchId || availableBranches[0]?.id || ''
   );
 
-  // --- TESTE DE 15 DIAS POR CNPJ ---
+  // Teste 15 Dias CNPJ
   const [cnpjTrialInput, setCnpjTrialInput] = useState('');
   const [trialStatus, setTrialStatus] = useState<TrialStatusResponse | null>(null);
   const [isCheckingCnpj, setIsCheckingCnpj] = useState(false);
-
-  // Ativação rápida se o CNPJ não tiver teste ainda
   const [showActivationForm, setShowActivationForm] = useState(false);
   const [tradeNameTrial, setTradeNameTrial] = useState('');
   const [adminNameTrial, setAdminNameTrial] = useState('');
@@ -78,18 +81,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [phoneTrial, setPhoneTrial] = useState('');
   const [ufTrial, setUfTrial] = useState('MS');
 
-  // --- MODAL DE SUPORTE / SOLICITAÇÃO AO SUPERADMIN ---
+  // Modais de suporte & senha única
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [supportModalType, setSupportModalType] = useState<'teste_15_dias' | 'suporte_login' | 'liberacao_cnpj' | 'extensao_teste'>('teste_15_dias');
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [newUniquePassword, setNewUniquePassword] = useState('');
+  const [confirmUniquePassword, setConfirmUniquePassword] = useState('');
+  const [showUniquePassword, setShowUniquePassword] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetModalError, setResetModalError] = useState<string | null>(null);
 
-  // Feedback geral
+  // Estados de feedback
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const activeBranch = availableBranches.find(b => b.id === selectedBranchId) || availableBranches[0];
 
-  // Executa o login corporativo normal
+  useEffect(() => {
+    if (rememberMe && emailLogin) {
+      localStorage.setItem('gato_remember_email', emailLogin);
+    }
+  }, [rememberMe, emailLogin]);
+
+  // Executa login corporativo
   const executeLogin = async (emailToUse: string, passwordToUse: string, branchIdToUse?: string) => {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -119,13 +134,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  const handleLoginExisting = (e: React.FormEvent) => {
+  const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailLogin.trim() || !passwordLogin.trim()) {
-      setErrorMessage('Informe seu e-mail corporativo e senha.');
+      setErrorMessage('Informe seu e-mail corporativo e sua senha.');
       return;
     }
     void executeLogin(emailLogin, passwordLogin);
+  };
+
+  // Login rápido de administrador (1 Clique)
+  const handleQuickAdminLogin = () => {
+    setEmailLogin('contato.ativeads@gmail.com');
+    setPasswordLogin('AcessoInicial@2026!');
+    void executeLogin('contato.ativeads@gmail.com', 'AcessoInicial@2026!');
   };
 
   // Consulta status do teste de 15 dias por CNPJ
@@ -155,7 +177,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  // Entrar com CNPJ de teste já cadastrado
   const handleEnterTrialWithCnpj = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -171,7 +192,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  // Ativar teste de 15 dias para o CNPJ
   const handleActivateTrialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -216,36 +236,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setIsSupportModalOpen(true);
   };
 
-  const handleUseInitialPassword = () => {
-    setEmailLogin('contato.ativeads@gmail.com');
-    setPasswordLogin('AcessoInicial@2026!');
-    setErrorMessage(null);
-    setSuccessMessage('Senha inicial preenchida: AcessoInicial@2026!. Clique em "Acessar Sistema".');
-  };
-
-  const handleQuickAdminLogin = () => {
-    setEmailLogin('contato.ativeads@gmail.com');
-    setPasswordLogin('AcessoInicial@2026!');
-    void executeLogin('contato.ativeads@gmail.com', 'AcessoInicial@2026!');
-  };
-
-  const handleResetAdminCustomPassword = () => {
-    try {
-      localStorage.removeItem('gato_admin_custom_password');
-      handleUseInitialPassword();
-    } catch {
-      handleUseInitialPassword();
-    }
-  };
-
-  // --- MODAL DE DEFINIÇÃO DE SENHA ÚNICA ---
-  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-  const [newUniquePassword, setNewUniquePassword] = useState('');
-  const [confirmUniquePassword, setConfirmUniquePassword] = useState('');
-  const [showUniquePassword, setShowUniquePassword] = useState(false);
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [resetModalError, setResetModalError] = useState<string | null>(null);
-
   const handleDefineUniquePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetModalError(null);
@@ -274,342 +264,248 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div 
-      className="min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col items-center overflow-y-auto font-['Plus_Jakarta_Sans'] selection:bg-[#0284C7] selection:text-white px-4 py-8 custom-scrollbar" 
-      id="gato-login-page"
-    >
-      <div className="w-full max-w-md my-auto flex flex-col items-center">
-        {/* Botão de retorno caso o usuário já possua sessão ativa */}
-        {currentSession && onBackToApp && (
-          <div className="w-full flex items-center justify-between mb-4">
-            <button
-              type="button"
-              id="btn-voltar-ao-sistema"
-              onClick={onBackToApp}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold transition shadow-md cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#0284C7]" />
-              <span>Voltar ao Painel ({currentSession.name.split(' ')[0]})</span>
-            </button>
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#0A0C13] font-['Plus_Jakarta_Sans'] text-slate-100 selection:bg-[#253B75] selection:text-white">
+      
+      {/* ===================================================================== */}
+      {/* LEFT PANEL: DEEP CELESTIAL ATMOSPHERE + PROMINENT HIGHLIGHTED GATO LOGO */}
+      {/* ===================================================================== */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-5/12 flex-col justify-between p-12 xl:p-16 relative overflow-hidden bg-gradient-to-b from-[#06080F] via-[#090E1D] to-[#0A1633] border-r border-[#192238]/60">
+        
+        {/* Subtle Ambient Glow and Atmospheric Horizon Effect */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,_rgba(37,59,117,0.25),_transparent_70%)] pointer-events-none" />
+        <div className="absolute -bottom-24 -left-20 w-[140%] h-80 bg-gradient-to-t from-[#1E3A8A]/30 via-[#172554]/15 to-transparent blur-3xl pointer-events-none rounded-full" />
+        
+        {/* Stars / Dust Particles */}
+        <div className="absolute top-1/4 left-1/3 w-1 h-1 bg-white/70 rounded-full shadow-[0_0_8px_white]" />
+        <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 bg-blue-200/80 rounded-full shadow-[0_0_12px_rgba(147,197,253,0.9)]" />
+        <div className="absolute top-2/3 left-1/4 w-1 h-1 bg-white/50 rounded-full" />
+        <div className="absolute top-1/2 right-1/3 w-1 h-1 bg-white/60 rounded-full" />
 
-            <button
-              type="button"
-              id="btn-fechar-login"
-              onClick={onBackToApp}
-              className="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer"
-              title="Fechar tela de login e voltar ao sistema"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        {/* TOP BRANDING: GATO LOGO PROMINENTLY IN HIGHLIGHT */}
+        <div className="relative z-10 flex items-center gap-3.5">
+          <div className="relative group">
+            <div className="w-11 h-11 rounded-2xl bg-black/60 border border-amber-500/50 p-1 shadow-[0_0_25px_-5px_rgba(245,158,11,0.5)] flex items-center justify-center shrink-0">
+              <img 
+                src={gatoLogoIcon} 
+                alt="GATO Logo" 
+                className="w-full h-full object-cover rounded-xl"
+              />
+            </div>
+            <div className="absolute inset-0 ring-1 ring-amber-400/30 rounded-2xl pointer-events-none" />
           </div>
-        )}
 
-        {/* LOGO OFICIAL GATO */}
-        <img 
-          src={gatoLogoNova} 
-          alt="GATO - Gestão de Estoque e Balcão" 
-          className="w-full max-w-xs sm:max-w-sm rounded-3xl border border-amber-500/30 shadow-[0_0_50px_-15px_rgba(249,115,22,0.4)] mb-5"
-          id="img-logo-login-gato"
-          referrerPolicy="no-referrer"
-        />
-
-        {/* CARD PRINCIPAL DE LOGIN & TESTE 15 DIAS */}
-        <div className="w-full bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
-          
-          {/* TABS DE SELEÇÃO: ACESSO CORPORATIVO vs TESTE 15 DIAS POR CNPJ */}
-          <div className="flex p-1 bg-slate-950 border border-slate-800 rounded-2xl gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('corporativo');
-              setErrorMessage(null);
-            }}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-              activeTab === 'corporativo'
-                ? 'bg-gradient-to-r from-[#0C4A6E] to-[#0284C7] text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            id="tab-acesso-corporativo"
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Acesso Corporativo</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('teste_cnpj');
-              setErrorMessage(null);
-            }}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1.5 cursor-pointer relative ${
-              activeTab === 'teste_cnpj'
-                ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-slate-950 font-black shadow-md'
-                : 'text-amber-400/90 hover:text-amber-300'
-            }`}
-            id="tab-teste-15-dias-cnpj"
-          >
-            <Sparkles className="w-3.5 h-3.5 fill-current" />
-            <span>Teste 15 Dias (CNPJ)</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xl font-black tracking-tight text-white font-['Outfit']">
+              GATO
+            </span>
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse mt-0.5" />
+            <span className="text-xs uppercase font-extrabold tracking-wider text-slate-300 ml-1">
+              FLOW
+            </span>
+          </div>
         </div>
 
-        {/* MENSAGEM DE ERRO OU SUCESSO */}
-        {errorMessage && (
-          <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-2xl text-xs text-red-300 animate-in fade-in duration-150 space-y-2.5" id="alert-login-error">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+        {/* CENTER PROMINENT LOGO SHOWCASE (Requested: "apenas o logo mantenha em destaque") */}
+        <div className="relative z-10 my-auto py-8 flex flex-col items-center text-center">
+          <div className="relative group max-w-sm w-full mx-auto">
+            {/* Luminous rim aura around the official logo */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/20 via-blue-600/30 to-amber-500/20 rounded-3xl blur-xl opacity-75 group-hover:opacity-100 transition duration-1000" />
+            
+            <img 
+              src={gatoLogoNova} 
+              alt="GATO - Gestão de Estoque & Balcão" 
+              className="relative w-full h-auto object-contain rounded-2xl border border-white/10 shadow-[0_15px_40px_-15px_rgba(0,0,0,0.8)]"
+              id="img-logo-login-destaque"
+            />
+          </div>
+        </div>
+
+        {/* BOTTOM HEADLINE & SUBTITLE (Matching Reference Layout) */}
+        <div className="relative z-10 space-y-3 pt-6">
+          <h2 className="text-3xl xl:text-4xl font-bold tracking-tight text-white leading-tight">
+            Enter Your Flow State.
+          </h2>
+          <p className="text-sm xl:text-base text-slate-400 max-w-md font-normal leading-relaxed">
+            A seamless, block-based workspace engineered for boundless clarity and execution.
+          </p>
+        </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* RIGHT PANEL: CLEAN ULTRA-MINIMALIST LOGIN FORM (EXACT SCREENSHOT FIT)  */}
+      {/* ===================================================================== */}
+      <div className="w-full lg:w-1/2 xl:w-7/12 flex items-center justify-center p-6 sm:p-10 lg:p-16 bg-[#0B0D14] min-h-screen">
+        <div className="w-full max-w-md space-y-6">
+          
+          {/* Header Action: Return to App if session exists */}
+          {currentSession && onBackToApp && (
+            <div className="flex items-center justify-between pb-2">
+              <button
+                type="button"
+                onClick={onBackToApp}
+                className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4 text-blue-400" />
+                <span>Voltar ao painel ({currentSession.name.split(' ')[0]})</span>
+              </button>
+              <button
+                type="button"
+                onClick={onBackToApp}
+                className="p-1 rounded-lg text-slate-500 hover:text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Mobile-Only Logo in Highlight */}
+          <div className="lg:hidden flex flex-col items-center text-center pb-2">
+            <img 
+              src={gatoLogoNova} 
+              alt="GATO Logo" 
+              className="w-44 h-auto object-contain rounded-xl border border-white/10 shadow-lg mb-3"
+            />
+          </div>
+
+          {/* Heading (Matching Screenshot: "Welcome Back!") */}
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Welcome Back!
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400">
+              Welcome back! Please enter your details!
+            </p>
+          </div>
+
+          {/* Alerts: Error or Success */}
+          {errorMessage && (
+            <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-start gap-2.5 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <div className="flex-1">
-                <span className="font-semibold">{errorMessage}</span>
+                <span>{errorMessage}</span>
               </div>
             </div>
-            
-            {/* Atalhos de Desbloqueio Imediato */}
-            <div className="pt-2 border-t border-red-500/20 flex flex-col sm:flex-row gap-2">
-              <button
-                type="button"
-                onClick={handleQuickAdminLogin}
-                className="py-1.5 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] transition shadow flex items-center justify-center gap-1.5 cursor-pointer"
-                id="btn-quick-admin-login-error"
-              >
-                <Zap className="w-3.5 h-3.5 fill-current" />
-                <span>Acessar c/ Senha Inicial (1 Clique)</span>
-              </button>
+          )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setNewUniquePassword('');
-                  setConfirmUniquePassword('');
-                  setResetModalError(null);
-                  setIsResetModalOpen(true);
-                }}
-                className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-[11px] border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer"
-                id="btn-open-reset-modal-error"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-sky-400" />
-                <span>Cadastrar Minha Senha Única</span>
-              </button>
+          {successMessage && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{successMessage}</span>
             </div>
-          </div>
-        )}
+          )}
 
-        {successMessage && (
-          <div className="flex items-start gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 animate-in fade-in duration-150">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* ABA 1: ACESSO CORPORATIVO (E-mail + Senha + CD) */}
-        {/* ========================================================================= */}
-        {activeTab === 'corporativo' && (
-          <form onSubmit={handleLoginExisting} className="space-y-4" id="form-login-cliente">
-            <div className="text-center pb-1">
-              <h1 className="text-lg font-extrabold text-white tracking-tight">
-                Entrar com Credenciais
-              </h1>
-              <p className="text-xs text-slate-400 mt-1">
-                Acesse sua empresa ou CD com e-mail corporativo e senha
-              </p>
-            </div>
-
-            {/* E-mail */}
-            <div>
-              <label htmlFor="input-email-login" className="text-xs font-bold text-slate-300 block mb-1">
-                E-mail Corporativo
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+          {/* ================================================================= */}
+          {/* TAB / MODE: CREDENTIALS (DEFAULT) vs CNPJ TEST                     */}
+          {/* ================================================================= */}
+          {authMode === 'credentials' ? (
+            <form onSubmit={handleLoginSubmit} className="space-y-4" id="form-login-clean">
+              
+              {/* Field: Email */}
+              <div className="space-y-1.5">
+                <label 
+                  htmlFor="input-email-clean" 
+                  className="block text-xs font-semibold text-slate-200"
+                >
+                  Email
+                </label>
                 <input
                   type="email"
-                  id="input-email-login"
+                  id="input-email-clean"
                   value={emailLogin}
                   onChange={(e) => setEmailLogin(e.target.value)}
-                  placeholder="seu.email@empresa.com.br"
+                  placeholder="Enter your email"
                   autoComplete="email"
                   required
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent font-medium"
+                  className="w-full px-4 py-3 bg-white text-slate-900 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#253B75] font-medium transition"
                 />
               </div>
-            </div>
 
-            {/* Senha */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label htmlFor="input-password-login" className="text-xs font-bold text-slate-300 block">
-                  Senha de Acesso
+              {/* Field: Password with Eye Icon */}
+              <div className="space-y-1.5">
+                <label 
+                  htmlFor="input-password-clean" 
+                  className="block text-xs font-semibold text-slate-200"
+                >
+                  Password
                 </label>
-                <span className="text-[10px] text-slate-400 font-semibold bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60">
-                  Protegido LGPD
-                </span>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="input-password-clean"
+                    value={passwordLogin}
+                    onChange={(e) => setPasswordLogin(e.target.value)}
+                    placeholder="Input password"
+                    autoComplete="current-password"
+                    required
+                    className="w-full px-4 pr-11 py-3 bg-white text-slate-900 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#253B75] font-medium transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-3.5 text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                    aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="input-password-login"
-                  value={passwordLogin}
-                  onChange={(e) => setPasswordLogin(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                  required
-                  className="w-full pl-9 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent font-mono"
-                />
+
+              {/* Options Row: Remember me + Forgot password */}
+              <div className="flex items-center justify-between text-xs pt-0.5">
+                <label className="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-[#253B75] focus:ring-0 cursor-pointer"
+                  />
+                  <span className="text-slate-300 font-medium">Remember me</span>
+                </label>
+
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 cursor-pointer"
-                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  onClick={() => {
+                    setNewUniquePassword('');
+                    setConfirmUniquePassword('');
+                    setResetModalError(null);
+                    setIsResetModalOpen(true);
+                  }}
+                  className="text-slate-400 hover:text-white transition font-medium cursor-pointer"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  Forgot password?
                 </button>
               </div>
 
-              {/* Auxílio de Primeiro Acesso do Administrador */}
-              <div className="p-3 mt-2 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-amber-500/30 shadow-md text-[11px] space-y-2.5">
-                <div className="flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1.5 text-slate-300 font-bold">
-                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Primeiro Acesso / Super Admin:</span>
-                  </div>
-                  <span className="text-amber-400 font-mono font-black bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                    AcessoInicial@2026!
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleQuickAdminLogin}
-                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-[11px] shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
-                    id="btn-quick-admin-login-card"
-                    title="Preenche e acessa o sistema imediatamente como Super Admin"
-                  >
-                    <Zap className="w-3.5 h-3.5 fill-current" />
-                    <span>Entrar Agora (1 Clique)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewUniquePassword('');
-                      setConfirmUniquePassword('');
-                      setResetModalError(null);
-                      setIsResetModalOpen(true);
-                    }}
-                    className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-[11px] border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer"
-                    id="btn-definir-senha-unica-modal"
-                    title="Defina uma senha pessoal exclusiva para contato.ativeads@gmail.com"
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Cadastrar Senha Única</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 px-0.5">
-                  <button
-                    type="button"
-                    onClick={handleUseInitialPassword}
-                    className="font-bold text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Preencher nos Campos</span>
-                  </button>
-                  <span>•</span>
-                  <button
-                    type="button"
-                    onClick={handleResetAdminCustomPassword}
-                    className="font-bold text-slate-400 hover:text-slate-200 hover:underline cursor-pointer"
-                    title="Restaura a senha de primeiro acesso"
-                  >
-                    <span>Restaurar Padrão</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Filial / CD */}
-            {availableBranches.length > 0 ? (
-              <div>
-                <label htmlFor="select-branch-login" className="text-xs font-bold text-slate-300 block mb-1">
-                  Filial / Centro de Distribuição
+              {/* Primary Log In Button (Clean Deep Blue matching Reference) */}
+              <button
+                type="submit"
+                id="btn-login-submit"
+                disabled={isLoading}
+                className="w-full py-3 bg-[#243B75] hover:bg-[#1D3162] text-white font-semibold rounded-lg text-sm shadow-md transition active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-wait mt-2"
+              >
+                {isLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <span>Log In</span>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* =============================================================== */
+            /* MODE: TESTE DE 15 DIAS POR CNPJ                                 */
+            /* =============================================================== */
+            <div className="space-y-4" id="section-login-cnpj-clean">
+              <div className="space-y-1.5">
+                <label htmlFor="input-cnpj-trial-clean" className="block text-xs font-semibold text-slate-200">
+                  CNPJ da Empresa
                 </label>
-                <div className="relative">
-                  <Building2 className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-                  <select
-                    id="select-branch-login"
-                    value={selectedBranchId}
-                    onChange={(e) => setSelectedBranchId(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent font-bold cursor-pointer"
-                  >
-                    {availableBranches.map((b) => (
-                      <option key={b.id} value={b.id} className="bg-slate-900 text-slate-100">
-                        {b.name} ({b.cdCode} • {b.uf})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            ) : (
-              <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
-                <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                  <Building2 className="w-4 h-4 text-sky-400 shrink-0" />
-                  <span>Base Limpa • Filial Principal será configurada após o acesso</span>
-                </div>
-              </div>
-            )}
-
-            {/* Botão de Entrar */}
-            <button
-              type="submit"
-              id="btn-submit-login-existing"
-              disabled={isLoading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-[#0C4A6E] via-[#0284C7] to-indigo-600 hover:opacity-95 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-sky-600/20 transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-wait mt-2"
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Autenticando sessão...</span>
-                </>
-              ) : (
-                <>
-                  <span>Acessar Sistema</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* ========================================================================= */}
-        {/* ABA 2: TESTE DE 15 DIAS POR CNPJ CADASTRADO */}
-        {/* ========================================================================= */}
-        {activeTab === 'teste_cnpj' && (
-          <div className="space-y-4" id="section-teste-15-dias-cnpj">
-            <div className="text-center pb-1">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-black uppercase mb-1">
-                <Sparkles className="w-3 h-3 fill-amber-400" />
-                <span>15 Dias de Acesso Gratuito</span>
-              </div>
-              <h2 className="text-lg font-extrabold text-white tracking-tight">
-                Acesse pelo CNPJ Cadastrado
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Consulte ou ative seu período de 15 dias de teste grátis
-              </p>
-            </div>
-
-            {/* Formulário de Consulta de CNPJ */}
-            <div className="space-y-2">
-              <label htmlFor="input-cnpj-trial" className="text-xs font-bold text-slate-300 block">
-                CNPJ da sua Empresa
-              </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Building2 className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                <div className="flex gap-2">
                   <input
                     type="text"
-                    id="input-cnpj-trial"
+                    id="input-cnpj-trial-clean"
                     value={cnpjTrialInput}
                     onChange={(e) => {
                       setCnpjTrialInput(formatCnpj(e.target.value));
@@ -618,269 +514,176 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     }}
                     placeholder="00.000.000/0000-00"
                     maxLength={18}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="flex-1 px-4 py-3 bg-white text-slate-900 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#253B75] font-mono"
                   />
+                  <button
+                    type="button"
+                    onClick={() => void handleCheckCnpjTrial()}
+                    disabled={isCheckingCnpj || cleanCnpj(cnpjTrialInput).length !== 14}
+                    className="px-4 py-3 bg-[#243B75] hover:bg-[#1D3162] disabled:opacity-50 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 shrink-0"
+                  >
+                    {isCheckingCnpj ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    <span>Consultar</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void handleCheckCnpjTrial()}
-                  disabled={isCheckingCnpj || cleanCnpj(cnpjTrialInput).length !== 14}
-                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed shrink-0"
-                  id="btn-consultar-cnpj-teste"
-                >
-                  {isCheckingCnpj ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Search className="w-3.5 h-3.5" />
-                  )}
-                  <span>Consultar</span>
-                </button>
               </div>
-            </div>
 
-            {/* STATUS DO TESTE APÓS CONSULTA */}
-            {trialStatus && trialStatus.exists && trialStatus.record && (
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-white">
-                    {trialStatus.record.tradeName}
-                  </span>
-                  {trialStatus.isExpired ? (
-                    <span className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] font-black uppercase flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> Expirado
+              {/* Status do teste após consulta */}
+              {trialStatus && trialStatus.exists && trialStatus.record && (
+                <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white truncate">
+                      {trialStatus.record.tradeName}
                     </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-black uppercase flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Teste Ativo
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+                      {trialStatus.daysRemaining} dias restantes
                     </span>
-                  )}
-                </div>
+                  </div>
 
-                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
-                  <div className="flex justify-between text-slate-400">
-                    <span>Responsável:</span>
-                    <span className="text-slate-200 font-medium">{trialStatus.record.adminName}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Início do Teste:</span>
-                    <span className="text-slate-200">
-                      {new Date(trialStatus.record.createdAt).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Período Restante:</span>
-                    <span className={`font-bold ${trialStatus.isExpired ? 'text-red-400' : 'text-amber-400'}`}>
-                      {trialStatus.isExpired
-                        ? '0 dias (Período de 15 dias encerrado)'
-                        : `${trialStatus.daysRemaining} dias restantes de 15`}
-                    </span>
-                  </div>
-                </div>
-
-                {trialStatus.isExpired ? (
-                  <div className="space-y-2">
-                    <p className="text-[11px] text-red-300 leading-snug">
-                      O teste gratuito de 15 dias para este CNPJ terminou. Solicite renovação ou a contratação da plataforma ao Superadmin.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => openSupportModal('extensao_teste')}
-                      className="w-full py-2.5 px-3 bg-gradient-to-r from-red-600 to-amber-600 hover:opacity-95 text-white font-extrabold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 fill-white" />
-                      <span>Solicitar Extensão / Falar com Superadmin</span>
-                    </button>
-                  </div>
-                ) : (
                   <button
                     type="button"
                     onClick={handleEnterTrialWithCnpj}
                     disabled={isLoading}
-                    className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 hover:opacity-95 text-white font-black text-xs rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    id="btn-entrar-teste-ativo"
+                    className="w-full py-2.5 bg-[#243B75] hover:bg-[#1D3162] text-white font-semibold text-xs rounded-lg transition flex items-center justify-center gap-2"
                   >
-                    {isLoading ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Carregando ambiente de teste...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Acessar Teste de 15 Dias ({trialStatus.daysRemaining} dias restantes)</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
+                    <span>Entrar no Ambiente de Teste</span>
+                    <ArrowRight className="w-4 h-4" />
                   </button>
-                )}
-              </div>
-            )}
-
-            {/* FORMULÁRIO RÁPIDO DE ATIVAÇÃO SE O CNPJ NÃO POSSUIR TESTE */}
-            {showActivationForm && (
-              <form onSubmit={handleActivateTrialSubmit} className="p-4 rounded-2xl bg-slate-950 border border-amber-500/30 space-y-3 animate-in fade-in duration-200">
-                <div className="flex items-center gap-2 text-amber-400">
-                  <Zap className="w-4 h-4 fill-amber-400" />
-                  <span className="text-xs font-black uppercase">
-                    Ativação Rápida de 15 Dias Grátis
-                  </span>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-snug">
-                  Este CNPJ ainda não iniciou o teste. Preencha os dados abaixo para liberar o acesso por 15 dias imediatamente:
-                </p>
+              )}
 
-                {/* Nome Fantasia */}
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    Nome Fantasia da Empresa *
-                  </label>
+              {/* Formulário de ativação rápida */}
+              {showActivationForm && (
+                <form onSubmit={handleActivateTrialSubmit} className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3 text-xs">
+                  <div className="flex items-center gap-1.5 text-blue-400 font-bold">
+                    <Zap className="w-3.5 h-3.5 fill-blue-400" />
+                    <span>Ativar 15 Dias de Teste Gratuito</span>
+                  </div>
+
                   <input
                     type="text"
                     value={tradeNameTrial}
                     onChange={(e) => setTradeNameTrial(e.target.value)}
-                    placeholder="Ex: Auto Peças & Mecânica Central"
+                    placeholder="Nome Fantasia da Empresa *"
                     required
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 rounded-lg text-xs"
                   />
-                </div>
-
-                {/* Responsável & WhatsApp */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
-                      Nome do Responsável *
-                    </label>
+                  <div className="grid grid-cols-2 gap-2">
                     <input
                       type="text"
                       value={adminNameTrial}
                       onChange={(e) => setAdminNameTrial(e.target.value)}
-                      placeholder="Ex: Carlos Andrade"
+                      placeholder="Nome do Responsável *"
                       required
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-3 py-2 bg-white text-slate-900 rounded-lg text-xs"
                     />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
-                      WhatsApp com DDD
-                    </label>
                     <input
                       type="text"
                       value={phoneTrial}
                       onChange={(e) => setPhoneTrial(formatPhone(e.target.value))}
-                      placeholder="(00) 00000-0000"
-                      maxLength={15}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      placeholder="WhatsApp com DDD"
+                      className="w-full px-3 py-2 bg-white text-slate-900 rounded-lg text-xs"
                     />
                   </div>
-                </div>
+                  <input
+                    type="email"
+                    value={emailTrial}
+                    onChange={(e) => setEmailTrial(e.target.value)}
+                    placeholder="E-mail Corporativo *"
+                    required
+                    className="w-full px-3 py-2 bg-white text-slate-900 rounded-lg text-xs"
+                  />
 
-                {/* E-mail & UF */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
-                      E-mail Corporativo *
-                    </label>
-                    <input
-                      type="email"
-                      value={emailTrial}
-                      onChange={(e) => setEmailTrial(e.target.value)}
-                      placeholder="contato@empresa.com.br"
-                      required
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
-                      UF (Estado)
-                    </label>
-                    <select
-                      value={ufTrial}
-                      onChange={(e) => setUfTrial(e.target.value)}
-                      className="w-full px-2 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
-                    >
-                      <option value="MS">MS</option>
-                      <option value="SP">SP</option>
-                      <option value="SC">SC</option>
-                      <option value="PR">PR</option>
-                      <option value="MT">MT</option>
-                      <option value="MG">MG</option>
-                      <option value="RJ">RJ</option>
-                      <option value="GO">GO</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-1"
-                  id="btn-ativar-teste-15-dias"
-                >
-                  {isLoading ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Ativando 15 dias de teste...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
-                      <span>Iniciar Teste Grátis de 15 Dias Agora</span>
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* BOTÕES DE SUPORTE & SOLICITAR TESTE POR 15 DIAS (COMUNICAÇÃO COM SUPERADMIN) */}
-        {/* ========================================================================= */}
-        <div className="pt-3 border-t border-slate-800 space-y-2.5">
-          <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800/80 flex flex-col gap-2">
-            <span className="text-[11px] font-bold text-slate-300 text-center">
-              Ainda não tem acesso ou precisa de ajuda técnica?
-            </span>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => openSupportModal('teste_15_dias')}
-                className="py-2 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-extrabold text-[11px] transition flex items-center justify-center gap-1.5 cursor-pointer text-center"
-                id="btn-solicitar-teste-15-dias"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Solicite Teste 15 Dias</span>
-              </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-2.5 bg-[#243B75] hover:bg-[#1D3162] text-white font-bold text-xs rounded-lg transition"
+                  >
+                    {isLoading ? 'Ativando...' : 'Iniciar Teste de 15 Dias'}
+                  </button>
+                </form>
+              )}
 
               <button
                 type="button"
-                onClick={() => openSupportModal('suporte_login')}
-                className="py-2 px-2.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 font-extrabold text-[11px] transition flex items-center justify-center gap-1.5 cursor-pointer text-center"
-                id="btn-suporte-superadmin"
+                onClick={() => setAuthMode('credentials')}
+                className="w-full text-center text-xs text-slate-400 hover:text-white transition py-1"
               >
-                <HelpCircle className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                <span>Suporte / Superadmin</span>
+                ← Voltar para login com E-mail e Senha
               </button>
             </div>
+          )}
+
+          {/* Divider: Or continue with */}
+          <div className="relative flex py-2 items-center justify-center">
+            <div className="flex-grow border-t border-slate-800" />
+            <span className="shrink-0 px-3 text-xs text-slate-400 font-normal">
+              Or continue with
+            </span>
+            <div className="flex-grow border-t border-slate-800" />
           </div>
 
-          <div className="text-center">
-            <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Ambiente Seguro • Autenticação Criptográfica SCrypt</span>
-            </p>
+          {/* Secondary Quick Action Buttons (Matching Google & Apple in Screenshot) */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Quick 1-Click Superadmin Access */}
+            <button
+              type="button"
+              onClick={handleQuickAdminLogin}
+              className="py-2.5 px-3 rounded-lg border border-slate-800 bg-[#111420] hover:bg-[#161B2B] text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+              title="Acessa imediatamente com a credencial inicial (contato.ativeads@gmail.com)"
+            >
+              <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
+              <span>1-Clique Admin</span>
+            </button>
+
+            {/* CNPJ Trial Mode Toggle */}
+            <button
+              type="button"
+              onClick={() => setAuthMode(authMode === 'credentials' ? 'trial_cnpj' : 'credentials')}
+              className="py-2.5 px-3 rounded-lg border border-slate-800 bg-[#111420] hover:bg-[#161B2B] text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+            >
+              <Building2 className="w-4 h-4 text-blue-400" />
+              <span>{authMode === 'credentials' ? 'Teste 15d CNPJ' : 'Login E-mail'}</span>
+            </button>
           </div>
+
+          {/* Optional Branch Selector for Multi-store setups */}
+          {availableBranches.length > 1 && (
+            <div className="pt-2 text-center">
+              <label htmlFor="select-branch-clean" className="text-[11px] text-slate-400 block mb-1">
+                Filial / CD de Faturamento:
+              </label>
+              <select
+                id="select-branch-clean"
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                className="w-full py-1.5 px-3 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-300 font-semibold focus:outline-none cursor-pointer"
+              >
+                {availableBranches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.cdCode} • {b.uf})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Help & Support Footer Link */}
+          <div className="pt-3 text-center">
+            <button
+              type="button"
+              onClick={() => openSupportModal('suporte_login')}
+              className="text-xs text-slate-400 hover:text-slate-200 transition font-medium inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Precisa de ajuda com o acesso ou liberação? Falar com suporte</span>
+            </button>
+          </div>
+
         </div>
       </div>
 
-        <p className="text-[10px] text-slate-500 mt-6 tracking-wide uppercase text-center">
-          GATO SaaS • Gestão de Estoque, Balcão & Frota Nacional
-        </p>
-      </div>
-
-      {/* MODAL DE SUPORTE & SOLICITAÇÃO AO SUPERADMIN */}
+      {/* MODAL DE SUPORTE AO SUPERADMIN */}
       <SolicitarSuporteModal
         isOpen={isSupportModalOpen}
         initialType={supportModalType}
@@ -892,121 +695,96 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         }}
       />
 
-      {/* MODAL DE DEFINIÇÃO DE SENHA ÚNICA (PRIMEIRO ACESSO OU ESQUECI) */}
+      {/* MODAL DE DEFINIÇÃO DE SENHA ÚNICA */}
       {isResetModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full shadow-2xl p-6 sm:p-7 text-white animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-                  <KeyRound className="w-5 h-5 text-amber-400" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-sm sm:text-base text-white">
-                    Cadastrar Nova Senha Única
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Administrador: contato.ativeads@gmail.com
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#0E111A] border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 text-white animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-blue-400" />
+                <h3 className="font-bold text-sm text-white">
+                  Cadastrar Nova Senha Única
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsResetModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
-                title="Fechar"
+                className="p-1 rounded text-slate-400 hover:text-white"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleDefineUniquePasswordSubmit} className="space-y-4 pt-4">
+            <form onSubmit={handleDefineUniquePasswordSubmit} className="space-y-3.5 pt-4">
               {resetModalError && (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                  <span>{resetModalError}</span>
+                <div className="p-2.5 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-300">
+                  {resetModalError}
                 </div>
               )}
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
-                  Nova Senha Única (mínimo 8 caracteres)
+                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                  Nova Senha (mínimo 8 caracteres)
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                   <input
                     type={showUniquePassword ? 'text' : 'password'}
                     value={newUniquePassword}
                     onChange={(e) => setNewUniquePassword(e.target.value)}
-                    placeholder="Digite sua nova senha"
+                    placeholder="Digite a nova senha"
                     required
                     minLength={8}
-                    className="w-full pl-9 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0284C7] font-mono"
+                    className="w-full px-3 py-2 bg-white text-slate-900 rounded-lg text-xs font-medium"
                   />
                   <button
                     type="button"
                     onClick={() => setShowUniquePassword(!showUniquePassword)}
-                    className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 cursor-pointer"
+                    className="absolute right-2.5 top-2.5 text-slate-500"
                   >
-                    {showUniquePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showUniquePassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label className="text-xs font-semibold text-slate-300 block mb-1">
                   Confirmar Nova Senha
                 </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-                  <input
-                    type={showUniquePassword ? 'text' : 'password'}
-                    value={confirmUniquePassword}
-                    onChange={(e) => setConfirmUniquePassword(e.target.value)}
-                    placeholder="Repita a nova senha"
-                    required
-                    minLength={8}
-                    className="w-full pl-9 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0284C7] font-mono"
-                  />
-                </div>
+                <input
+                  type={showUniquePassword ? 'text' : 'password'}
+                  value={confirmUniquePassword}
+                  onChange={(e) => setConfirmUniquePassword(e.target.value)}
+                  placeholder="Confirme a nova senha"
+                  required
+                  minLength={8}
+                  className="w-full px-3 py-2 bg-white text-slate-900 rounded-lg text-xs font-medium"
+                />
               </div>
 
               <div className="pt-2 flex flex-col gap-2">
                 <button
                   type="submit"
                   disabled={isResettingPassword}
-                  className="w-full py-3 bg-gradient-to-r from-[#0C4A6E] via-[#0284C7] to-indigo-600 hover:opacity-95 text-white font-extrabold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  id="btn-confirmar-nova-senha-unica"
+                  className="w-full py-2.5 bg-[#243B75] hover:bg-[#1D3162] text-white font-semibold text-xs rounded-lg transition"
                 >
-                  {isResettingPassword ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Salvando senha...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Salvar e Acessar o Sistema</span>
-                    </>
-                  )}
+                  {isResettingPassword ? 'Salvando...' : 'Salvar e Acessar'}
                 </button>
-
                 <button
                   type="button"
                   onClick={() => {
                     setIsResetModalOpen(false);
                     handleQuickAdminLogin();
                   }}
-                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center justify-center gap-1.5 cursor-pointer text-center"
+                  className="text-xs text-slate-400 hover:text-white transition py-1 text-center"
                 >
-                  <Zap className="w-3.5 h-3.5 fill-current shrink-0" />
-                  <span>Ou entrar com a senha de primeiro acesso (AcessoInicial@2026!)</span>
+                  Ou entrar com senha inicial (AcessoInicial@2026!)
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 };
