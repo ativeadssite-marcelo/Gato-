@@ -176,6 +176,13 @@ main table tbody tr:hover {
    ========================================================================= */
 
 .whale-btn-primary,
+:is(button, a)[class*="bg-[#14151B]"],
+:is(button, a)[class*="bg-[#1E1E2D]"],
+:is(button, a)[class*="bg-[#11111A]"],
+:is(button, a)[class*="bg-[#111420]"],
+:is(button, a)[class*="bg-[#161B2B]"],
+:is(button, a)[class*="bg-[#243B75]"],
+:is(button, a)[class*="bg-[#25428C]"],
 :is(button, a)[class*="bg-orange-500"]:not([class*="/"]),
 :is(button, a)[class*="bg-orange-600"]:not([class*="/"]),
 :is(button, a)[class*="bg-purple-500"]:not([class*="/"]),
@@ -186,12 +193,32 @@ main table tbody tr:hover {
 :is(button, a)[class*="from-purple-"],
 :is(button, a)[class*="from-indigo-"],
 :is(button, a)[class*="from-[#0C4A6E]"] {
-  background-color: #14151B !important;
-  background-image: none !important;
-  border: 1px solid #14151B !important;
   color: #FFFFFF !important;
-  border-radius: 8px !important;
-  box-shadow: none !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.015em !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+
+.whale-btn-primary *,
+:is(button, a)[class*="bg-[#14151B]"] span,
+:is(button, a)[class*="bg-[#1E1E2D]"] span,
+:is(button, a)[class*="bg-[#11111A]"] span,
+:is(button, a)[class*="bg-[#111420]"] span,
+:is(button, a)[class*="bg-[#161B2B]"] span,
+:is(button, a)[class*="bg-[#243B75]"] span,
+:is(button, a)[class*="bg-[#25428C]"] span,
+:is(button, a)[class*="bg-orange-600"] span,
+:is(button, a)[class*="from-orange-"] span {
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+
+:is(button, a)[class*="bg-[#14151B]"] svg:not([class*="text-"]):not([class*="fill-"]),
+:is(button, a)[class*="bg-[#1E1E2D]"] svg:not([class*="text-"]):not([class*="fill-"]),
+:is(button, a)[class*="bg-[#111420]"] svg:not([class*="text-"]):not([class*="fill-"]),
+:is(button, a)[class*="bg-[#243B75]"] svg:not([class*="text-"]):not([class*="fill-"]) {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
 }
 
 .whale-btn-primary:hover,

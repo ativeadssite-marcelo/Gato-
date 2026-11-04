@@ -476,20 +476,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </button>
               </div>
 
-              {/* Primary Log In Button (Clean Deep Blue matching Reference) */}
+              {/* Primary Log In Button (Alto Contraste: Texto Branco Nítido em Negrito Forte) */}
               <button
                 type="submit"
                 id="btn-login-submit"
                 disabled={isLoading}
-                className="w-full py-3 bg-[#243B75] hover:bg-[#1D3162] text-white font-semibold rounded-lg text-sm shadow-md transition active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-wait mt-2"
+                className="w-full py-3.5 bg-[#25428C] hover:bg-[#1E3673] text-white font-extrabold rounded-lg text-sm shadow-md transition active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-wait mt-2 tracking-wide text-shadow"
               >
                 {isLoading ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Entrando no sistema...</span>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <span className="text-white font-extrabold">Entrando no sistema...</span>
                   </>
                 ) : (
-                  <span>Acessar Sistema</span>
+                  <span className="text-white font-extrabold">Acessar Sistema</span>
                 )}
               </button>
             </form>
@@ -520,10 +520,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     type="button"
                     onClick={() => void handleCheckCnpjTrial()}
                     disabled={isCheckingCnpj || cleanCnpj(cnpjTrialInput).length !== 14}
-                    className="px-4 py-3 bg-[#243B75] hover:bg-[#1D3162] disabled:opacity-50 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 shrink-0"
+                    className="px-5 py-3 bg-[#25428C] hover:bg-[#1E3673] disabled:opacity-50 text-white font-extrabold text-xs rounded-lg transition flex items-center gap-1.5 shrink-0 shadow-sm"
                   >
-                    {isCheckingCnpj ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                    <span>Consultar</span>
+                    {isCheckingCnpj ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <Search className="w-4 h-4 text-white" />}
+                    <span className="text-white font-extrabold">Consultar</span>
                   </button>
                 </div>
               </div>
@@ -623,27 +623,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <div className="flex-grow border-t border-slate-800" />
           </div>
 
-          {/* Secondary Quick Action Buttons (Matching Google & Apple in Screenshot) */}
+          {/* Secondary Quick Action Buttons (Alto Contraste: Fundo com Borda Reforçada e Texto Branco Forte) */}
           <div className="grid grid-cols-2 gap-3">
             {/* Quick 1-Click Superadmin Access */}
             <button
               type="button"
               onClick={handleQuickAdminLogin}
-              className="py-2.5 px-3 rounded-lg border border-slate-800 bg-[#111420] hover:bg-[#161B2B] text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+              className="py-3 px-3.5 rounded-lg border border-slate-600 bg-[#161B2B] hover:bg-[#20273D] text-white text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer shadow-xs active:scale-[0.99]"
               title="Acessa imediatamente com a credencial inicial (contato.ativeads@gmail.com)"
             >
-              <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
-              <span>1-Clique Admin</span>
+              <Zap className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
+              <span className="text-white font-extrabold tracking-wide">1-Clique Admin</span>
             </button>
 
             {/* CNPJ Trial Mode Toggle */}
             <button
               type="button"
               onClick={() => setAuthMode(authMode === 'credentials' ? 'trial_cnpj' : 'credentials')}
-              className="py-2.5 px-3 rounded-lg border border-slate-800 bg-[#111420] hover:bg-[#161B2B] text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+              className="py-3 px-3.5 rounded-lg border border-slate-600 bg-[#161B2B] hover:bg-[#20273D] text-white text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer shadow-xs active:scale-[0.99]"
             >
-              <Building2 className="w-4 h-4 text-blue-400" />
-              <span>{authMode === 'credentials' ? 'Teste 15d CNPJ' : 'Login E-mail'}</span>
+              <Building2 className="w-4 h-4 text-sky-400 shrink-0" />
+              <span className="text-white font-extrabold tracking-wide">{authMode === 'credentials' ? 'Teste 15d CNPJ' : 'Login E-mail'}</span>
             </button>
           </div>
 
