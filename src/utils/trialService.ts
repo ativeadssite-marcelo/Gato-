@@ -257,15 +257,19 @@ export async function activateTrial15Days(data: {
     },
   };
 
-  // Tentar registrar no backend (se disponível)
+  // Registrar no backend e obter token de autenticação real
+  let serverToken: string | null = null;
   try {
-    await apiJson('/api/auth/trial-activate', {
+    const res = await apiJson<any>('/api/auth/trial-activate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(trialRecord),
     });
-  } catch {
-    /* noop backend failure, fallback persists locally */
+    if (res?.token) {
+      serverToken = res.token;
+    }
+  } catch (err) {
+    console.warn('[Trial] Backend activation fallback:', err);
   }
 
   // Notificar Superadmin localmente (fila de mensagens para visualização no painel)
@@ -289,7 +293,7 @@ export async function activateTrial15Days(data: {
       let bList: BranchUnit[] = existingBranches ? JSON.parse(existingBranches) : [];
       bList = [branchUnit, ...bList.filter(b => b.id !== branchUnit.id)];
       localStorage.setItem('gato_branches', JSON.stringify(bList));
-      const clientToken = `trial_token_${digits}_${Date.now()}`;
+      const clientToken = serverToken || `trial_token_${digits}_${Date.now()}`;
       setSessionToken(clientToken);
       markSessionVerified();
     } catch (err) {
@@ -376,12 +380,27 @@ export async function loginWithTrialCnpj(
     },
   };
 
+  // Autenticar com backend para obter token de sessão assinado
+  let serverToken: string | null = null;
+  try {
+    const serverRes = await apiJson<any>('/api/auth/trial-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cnpj: digits }),
+    });
+    if (serverRes?.token) {
+      serverToken = serverRes.token;
+    }
+  } catch (err) {
+    console.warn('[Trial] Backend login fallback:', err);
+  }
+
   if (typeof localStorage !== 'undefined') {
     try {
       localStorage.setItem('gato_company_profile', JSON.stringify(companyProfile));
       localStorage.setItem('gato_user_session', JSON.stringify(userSession));
       localStorage.setItem('gato_active_store', branchUnit.id);
-      const clientToken = `trial_token_${digits}_${Date.now()}`;
+      const clientToken = serverToken || `trial_token_${digits}_${Date.now()}`;
       setSessionToken(clientToken);
       markSessionVerified();
     } catch {

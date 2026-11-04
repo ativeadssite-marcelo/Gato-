@@ -37,6 +37,7 @@ import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
 import { RbacRoleCode, RbacUser, TenantAccount } from "../src/types/rbac";
 import { sendTransactionalEmail } from "./notifications/email";
 import { renderTemplate } from "./notifications/templates";
+import { ensureTrialSubscription } from "./billing/subscriptions";
 
 export const authRouter = Router();
 
@@ -923,7 +924,25 @@ authRouter.post("/trial-activate", (req: Request, res: Response) => {
 
   const existingTenant = TENANTS_DATA.find((t) => onlyDigits(t.cnpj) === cnpjRaw);
   if (existingTenant) {
-    return res.status(409).json({ success: false, error: "Este CNPJ já possui cadastro na plataforma." });
+    const createdDate = new Date(existingTenant.createdAt || Date.now()).getTime();
+    const daysPassed = Math.floor(Math.max(0, Date.now() - createdDate) / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.max(0, 15 - daysPassed);
+    if (daysRemaining <= 0) {
+      return res.status(403).json({ success: false, error: "O período de teste de 15 dias para este CNPJ expirou." });
+    }
+    const existingUser = RBAC_USERS_DATA.find((u) => u.tenantId === existingTenant.id) || RBAC_USERS_DATA[0];
+    void ensureTrialSubscription(existingTenant.id, existingTenant.planId);
+    const { token, expiresAt } = issueSessionToken(existingUser);
+    return res.status(200).json({
+      success: true,
+      token,
+      expiresAt,
+      user: existingUser,
+      tenant: existingTenant.id,
+      totalDays: 15,
+      daysRemaining,
+      message: `Acesso liberado! Restam ${daysRemaining} dias de teste.`,
+    });
   }
 
   const tenantId = `tnt_trial_${cnpjRaw.slice(-6)}_${Date.now().toString().slice(-4)}`;
@@ -1005,6 +1024,7 @@ authRouter.post("/trial-activate", (req: Request, res: Response) => {
     ipAddress: getClientIp(req),
   });
 
+  void ensureTrialSubscription(tenantId, trialPlan.id);
   const { token, expiresAt } = issueSessionToken(newUser);
 
   res.status(201).json({
@@ -1022,6 +1042,48 @@ authRouter.post("/trial-activate", (req: Request, res: Response) => {
 // =========================================================================
 // 13. SOLICITAÇÃO DE SUPORTE / TESTE ENVIADA AO SUPERADMIN
 // =========================================================================
+
+// =========================================================================
+// 12.1 LOGIN COM CNPJ DE TESTE DE 15 DIAS
+// =========================================================================
+authRouter.post("/trial-login", (req: Request, res: Response) => {
+  const cnpjRaw = onlyDigits(String(req.body?.cnpj || "")).slice(0, 14);
+  if (!cnpjRaw || cnpjRaw.length !== 14) {
+    return res.status(400).json({ success: false, error: "Informe um CNPJ válido com 14 dígitos." });
+  }
+
+  const tenant = TENANTS_DATA.find((t) => onlyDigits(t.cnpj) === cnpjRaw);
+  if (!tenant) {
+    return res.status(404).json({ success: false, error: "Este CNPJ ainda não possui um teste de 15 dias cadastrado." });
+  }
+
+  const createdDate = new Date(tenant.createdAt || Date.now()).getTime();
+  const daysPassed = Math.floor(Math.max(0, Date.now() - createdDate) / (1000 * 60 * 60 * 24));
+  const daysRemaining = Math.max(0, 15 - daysPassed);
+
+  if (daysRemaining <= 0) {
+    return res.status(403).json({
+      success: false,
+      error: `O período de teste de 15 dias para este CNPJ expirou há ${daysPassed - 15} dia(s). Solicite a liberação ou fale com o Superadmin.`,
+    });
+  }
+
+  const user = RBAC_USERS_DATA.find((u) => u.tenantId === tenant.id) || RBAC_USERS_DATA[0];
+  void ensureTrialSubscription(tenant.id, tenant.planId);
+  const { token, expiresAt } = issueSessionToken(user);
+
+  return res.json({
+    success: true,
+    token,
+    expiresAt,
+    user,
+    tenant: tenant.id,
+    totalDays: 15,
+    daysRemaining,
+    message: "Login no teste de 15 dias realizado com sucesso!",
+  });
+});
+
 authRouter.post("/support-request", (req: Request, res: Response) => {
   const companyName = String(req.body?.companyName || "").trim().slice(0, 160);
   const contactName = String(req.body?.contactName || "").trim().slice(0, 120);
