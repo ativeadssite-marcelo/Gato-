@@ -16,6 +16,7 @@ import {
   Send,
   Plus,
   Key,
+  Lock,
   ExternalLink,
   ShieldCheck,
   Truck,

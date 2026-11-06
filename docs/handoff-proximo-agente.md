@@ -84,6 +84,26 @@ O menu lateral também pode ser recolhido no desktop para uma faixa de ícones, 
 indicadores de itens. No celular, o menu mantém o drawer expandido e o controle de recolhimento
 fica oculto.
 
+**Atualização 06/11/2026 — Nova Tela de Login (Aura Flow Split Screen), Fix do Teste de 15 Dias e Correção do Crash "Illegal constructor":**
+1. **Nova Tela de Login Fiel à Referência (Aura Flow) 100% em Português:**
+   - Redesenhada em `src/components/LoginPage.tsx`: painel esquerdo dark cósmico com logo oficial GATO em destaque central iluminado e headlines em pt-BR; painel direito minimalista com inputs brancos, alternância de senha, "Lembrar-me", "Esqueceu a senha?", botão "Acessar Sistema" de alto contraste e atalhos rápidos ("1-Clique Admin" e "Teste 15d CNPJ").
+   - Contraste elevado em `src/index.css` para todos os botões escuros (`#FFFFFF !important`, peso extra-bold e sombra de texto sutil).
+2. **Correção do Bug de Expiração Instantânea do Teste de 15 Dias:**
+   - `server/auth.ts`: adicionada validação e suporte completo a tokens com prefixo `trial_token_` (válidos por 15 dias), eliminando o HTTP 401 que acionava `onUnauthorized` no frontend.
+   - `server/authRoutes.ts`: `/api/auth/trial-activate` agora reutiliza tenants existentes sem conflito 409, gera token assinado e cria o registro em `subscriptions`. Adicionado endpoint `POST /api/auth/trial-login`.
+   - `src/utils/trialService.ts`: captura o token do backend e salva via `setSessionToken(res.token)`.
+3. **Resolução do Crash `TypeError: Illegal constructor` capturado pelo `ErrorBoundary`:**
+   - Causa raiz: `src/components/ConnectorsManager.tsx` usava `<Lock ... />` sem importar `Lock` de `lucide-react`. O Chrome resolvia para o construtor nativo `window.Lock` (Web Locks API), que ao ser invocado pelo React disparava `TypeError: Illegal constructor`.
+   - Adicionado import de `Lock` em `src/components/ConnectorsManager.tsx`.
+   - `src/components/ErrorBoundary.tsx`: o botão "Restaurar & Abrir GATO Agora" agora limpa de forma abrangente `gato_user_session`, `gato_session_token`, `gato_session_verified`, `gato_service_orders` e `sessionStorage`, redirecionando para `/login`.
+   - `src/components/TrocarFotoPerfilModal.tsx`: migrado `new Image()` para `document.createElement('img')`.
+4. **Fix no Cron de Cobrança (`server/notifications/cron.ts`):**
+   - Corrigido `sub.trialEndsAt.slice is not a function`: datas vindas do driver PostgreSQL como instâncias de `Date` são convertidas para ISO string antes do slicing.
+5. **Estado do Repositório e Servidor:**
+   - Dev server operacional ouvindo em `http://0.0.0.0:3000` (`http://localhost:3000/login` e `http://localhost:3000`).
+   - `npm run build` passa com sucesso em ~1.8s.
+   - Branch `main` sincronizada com o remoto `ativeadssite-marcelo/Gato-` no GitHub.
+
 ---
 
 ## 1. Persona do SaaS — GATO SaaS

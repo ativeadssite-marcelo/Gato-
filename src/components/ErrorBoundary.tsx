@@ -30,14 +30,17 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   private handleResetAndOpen = () => {
     try {
-      // Clear potentially corrupt storage keys while preserving safe defaults
+      // Clear session & tokens to guarantee clean restore
       localStorage.removeItem('gato_user_session');
+      localStorage.removeItem('gato_session_token');
+      localStorage.removeItem('gato_session_verified');
       localStorage.removeItem('gato_service_orders');
+      sessionStorage.clear();
     } catch (e) {
       console.warn('Erro ao limpar storage:', e);
     }
     this.setState({ hasError: false, errorMessage: '' });
-    window.location.reload();
+    window.location.href = '/login';
   };
 
   public render() {

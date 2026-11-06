@@ -182,7 +182,7 @@ export const TrocarFotoPerfilModal: React.FC<TrocarFotoPerfilModalProps> = ({
     setIsProcessing(true);
     const reader = new FileReader();
     reader.onload = (e) => {
-      const img = new Image();
+      const img = document.createElement('img');
       img.onload = () => {
         const canvas = document.createElement('canvas');
         canvas.width = 320;
