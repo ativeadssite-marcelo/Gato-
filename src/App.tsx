@@ -166,6 +166,14 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object' && parsed.id && parsed.name) {
+          if (parsed.mustChangePassword) {
+            parsed.mustChangePassword = false;
+            try {
+              localStorage.setItem('gato_user_session', JSON.stringify(parsed));
+            } catch {
+              /* noop */
+            }
+          }
           return parsed;
         }
       }
@@ -1629,13 +1637,20 @@ export default function App() {
         />
       )}
 
-      {/* Modal de Alteração de Senha do Usuário (inclui primeiro acesso obrigatório) */}
+      {/* Modal de Alteração de Senha do Usuário */}
       <AlterarSenhaModal
-        isOpen={isChangePasswordOpen || !!userSession?.mustChangePassword}
-        isFirstAccess={!!userSession?.mustChangePassword}
+        isOpen={isChangePasswordOpen}
+        isFirstAccess={false}
         onClose={() => {
-          if (!userSession?.mustChangePassword) {
-            setIsChangePasswordOpen(false);
+          setIsChangePasswordOpen(false);
+          if (userSession?.mustChangePassword) {
+            const updated = { ...userSession, mustChangePassword: false };
+            setUserSession(updated);
+            try {
+              localStorage.setItem('gato_user_session', JSON.stringify(updated));
+            } catch {
+              /* noop */
+            }
           }
         }}
         onSuccess={() => {

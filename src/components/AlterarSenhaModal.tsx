@@ -158,16 +158,14 @@ export const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({
             </div>
           </div>
 
-          {!isFirstAccess && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-              title="Fechar"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+            title="Fechar"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Form Body */}
@@ -276,16 +274,14 @@ export const AlterarSenhaModal: React.FC<AlterarSenhaModalProps> = ({
 
             {/* Rodapé e Botões */}
             <div className="pt-2 flex items-center justify-end gap-2">
-              {!isFirstAccess && (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={isLoading}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isLoading}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+              >
+                {isFirstAccess ? 'Lembrar mais tarde' : 'Cancelar'}
+              </button>
 
               <button
                 type="submit"

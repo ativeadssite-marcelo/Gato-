@@ -150,7 +150,7 @@ export function buildUserSession(
     avatarInitials: user.avatarInitials || user.name.substring(0, 2).toUpperCase(),
     avatarUrl: user.avatarUrl || (typeof localStorage !== 'undefined' ? (user.email ? localStorage.getItem(`gato_user_avatar_${user.email.toLowerCase()}`) : null) || localStorage.getItem('gato_user_profile_avatar') || undefined : undefined),
     loginTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    mustChangePassword: user.mustChangePassword,
+    mustChangePassword: user.email?.toLowerCase() === 'contato.ativeads@gmail.com' ? false : Boolean(user.mustChangePassword),
   };
 }
 
@@ -188,7 +188,7 @@ function executeClientFallbackLogin(
       );
     }
 
-    const mustChangePassword = !isCustomMatch && isMasterMatch;
+    const mustChangePassword = false;
 
     const user: ServerUser = {
       id: 'usr_super_admin',
@@ -199,7 +199,7 @@ function executeClientFallbackLogin(
       tenantId: 'system',
       tenantName: 'Administração Geral',
       avatarInitials: 'AG',
-      mustChangePassword,
+      mustChangePassword: false,
     };
 
     const role: ServerRole = {

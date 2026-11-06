@@ -151,7 +151,7 @@ authRouter.post("/login", (req: Request, res: Response) => {
       // Lidas sempre vivas do RBAC_USERS_DATA em cada requisição, então uma
       // concessão nova vale sem exigir novo login.
       tenantPermissions: user.tenantPermissions,
-      mustChangePassword: !!user.mustChangePassword,
+      mustChangePassword: user.email === 'contato.ativeads@gmail.com' ? false : !!user.mustChangePassword,
     },
     role: {
       code: role?.code,

@@ -723,8 +723,8 @@ export function initCredentials() {
   addCredential("usr_super_admin", "contato.ativeads@gmail.com", initialAdminPassword);
 
   const superAdmin = RBAC_USERS_DATA.find((u) => u.email === "contato.ativeads@gmail.com");
-  if (superAdmin && superAdmin.mustChangePassword === undefined) {
-    superAdmin.mustChangePassword = true;
+  if (superAdmin) {
+    superAdmin.mustChangePassword = false;
   }
 
   // Restaura qualquer credencial customizada salva em disco (não perde ao reiniciar o servidor)
