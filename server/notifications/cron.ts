@@ -117,7 +117,10 @@ export async function checkTrials(): Promise<number> {
   const subs = await listSubscriptions();
   for (const sub of subs) {
     if (sub.status !== "trial" || !sub.trialEndsAt) continue;
-    const d = daysUntil(sub.trialEndsAt.slice(0, 10));
+    const trialEndsStr = typeof sub.trialEndsAt === "string"
+      ? sub.trialEndsAt
+      : (sub.trialEndsAt instanceof Date ? sub.trialEndsAt.toISOString() : String(sub.trialEndsAt));
+    const d = daysUntil(trialEndsStr.slice(0, 10));
     const email = contactEmailFor(sub.tenantId);
     if (!email) continue;
     if (d === 3 || d === 1 || d === 0) {
@@ -125,7 +128,7 @@ export async function checkTrials(): Promise<number> {
         tenantName: TENANTS_DATA.find((t) => t.id === sub.tenantId)?.name || "Cliente",
         planName: sub.planName,
         amount: "",
-        dueDate: sub.trialEndsAt.slice(0, 10),
+        dueDate: trialEndsStr.slice(0, 10),
         daysLeft: String(d),
       });
       if (rendered) {
