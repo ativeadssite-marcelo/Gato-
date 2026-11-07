@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 # Project rules
+- **Idioma Obrigatório (pt-BR)**: Toda informação, resposta ao usuário, documentação, relatório de revisão (inclusive comandos e skills), mensagens de erro e elementos de interface (UI) devem ser SEMPRE traduzidos e apresentados em Português do Brasil.
 - The imported Gato app lives in src/gato (marked // @ts-nocheck) and is mounted client-only from src/routes/index.tsx — it was written for a browser SPA and uses localStorage on load.
 - Original Express endpoints (/api/*) are being ported to TanStack server functions + Lovable Cloud; see roadmap.md for status.
 - Business data syncs per account via public.tenant_data (key/value jsonb) through src/gato/utils/cloudSync.ts; GatoRoot hydrates localStorage before mounting App — keeps the imported SPA's localStorage model working while persisting in Cloud.
