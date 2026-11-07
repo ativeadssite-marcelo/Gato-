@@ -8,14 +8,11 @@ import {
   ArrowLeft,
   X,
   Building2,
-  Sparkles,
   Search,
   CheckCircle2,
-  Clock,
   HelpCircle,
   Zap,
-  KeyRound,
-  ShieldCheck
+  KeyRound
 } from 'lucide-react';
 import gatoLogoNova from '../assets/images/gato_logo_2026.png';
 import gatoLogoIcon from '../assets/images/gato_logo_2026_icon.jpg';
