@@ -1,17 +1,17 @@
 # =========================================================================
 # GATO SaaS — imagem de produção (multi-stage)
-# Stage 1: build do frontend (Vite) + bundle do servidor (esbuild).
-# Stage 2: runtime enxuto com apenas dependências de produção.
+# Stage 1: build dos estáticos do frontend (Vite)
+# Stage 2: runtime com dependências de produção e execução via tsx
 # =========================================================================
 
 FROM node:22-alpine AS build
 WORKDIR /app
 
-# Instala dependências (cache em camada separada)
+# Instala dependências completas para o build do frontend
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copia o código e gera dist/ (frontend + dist/server.cjs)
+# Copia todo o código e gera dist/ (frontend compilado pelo Vite)
 COPY . .
 RUN npm run build
 
@@ -20,15 +20,20 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Apenas dependências de runtime (pg, express, dotenv, supabase-js, ...)
+# Dependências de produção (incluindo tsx)
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Artefatos de build (index.html, assets e server.cjs)
+# Artefatos do frontend gerados pelo Vite
 COPY --from=build /app/dist ./dist
 
-# Migrações SQL (aplicadas pelo runner no boot / npm run migrate)
+# Migrações SQL
 COPY --from=build /app/db ./db
 
+# Código-fonte da aplicação e do servidor Node/TypeScript
+COPY --from=build /app/server.ts ./server.ts
+COPY --from=build /app/server ./server
+COPY --from=build /app/tsconfig*.json ./
+
 EXPOSE 3000
-CMD ["node", "dist/server.cjs"]
+CMD ["npm", "start"]

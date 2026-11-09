@@ -31,6 +31,7 @@
     "react-dom": "^19.2.0",
     "recharts": "^2.15.4",
     "tailwindcss": "^4.2.1",
+    "tsx": "^4.23.15",
     "vite": "8.1.5"
   },
   "devDependencies": {
@@ -51,7 +52,6 @@
     "globals": "^15.15.0",
     "jsdom": "^20.0.3",
     "prettier": "^3.7.3",
-    "tsx": "^4.23.15",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.1.10"
