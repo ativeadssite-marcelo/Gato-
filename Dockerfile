@@ -30,9 +30,10 @@ COPY --from=build /app/dist ./dist
 # Migrações SQL
 COPY --from=build /app/db ./db
 
-# Código-fonte da aplicação e do servidor Node/TypeScript
-COPY --from=build /app/server.ts ./server.ts
+# Código-fonte necessário para a execução do server.ts
+COPY --from=build /app/src ./src
 COPY --from=build /app/server ./server
+COPY --from=build /app/server.ts ./server.ts
 COPY --from=build /app/tsconfig*.json ./
 
 EXPOSE 3000
