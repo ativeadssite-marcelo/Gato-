@@ -67,9 +67,36 @@ export function getDbConfig(): DbConfig | null {
     };
   }
 
+  // Suporte a DATABASE_URL (padrão em provedores em nuvem como Render, Railway e Heroku)
+  if (process.env.DATABASE_URL) {
+    try {
+      const u = new URL(process.env.DATABASE_URL);
+      const isPooler = u.hostname.includes("pooler.supabase.com");
+      return {
+        host: u.hostname,
+        port: parseInt(u.port || "5432", 10),
+        user: decodeURIComponent(u.username || "postgres"),
+        password: decodeURIComponent(u.password || ""),
+        database: u.pathname.replace(/^\//, "") || "postgres",
+        sslDisable: process.env.SUPABASE_DB_SSL === "disable",
+        sslRejectUnauthorized:
+          process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED !== undefined
+            ? process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED !== "false"
+            : envCaPath
+              ? true
+              : !isPooler,
+        sslCaPath: envCaPath,
+        source: "env",
+      };
+    } catch (err: any) {
+      console.error("[Supabase PG] Falha ao analisar DATABASE_URL:", err?.message || err);
+    }
+  }
+
   const host = process.env.SUPABASE_DB_HOST;
   const password = process.env.SUPABASE_DB_PASSWORD;
   if (!host || !password) return null;
+  const isHostPooler = host.includes("pooler.supabase.com");
   return {
     host,
     port: parseInt(process.env.SUPABASE_DB_PORT || "5432", 10),
@@ -77,7 +104,12 @@ export function getDbConfig(): DbConfig | null {
     password,
     database: process.env.SUPABASE_DB_NAME || "postgres",
     sslDisable: process.env.SUPABASE_DB_SSL === "disable",
-    sslRejectUnauthorized: process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED !== "false",
+    sslRejectUnauthorized:
+      process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED !== undefined
+        ? process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED !== "false"
+        : envCaPath
+          ? true
+          : !isHostPooler,
     sslCaPath: envCaPath,
     source: "env",
   };

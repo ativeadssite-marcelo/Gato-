@@ -32,8 +32,8 @@ export function validateEnv(): { ok: true } | never {
     issues.push("GATO_INGEST_API_KEY: mínimo 16 caracteres quando fornecido");
   }
 
-  if (IS_PRODUCTION && !process.env.SUPABASE_DB_PASSWORD) {
-    throw new Error("[GATO ENV] SUPABASE_DB_PASSWORD é obrigatório em produção.");
+  if (IS_PRODUCTION && !process.env.SUPABASE_DB_PASSWORD && !process.env.DATABASE_URL) {
+    throw new Error("[GATO ENV] SUPABASE_DB_PASSWORD ou DATABASE_URL é obrigatório em produção.");
   }
 
   for (const key of ["GATO_SESSION_TTL_MINUTES", "GATO_IMPERSONATION_TTL_MINUTES"] as const) {
