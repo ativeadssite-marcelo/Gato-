@@ -238,7 +238,7 @@ function executeClientFallbackLogin(
 }
 
 /** Redefine ou define a senha única definitiva do Superadmin tanto localmente quanto no backend. */
-export async function resetAdminPasswordDirectly(newPassword: string): Promise<{ success: boolean; message: string }> {
+export async function resetAdminPasswordDirectly(newPassword: string, masterPassword?: string): Promise<{ success: boolean; message: string }> {
   const trimmed = newPassword.trim();
   if (trimmed.length < 8) {
     throw new Error('A nova senha deve ter no mínimo 8 caracteres.');
@@ -271,10 +271,17 @@ export async function resetAdminPasswordDirectly(newPassword: string): Promise<{
     const res = await apiJson<{ success: boolean; message: string }>('/api/auth/reset-admin-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'contato.ativeads@gmail.com', newPassword: trimmed }),
+      body: JSON.stringify({
+        email: 'contato.ativeads@gmail.com',
+        newPassword: trimmed,
+        ...(masterPassword ? { masterPassword } : {}),
+      }),
     });
     return res;
-  } catch {
+  } catch (err: any) {
+    if (err?.status === 403 || err?.status === 400) {
+      throw err;
+    }
     // Se o backend não responder (ex: hospedagem estática Netlify 404), a senha já foi salva no cliente!
     return {
       success: true,
@@ -283,7 +290,7 @@ export async function resetAdminPasswordDirectly(newPassword: string): Promise<{
   }
 }
 
-/** Login corporativo: valida as credenciais no servidor ou fallback client-side se o backend não estiver rodando (ex: Netlify). */
+/** Login corporativo: valida as credenciais no servidor com retry automático em cold start (502/503/504). */
 export async function loginWithCredentials(
   email: string,
   password: string,
@@ -291,41 +298,61 @@ export async function loginWithCredentials(
   branchId?: string
 ): Promise<LoginResult> {
   const normalized = email.trim().toLowerCase();
+  const maxAttempts = 8;
 
-  try {
-    const data = await apiJson<LoginApiResponse>('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: normalized, password }),
-    });
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const data = await apiJson<LoginApiResponse>('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalized, password }),
+      });
 
-    if (!data || !data.token || !data.user) {
-      throw new Error('Resposta de autenticação inválida do servidor');
+      if (!data || !data.token || !data.user) {
+        throw new Error('Resposta de autenticação inválida do servidor');
+      }
+
+      setSessionToken(data.token);
+      markSessionVerified();
+
+      return {
+        session: buildUserSession(data.user, branches, branchId, data.role.permissions, data.role.scope === 'saas'),
+        user: data.user,
+        role: data.role,
+        expiresAt: data.expiresAt,
+      };
+    } catch (err: any) {
+      const isColdStartOrGateway =
+        err?.status === 502 || err?.status === 503 || err?.status === 504;
+
+      if (isColdStartOrGateway && attempt < maxAttempts) {
+        // Servidor Render acordando da hibernação: aguarda 4s e tenta novamente
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        continue;
+      }
+
+      if (isColdStartOrGateway) {
+        throw new Error(
+          'O servidor em nuvem está acordando da hibernação (erro 502). Aguarde 15 segundos e clique em Entrar novamente.'
+        );
+      }
+
+      // Fallback client-side APENAS quando o backend não está rodando (ex: Netlify estático 404 ou falha de rede),
+      // nunca quando o servidor respondeu 401/403/429 recusando a senha.
+      const isBackendUnreachable =
+        err?.status === 404 ||
+        err?.message?.includes('404') ||
+        err?.name === 'TypeError' ||
+        err?.message?.includes('Failed to fetch') ||
+        err?.message?.includes('NetworkError');
+      if (isBackendUnreachable) {
+        return executeClientFallbackLogin(normalized, password, branches, branchId);
+      }
+      throw err;
     }
-
-    setSessionToken(data.token);
-    markSessionVerified();
-
-    return {
-      session: buildUserSession(data.user, branches, branchId, data.role.permissions, data.role.scope === 'saas'),
-      user: data.user,
-      role: data.role,
-      expiresAt: data.expiresAt,
-    };
-  } catch (err: any) {
-    // Fallback client-side APENAS quando o backend não está rodando (ex: Netlify estático 404 ou falha de rede),
-    // nunca quando o servidor respondeu 401/403/429 recusando a senha.
-    const isBackendUnreachable =
-      err?.status === 404 ||
-      err?.message?.includes('404') ||
-      err?.name === 'TypeError' ||
-      err?.message?.includes('Failed to fetch') ||
-      err?.message?.includes('NetworkError');
-    if (isBackendUnreachable) {
-      return executeClientFallbackLogin(normalized, password, branches, branchId);
-    }
-    throw err;
   }
+
+  throw new Error('Tempo limite excedido ao conectar com o servidor.');
 }
 
 export interface RegisterCompanyPayload {

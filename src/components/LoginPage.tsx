@@ -96,6 +96,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const activeBranch = availableBranches.find(b => b.id === selectedBranchId) || availableBranches[0];
 
   useEffect(() => {
+    // Acorda silenciosamente o backend em nuvem (Render) caso esteja hibernado enquanto o usuário digita
+    fetch('/api/license/status').catch(() => { /* noop */ });
+  }, []);
+
+  useEffect(() => {
     if (rememberMe && emailLogin) {
       localStorage.setItem('gato_remember_email', emailLogin);
     }
