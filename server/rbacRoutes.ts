@@ -52,7 +52,12 @@ import {
 } from "./auth";
 import { appendAuditLog } from "./auditStore";
 import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
-import { sendTransactionalEmail } from "./notifications/email";
+import {
+  getEmailConfigurationStatus,
+  getSupportReceiverEmail,
+  sendTransactionalEmail,
+  verifyEmailTransport,
+} from "./notifications/email";
 import { renderTemplate } from "./notifications/templates";
 
 export const rbacRouter = Router();
@@ -1373,5 +1378,61 @@ rbacRouter.delete(
     delete ROLE_OVERRIDES[code as RbacRoleCode];
     recordAudit(req, req.auth!.user, "RESET_ROLE_OVERRIDES", "security_compliance", code, "success");
     res.json({ success: true, overrides: ROLE_OVERRIDES, message: `Overrides do papel '${code}' removidos (voltou ao padrão).` });
+  },
+);
+
+// Status e verificação da configuração oficial de e-mail (envio e recebimento)
+rbacRouter.get(
+  "/email-config",
+  requireSaasScope,
+  requirePermission("connectors", { write: false }),
+  async (_req, res) => {
+    const status = getEmailConfigurationStatus();
+    const transport = await verifyEmailTransport();
+    res.json({ success: true, ...status, transport });
+  },
+);
+
+// Disparo de e-mail de teste para validar envio e recebimento em produção
+rbacRouter.post(
+  "/email-test",
+  requireSaasScope,
+  requirePermission("connectors", { write: true }),
+  async (req, res) => {
+    const target = String(req.body?.to || getSupportReceiverEmail()).trim().toLowerCase();
+    if (!isValidEmail(target)) {
+      return res.status(400).json({ success: false, error: "Informe um endereço de e-mail válido." });
+    }
+    const result = await sendTransactionalEmail({
+      to: target,
+      subject: "[GATO ERP] Teste de Envio e Recebimento de E-mail",
+      text: [
+        "Olá!",
+        "",
+        "Este é um e-mail de verificação enviado pelo GATO ERP para confirmar",
+        `que o canal oficial (${getEmailConfigurationStatus().from}) está operando`,
+        "corretamente para envio e recebimento.",
+        "",
+        `Data/Hora: ${new Date().toISOString()}`,
+      ].join("\n"),
+      templateCode: "email_config_test",
+      tenantId: "system",
+      dedupeKey: `email_test_${Date.now()}`,
+    });
+
+    if (result.failed) {
+      return res.status(502).json({
+        success: false,
+        provider: result.provider,
+        error: "Falha ao enviar via provedor de e-mail. Verifique as credenciais SMTP / Senha de App.",
+      });
+    }
+
+    res.json({
+      success: true,
+      to: target,
+      provider: result.provider,
+      message: `E-mail de teste processado via provedor '${result.provider}' para ${target}.`,
+    });
   },
 );

@@ -35,7 +35,7 @@ import { RBAC_USERS_DATA, ROLE_DEFINITIONS, TENANTS_DATA, SAAS_PLANS, maskCnpj, 
 import { appendAuditLog } from "./auditStore";
 import { mirrorRbacUserUpsert, mirrorTenantUpsert } from "./identityMirror";
 import { RbacRoleCode, RbacUser, TenantAccount } from "../src/types/rbac";
-import { sendTransactionalEmail } from "./notifications/email";
+import { getSupportReceiverEmail, sendTransactionalEmail } from "./notifications/email";
 import { renderTemplate } from "./notifications/templates";
 import { ensureTrialSubscription } from "./billing/subscriptions";
 
@@ -1133,6 +1133,33 @@ authRouter.post("/support-request", (req: Request, res: Response) => {
     justification: `[${typeLabel}] Mensagem enviada pelo formulário de suporte/teste do login: ${companyName}`,
     status: "success",
     ipAddress: getClientIp(req),
+  });
+
+  // Envia notificação por e-mail para o endereço oficial de recebimento (pulodogatoerp@gmail.com)
+  const receiverEmail = getSupportReceiverEmail();
+  void sendTransactionalEmail({
+    to: receiverEmail,
+    replyTo: email,
+    subject: `[GATO Suporte ${protocol}] ${typeLabel} — ${companyName}`,
+    text: [
+      `Nova solicitação recebida no sistema GATO ERP`,
+      `==================================================`,
+      `Protocolo: ${protocol}`,
+      `Tipo: ${typeLabel}`,
+      `Empresa: ${companyName}`,
+      `CNPJ: ${cnpj || "Não informado"}`,
+      `Solicitante: ${contactName}`,
+      `E-mail de contato: ${email}`,
+      `Telefone / WhatsApp: ${phone}`,
+      ``,
+      `Mensagem:`,
+      message || "Nenhuma mensagem adicional.",
+      `==================================================`,
+      `Responda este e-mail diretamente para atender ${contactName} (${email}).`,
+    ].join("\n"),
+    templateCode: "public_support_request",
+    tenantId: "system",
+    dedupeKey: `support_req_${protocol}`,
   });
 
   res.status(200).json({
