@@ -269,7 +269,12 @@ class CertificateStore {
       console.warn("[GATO Certificates] Falha ao ler persistência local:", e);
     }
 
-    // Se arquivo não existe ou vazio, inicializa com sementes
+    // Em produção inicia o cofre limpo (sem certificados de demonstração)
+    if (process.env.NODE_ENV === "production") {
+      return;
+    }
+
+    // Em desenvolvimento, se arquivo não existe ou vazio, inicializa com sementes
     const initial = buildInitialCertificates();
     initial.forEach((c) => this.certificates.set(c.id, c));
     this.saveToDisk();

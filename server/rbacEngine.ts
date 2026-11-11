@@ -736,16 +736,19 @@ export function evaluatePermission(
 // Avaliação de Cotas por Tenant
 export function evaluateTenantQuota(tenantId: string): TenantQuotaUsage {
   const tenant = TENANTS_DATA.find(t => t.id === tenantId) || TENANTS_DATA[0];
-  const plan = SAAS_PLANS.find(p => p.id === tenant.planId) || SAAS_PLANS[1];
+  const plan = (tenant ? SAAS_PLANS.find(p => p.id === tenant.planId) : undefined) || SAAS_PLANS[1];
 
-  // Simular contadores baseados na empresa
-  const currentCustomers = tenant.id === 'cmtt58e6o0000ju346a0g6s32' ? 1420 : tenant.id === 'cmtvk1ieq0000ju8c3kg5n85l' ? 285 : 8400;
-  const currentItems = tenant.id === 'cmtt58e6o0000ju346a0g6s32' ? 8900 : tenant.id === 'cmtvk1ieq0000ju8c3kg5n85l' ? 1410 : 35200;
-  const currentUsers = tenant.id === 'cmtt58e6o0000ju346a0g6s32' ? 5 : tenant.id === 'cmtvk1ieq0000ju8c3kg5n85l' ? 2 : 18;
-  const currentEmployees = tenant.id === 'cmtt58e6o0000ju346a0g6s32' ? 12 : tenant.id === 'cmtvk1ieq0000ju8c3kg5n85l' ? 4 : 45;
-  const currentStorageMb = tenant.id === 'cmtt58e6o0000ju346a0g6s32' ? 4120 : tenant.id === 'cmtvk1ieq0000ju8c3kg5n85l' ? 1850 : 28400;
-  const currentMessagesMonth = tenant.id === 'cmtt58e6o0000ju346a0g6s32' ? 480 : tenant.id === 'cmtvk1ieq0000ju8c3kg5n85l' ? 190 : 4200;
-  const currentApiToday = tenant.id === 'cmtt58e6o0000ju346a0g6s32' ? 1200 : tenant.id === 'cmtvk1ieq0000ju8c3kg5n85l' ? 140 : 15800;
+  const isMgn = tenant?.id === 'cmtt58e6o0000ju346a0g6s32';
+  const isPantanal = tenant?.id === 'cmtvk1ieq0000ju8c3kg5n85l';
+  const isTranslog = tenant?.id === 'cmtw0kypx0000junojqqlz2i3';
+
+  const currentCustomers = isMgn ? 1420 : isPantanal ? 285 : isTranslog ? 8400 : 0;
+  const currentItems = isMgn ? 8900 : isPantanal ? 1410 : isTranslog ? 35200 : 0;
+  const currentUsers = isMgn ? 5 : isPantanal ? 2 : isTranslog ? 18 : 0;
+  const currentEmployees = isMgn ? 12 : isPantanal ? 4 : isTranslog ? 45 : 0;
+  const currentStorageMb = isMgn ? 4120 : isPantanal ? 1850 : isTranslog ? 28400 : 0;
+  const currentMessagesMonth = isMgn ? 480 : isPantanal ? 190 : isTranslog ? 4200 : 0;
+  const currentApiToday = isMgn ? 1200 : isPantanal ? 140 : isTranslog ? 15800 : 0;
 
   // Análise de saturação
   const itemRatio = currentItems / plan.quotas.maxItems;
@@ -754,16 +757,16 @@ export function evaluateTenantQuota(tenantId: string): TenantQuotaUsage {
 
   let status: 'normal' | 'warning_90' | 'soft_blocked' | 'hard_blocked' = 'normal';
   if (maxRatio > 1.10) {
-    status = tenant.softBlockEnabled ? 'soft_blocked' : 'hard_blocked';
+    status = tenant?.softBlockEnabled ? 'soft_blocked' : 'hard_blocked';
   } else if (maxRatio > 1.0) {
-    status = tenant.softBlockEnabled ? 'soft_blocked' : 'hard_blocked';
+    status = tenant?.softBlockEnabled ? 'soft_blocked' : 'hard_blocked';
   } else if (maxRatio >= 0.90) {
     status = 'warning_90';
   }
 
   return {
-    tenantId: tenant.id,
-    tenantName: tenant.name,
+    tenantId: tenant?.id || tenantId || 'system',
+    tenantName: tenant?.name || 'Sem Empresa Ativa',
     planId: plan.id,
     planName: plan.name,
     currentCustomers,
@@ -784,6 +787,20 @@ export function evaluateTenantQuota(tenantId: string): TenantQuotaUsage {
     status,
     lastEvaluatedAt: new Date().toISOString()
   };
+}
+
+/**
+ * Remove os dados fictícios de demonstração em memória antes de hidratar
+ * a base real do PostgreSQL em produção.
+ */
+export function clearTestSeedDataForProduction(): void {
+  TENANTS_DATA.length = 0;
+  const superAdmin = RBAC_USERS_DATA.filter((u) => u.id === 'usr_super_admin');
+  RBAC_USERS_DATA.length = 0;
+  RBAC_USERS_DATA.push(...superAdmin);
+  AUDIT_LOGS_DATA.length = 0;
+  INTERNAL_MESSAGES_DATA.length = 0;
+  LGPD_REQUESTS_DATA.length = 0;
 }
 
 // =========================================================================

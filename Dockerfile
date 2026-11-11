@@ -11,8 +11,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copia todo o código e gera dist/ (frontend compilado pelo Vite)
+# Copia todo o código e gera dist/ em modo base limpa (sem dados de teste)
 COPY . .
+ENV VITE_USE_SEED=false
+ENV VITE_DEMO_LOGIN=false
 RUN npm run build
 
 # -------------------------------------------------------------------------

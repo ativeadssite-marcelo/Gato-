@@ -56,7 +56,7 @@ export function loadEntityState<T>(storageKey: string, seed: T[]): T[] {
 
   try {
     // Se o modo limpa estiver ativo e ainda não tivermos purgado dados demo antigos
-    if (!USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v3')) {
+    if (!USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v4')) {
       localStorage.removeItem(storageKey);
     }
 
@@ -99,15 +99,18 @@ export function demoAddon(value: number): number {
   return USE_SEED_DATA ? value : 0;
 }
 
-// Marca inicialização limpa quando no modo clean (v3 purga filiais e dados de teste)
-if (typeof localStorage !== 'undefined' && !USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v3')) {
+// Marca inicialização limpa quando no modo clean (v4 purga quaisquer dados e caches de teste)
+if (typeof localStorage !== 'undefined' && !USE_SEED_DATA && !localStorage.getItem('gato_clean_mode_purged_v4')) {
   try {
     const demoKeys = [
       'gato_customers',
       'gato_suppliers',
       'gato_service_orders',
+      'gato_marketing_leads',
       'gato_products',
+      'gato_categories',
       'gato_quotes',
+      'gato_budgets',
       'gato_orders',
       'gato_invoices',
       'gato_payables',
@@ -117,10 +120,11 @@ if (typeof localStorage !== 'undefined' && !USE_SEED_DATA && !localStorage.getIt
       'gato_mdfe',
       'gato_branches',
       'gato_active_store',
-      'gato_company_profile'
+      'gato_company_profile',
+      'gato_clean_mode_purged_v3',
     ];
     demoKeys.forEach(k => localStorage.removeItem(k));
-    localStorage.setItem('gato_clean_mode_purged_v3', 'true');
+    localStorage.setItem('gato_clean_mode_purged_v4', 'true');
   } catch {
     /* noop */
   }

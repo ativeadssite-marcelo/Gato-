@@ -48,6 +48,7 @@ import {
 } from "./server/migrate";
 import { hydrateIdentityStore } from "./server/identityStore";
 import { hydrateAuditStore } from "./server/auditStore";
+import { clearTestSeedDataForProduction } from "./server/rbacEngine";
 import { seedBillingStore } from "./server/store";
 import { listQuotes } from "./server/quotes/quotes";
 import { confirmacaoValida, resetStatements } from "./server/tenantReset/tenantReset";
@@ -2626,6 +2627,9 @@ async function startServer() {
   // do seed de demonstração (que vem do auth.ts, no import). O seed roda
   // sobre os usuários que existirem naquele instante; hidratar primeiro faria
   // ele sobrescrever com `senha123456` toda credencial trazida do banco.
+  if (isProduction) {
+    clearTestSeedDataForProduction();
+  }
   await hydrateIdentityStore();
   await hydrateAuditStore();
 
