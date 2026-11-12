@@ -204,33 +204,35 @@ function getOrCreateFiscalConfig(tenantId: string): ContractFiscalConfig {
   let cfg = fiscalConfigsMap.get(tenantId);
   if (!cfg) {
     const tenant = TENANTS_DATA.find((t) => t.id === tenantId) || TENANTS_DATA[0];
-    const isMgn = tenant.id === 'cmtt58e6o0000ju346a0g6s32';
-    const isPantanal = tenant.id === 'cmtvk1ieq0000ju8c3kg5n85l';
+    const isMgn = tenant?.id === 'cmtt58e6o0000ju346a0g6s32';
+    const isPantanal = tenant?.id === 'cmtvk1ieq0000ju8c3kg5n85l';
+    const ieCadastrada = (tenant as any)?.stateRegistration || (tenant as any)?.inscricaoEstadual || (isMgn ? '28.345.678-9' : isPantanal ? '28.987.654-3' : '');
+    const isSimples = !isMgn; // Empresas cadastradas entram por padrão no Simples Nacional
     
     cfg = {
-      tenantId: tenant.id,
-      regimeTributario: isMgn ? 'lucro_presumido' : isPantanal ? 'simples_nacional' : 'lucro_real',
-      ufSede: tenant.uf || 'MS',
-      inscricaoEstadual: isMgn ? '28.345.678-9' : isPantanal ? '28.987.654-3' : '112.456.789.110',
+      tenantId: tenant?.id || tenantId,
+      regimeTributario: isMgn ? 'lucro_presumido' : 'simples_nacional',
+      ufSede: tenant?.uf || 'MS',
+      inscricaoEstadual: ieCadastrada,
       cnaePrincipal: '45.30-7-03 - Comércio a varejo de peças e acessórios novos para veículos automotores',
-      aliquotaIcmsPadrao: tenant.uf === 'SP' ? 18.0 : 17.0,
-      aliquotaPisPadrao: isMgn ? 0.65 : isPantanal ? 0.0 : 1.65,
-      aliquotaCofinsPadrao: isMgn ? 3.0 : isPantanal ? 0.0 : 7.6,
+      aliquotaIcmsPadrao: tenant?.uf === 'SP' ? 18.0 : 17.0,
+      aliquotaPisPadrao: isSimples ? 0.0 : (isMgn ? 0.65 : 1.65),
+      aliquotaCofinsPadrao: isSimples ? 0.0 : (isMgn ? 3.0 : 7.6),
       pisCofinsMonofasicoAutopecas: true, // Lei 10.485/2002: Revenda Alíquota Zero na autopeça
-      incentivoRegional: tenant.uf === 'MS' ? 'Benefício Fiscal ICMS MS (Resolução SEFAZ Autopeças / FCO)' : 'Regime Padrão Estadual',
-      limiteNotasMensal: tenant.planId === 'plan_enterprise' ? 0 : tenant.planId === 'plan_pro' ? 2500 : 500,
+      incentivoRegional: tenant?.uf === 'MS' ? 'Benefício Fiscal ICMS MS (Resolução SEFAZ Autopeças / FCO)' : 'Regime Padrão Estadual',
+      limiteNotasMensal: tenant?.planId === 'plan_enterprise' ? 0 : tenant?.planId === 'plan_pro' ? 2500 : 500,
       modulosAutorizados: {
         nfe: true,
         nfce: true,
-        nfse: tenant.planId !== 'plan_starter',
-        mdfe: tenant.planId === 'plan_enterprise',
+        nfse: tenant?.planId !== 'plan_starter',
+        mdfe: tenant?.planId === 'plan_enterprise',
       },
       ambienteSefaz: 'producao',
       serieNfeAutorizada: '1',
       statusHomologacao: 'homologado',
       ultimaAuditoria: new Date().toISOString(),
       auditorResponsavel: 'Super Admin (Governança SaaS)',
-      observacoesSuperAdmin: `Configuração fiscal homologada pelo SaaS para operação em ${tenant.uf} com tratamento tributário de autopeças.`,
+      observacoesSuperAdmin: `Configuração fiscal homologada pelo SaaS para operação em ${tenant?.uf || 'MS'} com tratamento tributário de autopeças.`,
       updatedAt: new Date().toISOString(),
     };
     fiscalConfigsMap.set(tenantId, cfg);
@@ -423,9 +425,16 @@ saasContractsRouter.get("/contracts/:tenantId/fiscal", requireAuth, (req: Reques
   });
 });
 
-// Super Admin define/atualiza a configuração fiscal do contrato
-saasContractsRouter.put("/contracts/:tenantId/fiscal", requireAuth, requireSaasScope, (req: Request, res: Response) => {
+// Super Admin ou Administrador do próprio Tenant atualiza a configuração fiscal
+saasContractsRouter.put("/contracts/:tenantId/fiscal", requireAuth, (req: Request, res: Response) => {
   const { tenantId } = req.params;
+  const auth = req.auth!;
+
+  // O tenant só pode alterar a sua própria configuração fiscal; o Super Admin (SaaS scope) pode alterar qualquer um
+  if (!auth.isSaasScope && auth.tenantId !== tenantId) {
+    return res.status(403).json({ success: false, error: "Acesso negado à configuração fiscal de outro tenant." });
+  }
+
   const current = getOrCreateFiscalConfig(tenantId);
   const body = req.body || {};
 
@@ -433,7 +442,7 @@ saasContractsRouter.put("/contracts/:tenantId/fiscal", requireAuth, requireSaasS
     ...current,
     regimeTributario: body.regimeTributario || current.regimeTributario,
     ufSede: body.ufSede || current.ufSede,
-    inscricaoEstadual: body.inscricaoEstadual ?? current.inscricaoEstadual,
+    inscricaoEstadual: body.inscricaoEstadual !== undefined ? String(body.inscricaoEstadual).trim() : current.inscricaoEstadual,
     cnaePrincipal: body.cnaePrincipal ?? current.cnaePrincipal,
     aliquotaIcmsPadrao: Number(body.aliquotaIcmsPadrao ?? current.aliquotaIcmsPadrao),
     aliquotaPisPadrao: Number(body.aliquotaPisPadrao ?? current.aliquotaPisPadrao),
@@ -449,12 +458,19 @@ saasContractsRouter.put("/contracts/:tenantId/fiscal", requireAuth, requireSaasS
     serieNfeAutorizada: body.serieNfeAutorizada || current.serieNfeAutorizada,
     statusHomologacao: body.statusHomologacao || 'homologado',
     ultimaAuditoria: new Date().toISOString(),
-    auditorResponsavel: `${req.auth!.user.name} (Super Admin)`,
+    auditorResponsavel: `${auth.user.name} (${auth.isSaasScope ? 'Super Admin' : 'Admin da Empresa'})`,
     observacoesSuperAdmin: body.observacoesSuperAdmin || current.observacoesSuperAdmin,
     updatedAt: new Date().toISOString(),
   };
 
   fiscalConfigsMap.set(tenantId, updated);
+
+  // Atualiza também no cadastro do Tenant para manter consistência
+  const tenant = TENANTS_DATA.find((t) => t.id === tenantId);
+  if (tenant) {
+    (tenant as any).stateRegistration = updated.inscricaoEstadual;
+    if (updated.ufSede) tenant.uf = updated.ufSede;
+  }
 
   // Se houver contrato LGPD, atualiza a configuração fiscal embutida no contrato
   const existingContract = lgpdContractsMap.get(tenantId);

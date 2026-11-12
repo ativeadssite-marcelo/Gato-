@@ -104,6 +104,29 @@ fica oculto.
    - `npm run build` passa com sucesso em ~1.8s.
    - Branch `main` sincronizada com o remoto `ativeadssite-marcelo/Gato-` no GitHub.
 
+**Atualização 12/11/2026 — Deploy em Produção (Render + Cloudflare), Limpeza de Dados, Keep-Alive Anti-Hibernação e Correção Fiscal:**
+1. **Limpeza Geral de Dados de Teste (Supabase Produção):**
+   - Executada limpeza segura de 26 tabelas operacionais no PostgreSQL/Supabase, preservando o histórico de migrações (`SchemaMigration`) e tabelas estruturais.
+   - O sistema opera em modo de base limpa (`VITE_USE_SEED=false`), sem dados falsos de demonstração.
+2. **Infraestrutura de E-mail Corporativo (`pulodogatoerp@gmail.com`):**
+   - Configurada integração SMTP via `nodemailer` utilizando senha de aplicativo Google.
+   - Rotinas de envio de convites de acesso e notificações transacionais testadas e validadas.
+3. **Deploy em Produção Multi-Cloud (Backend Render + Frontend Cloudflare):**
+   - **Backend:** `https://gato-sq4j.onrender.com` provisionado via Docker no Render. Corrigidos: handshake TLS com o pooler do Supabase (`rejectUnauthorized: false`), resolução da dependência `tsx` em runtime de produção e rota fallback do Express 5 para compatibilidade com o roteamento SPA.
+   - **Frontend:** `https://gato-4dd.pages.dev` publicado no Cloudflare Pages com roteador SPA e proxy de API transparente em `functions/api/[[path]].ts`.
+4. **Keep-Alive Worker Anti-Hibernação (Prevenção de Erro 502):**
+   - Publicado worker Cloudflare `gato-keepalive` (`https://gato-keepalive.pulodogatoerp.workers.dev`) disparado a cada 5 minutos via cron trigger (`*/5 * * * *`). O worker realiza requisições periódicas a `/api/health`, impedindo que o container gratuito do Render entre em sono profundo/hibernação.
+   - Adicionada mensagem amigável no frontend informando aquecimento temporário em caso de reinício.
+5. **Correção de Inscrição Estadual e Alíquotas Fiscais Travadas:**
+   - Causa raiz identificada: `server/saasContractsRoutes.ts` carregava valores mock hardcoded (`112.456.789.110`, PIS 1.65%, COFINS 7.6%) para novas empresas e a rota `PUT /api/saas/contracts/:tenantId/fiscal` exigia indevidamente escopo SaaS (`requireSaasScope`), bloqueando a gravação pelos próprios administradores das empresas clientes (erro 403 mascarado).
+   - Ajustada a rota PUT para permitir que administradores de tenant atualizem e homologuem seus próprios dados fiscais.
+   - Integrado o preenchimento automático das alíquotas de PIS e COFINS para 0% no Simples Nacional / MEI (respeitando o regime monofásico da revenda de autopeças - Lei 10.485/2002), mantendo os campos 100% editáveis pelo usuário.
+   - Sincronização automática da Inscrição Estadual com a conta da empresa (`Tenant`).
+6. **Qualidade e Estabilidade:**
+   - 179 testes automatizados passando (`179/179 pass`).
+   - `npm run build` concluído com sucesso.
+   - Código commitado e sincronizado com o branch `main`.
+
 ---
 
 ## 1. Persona do SaaS — GATO SaaS

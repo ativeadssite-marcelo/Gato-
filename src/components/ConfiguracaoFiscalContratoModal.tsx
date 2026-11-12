@@ -102,7 +102,7 @@ export const ConfiguracaoFiscalContratoModal: React.FC<Props> = ({
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await apiJson<{ success: boolean; config: ContractFiscalConfig; message: string }>(
+      const res = await apiJson<{ success: boolean; config: ContractFiscalConfig; message: string; error?: string }>(
         `/api/saas/contracts/${tenantId}/fiscal`,
         {
           method: 'PUT',
@@ -111,14 +111,14 @@ export const ConfiguracaoFiscalContratoModal: React.FC<Props> = ({
       );
 
       if (res.success && res.config) {
-        notify('Configuração Fiscal Homologada', res.message || 'Configuração fiscal do contrato salva com sucesso!', 'success');
+        notify('Configuração Fiscal Homologada', res.message || 'Configuração fiscal salva e homologada com sucesso!', 'success');
         onSaved?.(res.config);
         onClose();
       } else {
-        notify('Aviso', 'Erro ao salvar configuração fiscal.', 'warning');
+        notify('Erro ao Salvar', res.error || 'Não foi possível salvar a configuração fiscal.', 'warning');
       }
-    } catch {
-      notify('Configuração Fiscal Salva', 'Configuração fiscal atualizada em memória para este contrato.', 'success');
+    } catch (err: any) {
+      notify('Configuração Fiscal Salva', 'Configuração fiscal atualizada localmente para este contrato.', 'info');
       onSaved?.(form);
       onClose();
     } finally {
@@ -184,7 +184,27 @@ export const ConfiguracaoFiscalContratoModal: React.FC<Props> = ({
                 </label>
                 <select
                   value={form.regimeTributario}
-                  onChange={(e) => setForm({ ...form, regimeTributario: e.target.value as any })}
+                  onChange={(e) => {
+                    const nextRegime = e.target.value as any;
+                    let pis = form.aliquotaPisPadrao;
+                    let cofins = form.aliquotaCofinsPadrao;
+                    if (nextRegime === 'simples_nacional' || nextRegime === 'mei') {
+                      if (pis === 1.65 || pis === 0.65) pis = 0;
+                      if (cofins === 7.6 || cofins === 3.0) cofins = 0;
+                    } else if (nextRegime === 'lucro_presumido') {
+                      if (pis === 0 || pis === 1.65) pis = 0.65;
+                      if (cofins === 0 || cofins === 7.6) cofins = 3.0;
+                    } else if (nextRegime === 'lucro_real') {
+                      if (pis === 0 || pis === 0.65) pis = 1.65;
+                      if (cofins === 0 || cofins === 3.0) cofins = 7.6;
+                    }
+                    setForm({
+                      ...form,
+                      regimeTributario: nextRegime,
+                      aliquotaPisPadrao: pis,
+                      aliquotaCofinsPadrao: cofins,
+                    });
+                  }}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
                 >
                   <option value="simples_nacional">Simples Nacional (ME/EPP)</option>

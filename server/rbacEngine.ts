@@ -699,20 +699,20 @@ export function evaluatePermission(
 
   // 1. Sem Acesso
   if (!accessLevel || accessLevel === 'none') {
-    return { 
-      allowed: false, 
+    return {
+      allowed: false,
       reason: `Acesso negado: o papel '${roleDef.name}' não possui permissão para o recurso '${resource}'.`,
-      requiresAudit: false 
+      requiresAudit: false
     };
   }
 
   // 2. Isolamento Multi-tenant estrito (Tenant nunca vê outro Tenant)
   if (roleDef.scope === 'tenant') {
     if (targetTenantId && targetTenantId !== user.tenantId && targetTenantId !== 'own') {
-      return { 
-        allowed: false, 
+      return {
+        allowed: false,
         reason: `Violação de Isolamento Multi-Tenant: Usuários do Tenant '${user.tenantName}' não podem acessar dados do Tenant '${targetTenantId}'.`,
-        requiresAudit: true 
+        requiresAudit: true
       };
     }
   }
@@ -896,7 +896,7 @@ export function runSecurityIsolationTests(): IsolationTestResult[] {
     phone: '67999887766'
   };
   const sanitized = sanitizePayloadForAudit(samplePayload);
-  const piiPass = 
+  const piiPass =
     sanitized.cpf.includes('***') &&
     sanitized.cnpj.includes('***') &&
     sanitized.email.includes('***') &&
